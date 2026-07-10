@@ -37,11 +37,11 @@ function renderQueueList(queue: QueueEntryView[]) {
 }
 
 describe('QueueList', () => {
-  it('renders every line entry as a single-team row, front one marked next', () => {
-    const queue = [entry('e1', 'א', 1), entry('e2', 'ב', 2)]
+  it('renders every line entry as a single-team row, front two marked next', () => {
+    const queue = [entry('e1', 'א', 1), entry('e2', 'ב', 2), entry('e3', 'ג', 3)]
     renderQueueList(queue)
-    expect(screen.getByText('הבא')).toBeDefined()
-    expect(screen.getByText('2')).toBeDefined() // second row shows its position, not "הבא"
+    expect(screen.getAllByText('הבא')).toHaveLength(2) // both halves of the imminent match are marked next
+    expect(screen.getByText('3')).toBeDefined() // third row shows its position, not "הבא"
   })
 
   it('opens QueueActionsSheet for the row whose ⋯ was tapped', () => {

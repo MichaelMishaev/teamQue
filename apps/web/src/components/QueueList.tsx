@@ -56,7 +56,7 @@ export function QueueList({ queue, onError }: QueueListProps) {
         <SortableContext items={orderIds} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-2">
             {orderedEntries.map((entry, i) => (
-              <SortableQueueRow key={entry.id} entry={entry} index={i} isNext={i === 0} onMenu={() => setMenuEntryId(entry.id)} />
+              <SortableQueueRow key={entry.id} entry={entry} index={i} isNext={i < 2} onMenu={() => setMenuEntryId(entry.id)} />
             ))}
           </div>
         </SortableContext>
