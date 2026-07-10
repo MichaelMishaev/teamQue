@@ -3,15 +3,17 @@ import { describe, expect, it } from 'vitest'
 import { FieldCard } from './FieldCard'
 
 describe('FieldCard', () => {
-  it('free without a next match disables start', () => {
+  it('free with fewer than two teams in the line disables start with a reason', () => {
     render(<FieldCard status="free" fieldName="מגרש" />)
     expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByText('צריך שתי קבוצות בתור')).toBeDefined()
   })
 
-  it('free with next-up enables start and names the pair', () => {
-    render(<FieldCard status="free" fieldName="מגרש" nextUp={{ captainA: 'יוסי', captainB: 'רון' }} />)
+  it('free with two front-of-line teams enables start and names the pair', () => {
+    render(<FieldCard status="free" fieldName="מגרש" nextTwo={{ teamA: 'יוסי', teamB: 'רון' }} />)
     expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(false)
     expect(screen.getByText(/יוסי/)).toBeDefined()
+    expect(screen.queryByText('צריך שתי קבוצות בתור')).toBeNull()
   })
 
   it('live under 60s derives the ending state badge', () => {

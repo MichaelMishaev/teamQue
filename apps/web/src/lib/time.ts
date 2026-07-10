@@ -37,3 +37,30 @@ export function timerState(status: RunningStatus, secondsLeft: number): TimerSta
   if (secondsLeft <= ENDING_THRESHOLD_SEC) return 'ending'
   return 'live'
 }
+
+/** The subset of MatchView fields useCountdown's input can be derived from — kept structural so this stays decoupled from any one MatchView source. */
+export interface MatchCountdownSource {
+  status: MatchStatus
+  startedAt: string | null
+  pausedAt: string | null
+  accumulatedPauseSec: number
+  endsAt: string | null
+  plannedDurationSec: number
+}
+
+/** Adapts a snapshot match into useCountdown's input shape (technical-prd §4 formula). */
+export function matchCountdownInput(match: MatchCountdownSource): { endsAtMs: number | null; pausedRemainingSec: number | null } {
+  if (match.status === 'paused' && match.startedAt !== null && match.pausedAt !== null) {
+    const elapsedSec = Math.floor((new Date(match.pausedAt).getTime() - new Date(match.startedAt).getTime()) / 1000) - match.accumulatedPauseSec
+    return { endsAtMs: null, pausedRemainingSec: Math.max(0, match.plannedDurationSec - elapsedSec) }
+  }
+  if (match.status === 'live' && match.endsAt !== null) {
+    return { endsAtMs: new Date(match.endsAt).getTime(), pausedRemainingSec: null }
+  }
+  return { endsAtMs: null, pausedRemainingSec: null }
+}
+
+/** he-IL 24h clock for a moment, LTR-rendered by the caller (design.md §2/§3). */
+export function formatTimeOfDay(iso: string): string {
+  return new Intl.DateTimeFormat('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso))
+}

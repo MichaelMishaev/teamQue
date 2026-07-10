@@ -4,15 +4,20 @@ import { cn } from '@/lib/cn'
 import { Badge } from '@/components/ui/badge'
 
 /**
- * Single responsibility: one queued match row — position, captains, drag handle, ⋯ menu trigger.
- * dnd-kit listeners attach via handleProps at the screen level; this stays presentational.
+ * Single responsibility: one line row — a SINGLE waiting team (design.md §0:
+ * the queue is a line of single teams, never "A vs B"). Position, drag
+ * handle, ⋯ menu trigger; games-today is the inline fairness surface.
+ * dnd-kit listeners attach via handleProps at the screen level; this stays
+ * presentational.
  */
 
 export interface QueueRowProps {
   position: number
-  captainA: string
-  captainB: string
-  /** First in line — the decision the manager is about to make. Gets the accent treatment. */
+  teamName: string
+  nickname?: string
+  gamesToday: number
+  lastPlayedAt?: string
+  /** Front of the line — the decision the manager is about to make. Gets the accent treatment. */
   next?: boolean
   dragging?: boolean
   removing?: boolean
@@ -20,7 +25,7 @@ export interface QueueRowProps {
   handleProps?: HTMLAttributes<HTMLSpanElement>
 }
 
-export function QueueRow({ position, captainA, captainB, next, dragging, removing, onMenu, handleProps }: QueueRowProps) {
+export function QueueRow({ position, teamName, nickname, gamesToday, next, dragging, removing, onMenu, handleProps }: QueueRowProps) {
   return (
     <div
       className={cn(
@@ -43,7 +48,9 @@ export function QueueRow({ position, captainA, captainB, next, dragging, removin
         <span dir="ltr" className="tabular min-w-4 text-center font-mono text-sm text-muted">{position}</span>
       )}
       <span className="flex-1 text-[17px] font-semibold">
-        {captainA} <span className="text-[13px] font-normal text-muted">{t('match.vs')}</span> {captainB}
+        {teamName}
+        {nickname && <small className="ms-1 font-normal text-muted">({nickname})</small>}
+        {gamesToday > 0 && <small className="ms-1 font-normal text-muted">{t('captain.todayShort', { count: gamesToday })}</small>}
       </span>
       {removing ? (
         <span className="text-[13px] font-bold text-danger">{t('queue.remove')}</span>
@@ -51,7 +58,7 @@ export function QueueRow({ position, captainA, captainB, next, dragging, removin
         <button
           type="button"
           onClick={onMenu}
-          aria-label={`${captainA} ${t('match.vs')} ${captainB}`}
+          aria-label={teamName}
           className="-me-2.5 flex min-h-[var(--touch-target-min)] min-w-[var(--touch-target-min)] items-center justify-center text-[19px] text-muted"
         >
           ⋯
