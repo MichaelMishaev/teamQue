@@ -16,8 +16,8 @@ export default defineConfig({
     hookTimeout: 180_000,
     coverage: {
       provider: 'v8',
-      include: ['src/auth/**/*.ts'],
-      exclude: ['src/auth/**/*.test.ts'],
+      include: ['src/**/*.ts'],
+      exclude: ['src/**/*.test.ts', 'src/main.ts'],
     },
   },
 })
