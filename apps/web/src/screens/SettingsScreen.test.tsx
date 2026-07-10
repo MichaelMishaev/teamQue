@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { SessionSnapshot } from '@/state/lineModel'
+import type { SessionSnapshot } from 'shared'
 import { SettingsScreen } from './SettingsScreen'
 import { AuthProvider } from '@/state/AuthContext'
 import { SessionActionsContext, type SessionActions } from '@/state/SessionActions'

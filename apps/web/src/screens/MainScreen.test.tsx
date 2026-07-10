@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import type { SessionSnapshot } from '@/state/lineModel'
+import type { SessionSnapshot } from 'shared'
 import { MainScreen } from './MainScreen'
 import { AuthProvider } from '@/state/AuthContext'
 import { SessionActionsContext, type SessionActions } from '@/state/SessionActions'

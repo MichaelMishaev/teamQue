@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import type { QueueEntryView } from '@/state/lineModel'
+import type { QueueEntryView } from 'shared'
 import { QueueList } from './QueueList'
 import { SessionActionsContext, type SessionActions } from '@/state/SessionActions'
 

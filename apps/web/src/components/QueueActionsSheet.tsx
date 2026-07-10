@@ -2,7 +2,7 @@ import { Sheet } from '@/components/ui/sheet'
 import { showUndoToast } from '@/components/UndoToast'
 import { t } from '@/i18n'
 import { cn } from '@/lib/cn'
-import type { QueueEntryView } from '@/state/lineModel'
+import type { QueueEntryView } from 'shared'
 import { useSessionActions } from '@/state/SessionActions'
 
 /**

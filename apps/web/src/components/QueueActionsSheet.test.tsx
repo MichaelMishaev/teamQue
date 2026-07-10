@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { QueueActionsSheet } from './QueueActionsSheet'
-import type { QueueEntryView } from '@/state/lineModel'
+import type { QueueEntryView } from 'shared'
 import { SessionActionsContext, type SessionActions } from '@/state/SessionActions'
 
 function entry(id: string, name: string, position: number): QueueEntryView {

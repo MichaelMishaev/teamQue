@@ -1,10 +1,10 @@
 import { createContext, useContext } from 'react'
-import type { SessionSnapshot } from '@/state/lineModel'
+import type { SessionSnapshot } from 'shared'
 
 /**
  * Single responsibility: the read side of the app's state abstraction. Every
  * screen renders from `snapshot` (the line-model SessionSnapshot — see
- * state/lineModel.ts) plus connection status and the server-clock offset —
+ * the SessionSnapshot from 'shared') plus connection status and the server-clock offset —
  * never from its own copy of server state. Fed by `state/mock/mockSession.ts`
  * in demo mode and, later, by the real socket (`lib/socket.ts`) without any
  * screen changes.

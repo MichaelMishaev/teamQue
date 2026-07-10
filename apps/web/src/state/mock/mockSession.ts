@@ -19,7 +19,7 @@
  * re-render — see `DemoProviders.tsx` for the `useSyncExternalStore` wiring.
  */
 import type { CaptainSearchResult, CaptainView, EndReason, MatchStatus, OpenSessionBody, SessionSummary, StaffRole } from 'shared'
-import type { MatchView, QueueEntryView, SessionSnapshot } from '@/state/lineModel'
+import type { MatchView, QueueEntryView, SessionSnapshot } from 'shared'
 import type { CaptainRef, CaptainProfilePatch, SessionActions, UndoableResult } from '@/state/SessionActions'
 import type { SnapshotState } from '@/state/SnapshotContext'
 import type { ActivityAction, ActivityEntry } from '@/state/ActivityContext'
