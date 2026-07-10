@@ -10,12 +10,15 @@ export const errorCodeSchema = z.enum([
   'FIELD_OCCUPIED',
   'UNDO_EXPIRED',
   'SESSION_CLOSED',
+  'SESSION_ALREADY_ACTIVE',
+  'SESSION_HAS_LIVE_MATCH',
   'PIN_LOCKED',
   'VALIDATION_FAILED',
   'UNAUTHORIZED',
   'FORBIDDEN',
   'NOT_FOUND',
   'RATE_LIMITED',
+  'INTERNAL_ERROR',
 ])
 export type ErrorCode = z.infer<typeof errorCodeSchema>
 

@@ -14,6 +14,15 @@ export const captainViewSchema = z.object({
 })
 export type CaptainView = z.infer<typeof captainViewSchema>
 
+/** GET/POST/PATCH /captains row shape (features-prd US-022/US-023): captainView
+ * plus the staff-only fields (private note, tags) and all-time match count. */
+export const captainSearchResultSchema = captainViewSchema.extend({
+  note: z.string().max(500).nullable(),
+  tags: z.array(z.string()).max(10),
+  totalMatches: z.number().int().min(0),
+})
+export type CaptainSearchResult = z.infer<typeof captainSearchResultSchema>
+
 export const matchViewSchema = z.object({
   id: matchIdSchema,
   captainA: captainViewSchema,

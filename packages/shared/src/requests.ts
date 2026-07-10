@@ -43,3 +43,20 @@ export const openSessionSchema = z.object({
   matchDurationSec: z.number().int().min(60).max(3600),
 })
 export type OpenSessionBody = z.infer<typeof openSessionSchema>
+
+export const updateSessionSchema = z.object({
+  matchDurationSec: z.number().int().min(60).max(3600).optional(),
+  location: z.string().max(120).optional(),
+})
+export type UpdateSessionBody = z.infer<typeof updateSessionSchema>
+
+export const createCaptainSchema = z.object({
+  name: z.string().min(1).max(60),
+  nickname: z.string().max(60).optional(),
+  note: z.string().max(500).optional(),
+  tags: z.array(z.string()).max(10).optional(),
+})
+export type CreateCaptainBody = z.infer<typeof createCaptainSchema>
+
+export const updateCaptainSchema = createCaptainSchema.partial()
+export type UpdateCaptainBody = z.infer<typeof updateCaptainSchema>

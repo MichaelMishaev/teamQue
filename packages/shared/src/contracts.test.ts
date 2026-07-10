@@ -3,9 +3,11 @@ import {
   activityIdSchema,
   apiErrorSchema,
   captainIdSchema,
+  captainSearchResultSchema,
   captainViewSchema,
   centerIdSchema,
   centerUnlockSchema,
+  createCaptainSchema,
   endReasonSchema,
   errorCodeSchema,
   extendMatchSchema,
@@ -25,6 +27,8 @@ import {
   staffIdSchema,
   staffRoleSchema,
   startMatchSchema,
+  updateCaptainSchema,
+  updateSessionSchema,
 } from './index.js'
 
 const uuid1 = '3fa85f64-5717-4562-b3fc-2c963f66afa6'
@@ -104,6 +108,13 @@ describe('errors', () => {
     expect(errorCodeSchema.safeParse('BOGUS_CODE').success).toBe(false)
   })
 
+  it.each(['SESSION_ALREADY_ACTIVE', 'SESSION_HAS_LIVE_MATCH', 'INTERNAL_ERROR'])(
+    'errorCodeSchema accepts %s',
+    (code) => {
+      expect(errorCodeSchema.safeParse(code).success).toBe(true)
+    },
+  )
+
   it('apiErrorSchema accepts a valid shape and rejects an unknown code', () => {
     const valid = { code: 'NOT_FOUND', message: 'missing', details: { id: uuid1 } }
     expect(apiErrorSchema.safeParse(valid).success).toBe(true)
@@ -126,6 +137,14 @@ describe('views', () => {
     expect(fieldViewSchema.safeParse(validFieldView).success).toBe(true)
     const badLiveMatch = { ...validMatchView, status: 'bogus' }
     expect(fieldViewSchema.safeParse({ ...validFieldView, liveMatch: badLiveMatch }).success).toBe(false)
+  })
+
+  it('captainSearchResultSchema accepts a valid result and rejects more than 10 tags', () => {
+    const valid = { ...validCaptainView, note: 'private note', tags: ['a', 'b'], totalMatches: 5 }
+    expect(captainSearchResultSchema.safeParse(valid).success).toBe(true)
+    expect(
+      captainSearchResultSchema.safeParse({ ...valid, tags: Array.from({ length: 11 }, (_, i) => `t${i}`) }).success,
+    ).toBe(false)
   })
 })
 
@@ -188,6 +207,26 @@ describe('requests', () => {
   it('openSessionSchema accepts a valid duration, rejects one below the 60s floor', () => {
     expect(openSessionSchema.safeParse({ matchDurationSec: 360 }).success).toBe(true)
     expect(openSessionSchema.safeParse({ matchDurationSec: 30 }).success).toBe(false)
+  })
+
+  it('updateSessionSchema accepts a partial body, rejects an out-of-range duration', () => {
+    expect(updateSessionSchema.safeParse({ location: 'Center Court' }).success).toBe(true)
+    expect(updateSessionSchema.safeParse({}).success).toBe(true)
+    expect(updateSessionSchema.safeParse({ matchDurationSec: 3601 }).success).toBe(false)
+  })
+
+  it('createCaptainSchema requires a name, accepts up to 10 tags, rejects an 11th', () => {
+    expect(createCaptainSchema.safeParse({ name: 'דניאל' }).success).toBe(true)
+    expect(createCaptainSchema.safeParse({ name: '' }).success).toBe(false)
+    expect(
+      createCaptainSchema.safeParse({ name: 'דניאל', tags: Array.from({ length: 11 }, (_, i) => `t${i}`) }).success,
+    ).toBe(false)
+  })
+
+  it('updateCaptainSchema accepts an empty partial body and a name-only update', () => {
+    expect(updateCaptainSchema.safeParse({}).success).toBe(true)
+    expect(updateCaptainSchema.safeParse({ name: 'רון' }).success).toBe(true)
+    expect(updateCaptainSchema.safeParse({ name: '' }).success).toBe(false)
   })
 })
 
