@@ -182,11 +182,21 @@ export class SessionsService {
   }
 }
 
+/** drizzle-orm wraps the driver's error in a DrizzleQueryError; the
+ * Postgres error fields (code/constraint) live on its `.cause`, not on the
+ * wrapper itself — check both so this works regardless of which one a
+ * given drizzle/pg version surfaces the fields on. */
 function isUniqueViolation(error: unknown, constraint: string): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    (error as { code?: unknown }).code === '23505' &&
-    (error as { constraint?: unknown }).constraint === constraint
+  const candidates = [error, hasCause(error) ? error.cause : undefined]
+  return candidates.some(
+    (candidate) =>
+      typeof candidate === 'object' &&
+      candidate !== null &&
+      (candidate as { code?: unknown }).code === '23505' &&
+      (candidate as { constraint?: unknown }).constraint === constraint,
   )
+}
+
+function hasCause(error: unknown): error is { cause: unknown } {
+  return typeof error === 'object' && error !== null && 'cause' in error
 }

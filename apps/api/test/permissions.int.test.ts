@@ -3,11 +3,9 @@
  * {anonymous, center-only, staff, manager} asserting exact status codes.
  * Table-driven so Phase 3 endpoints add rows, not new test scaffolding.
  *
- * No route in this phase is manager-only (RolesGuard isn't wired to
- * anything yet — see src/auth/guards/roles.guard.test.ts for its unit
- * coverage), so `staff` and `manager` currently behave identically here;
- * that's the expected baseline this matrix locks in before Phase 3 adds
- * the first role-differentiated row.
+ * Task 3a adds the first role-differentiated rows (session open/update/close
+ * are @Roles('manager')) — `staff` and `manager` diverge there; every other
+ * route still treats them identically, the baseline earlier phases locked in.
  */
 import { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
@@ -16,7 +14,7 @@ import cookieParser from 'cookie-parser'
 import request from 'supertest'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { AppModule } from '../src/app.module'
-import { centers, staff } from '../src/db/schema'
+import { captains, centers, sessions, staff } from '../src/db/schema'
 import { centerCookieHeader, makeTestJwtService, sessionCookieHeader } from './helpers/auth-cookies'
 import { startTestPg, type TestPg } from './helpers/pg'
 
@@ -30,8 +28,11 @@ const PERSONAS: Persona[] = ['anonymous', 'centerOnly', 'staff', 'manager']
 
 type Case = {
   route: string
-  method: 'get' | 'post'
-  path: string
+  method: 'get' | 'post' | 'patch'
+  // A function, not a plain string, when the path embeds an id that only
+  // exists after beforeAll seeds it (same reason bodyFor's entries are
+  // functions below) — resolved lazily inside the `it()` callback.
+  path: string | (() => string)
   // Functions, not plain objects: the `cases` table is built once at
   // collection time (before beforeAll seeds the DB and assigns
   // staffId/managerId), so a body that needs those ids must be read
@@ -46,6 +47,8 @@ describe('permission matrix (integration)', () => {
   let centerId: string
   let staffId: string
   let managerId: string
+  let matrixCaptainId: string
+  let matrixSessionId: string
   let jwtService: ReturnType<typeof makeTestJwtService>
   let cookiesByPersona: Record<Persona, string[]>
 
@@ -78,6 +81,20 @@ describe('permission matrix (integration)', () => {
     if (!managerMember) throw new Error('staff insert returned no row')
     managerId = managerMember.id
 
+    // Seeded directly (not via the API) so the captains/sessions PATCH/close
+    // rows below have a real id to exercise, independent of any other case's
+    // ordering or side effects.
+    const [captain] = await pg.db.insert(captains).values({ centerId, name: 'Matrix Captain' }).returning()
+    if (!captain) throw new Error('captain insert returned no row')
+    matrixCaptainId = captain.id
+
+    const [session] = await pg.db
+      .insert(sessions)
+      .values({ centerId, date: '2026-07-10', matchDurationSec: 300, status: 'active', createdBy: managerId })
+      .returning()
+    if (!session) throw new Error('session insert returned no row')
+    matrixSessionId = session.id
+
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile()
     app = moduleRef.createNestApplication()
     app.use(cookieParser())
@@ -100,17 +117,22 @@ describe('permission matrix (integration)', () => {
 
   async function callAs(
     persona: Persona,
-    method: 'get' | 'post',
+    method: 'get' | 'post' | 'patch',
     path: string,
     body?: Record<string, unknown>,
   ): Promise<number> {
     const server = app.getHttpServer()
-    let req = method === 'get' ? request(server).get(path) : request(server).post(path)
+    let req =
+      method === 'get' ? request(server).get(path) : method === 'post' ? request(server).post(path) : request(server).patch(path)
     const cookies = cookiesByPersona[persona]
     if (cookies.length > 0) req = req.set('Cookie', cookies)
     if (body !== undefined) req = req.send(body)
     const res = await req
     return res.status
+  }
+
+  function resolvePath(path: Case['path']): string {
+    return typeof path === 'function' ? path() : path
   }
 
   const cases: Case[] = [
@@ -165,6 +187,88 @@ describe('permission matrix (integration)', () => {
       bodyFor: {},
       expected: { anonymous: 401, centerOnly: 401, staff: 204, manager: 204 },
     },
+    // --- Task 3a: captains (StaffSessionGuard only, no role gate) ---
+    {
+      route: 'GET /captains',
+      method: 'get',
+      path: '/captains',
+      bodyFor: {},
+      expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 200 },
+    },
+    {
+      route: 'POST /captains',
+      method: 'post',
+      path: '/captains',
+      // Duplicate names are allowed (technical-prd §3), so both personas
+      // reusing the same name below is intentional, not a collision risk.
+      bodyFor: {
+        anonymous: () => ({}),
+        centerOnly: () => ({}),
+        staff: () => ({ name: 'Matrix Captain (staff)' }),
+        manager: () => ({ name: 'Matrix Captain (manager)' }),
+      },
+      expected: { anonymous: 401, centerOnly: 401, staff: 201, manager: 201 },
+    },
+    {
+      route: 'PATCH /captains/:id',
+      method: 'patch',
+      path: () => `/captains/${matrixCaptainId}`,
+      bodyFor: {
+        anonymous: () => ({}),
+        centerOnly: () => ({}),
+        staff: () => ({ note: 'left by staff' }),
+        manager: () => ({ note: 'left by manager' }),
+      },
+      expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 200 },
+    },
+    // --- Task 3a: sessions (@Roles('manager') on open/update/close) ---
+    {
+      route: 'POST /sessions',
+      method: 'post',
+      path: '/sessions',
+      // manager gets 409, not 201: beforeAll pre-seeds an active session so
+      // the PATCH/close rows below have a real id regardless of case order.
+      // This route's job in the matrix is proving RolesGuard gates it
+      // (staff -> 403, manager -> past the guard); the true 201 happy path
+      // is covered by test/sessions.int.test.ts.
+      bodyFor: {
+        anonymous: () => ({}),
+        centerOnly: () => ({}),
+        staff: () => ({ matchDurationSec: 300 }),
+        manager: () => ({ matchDurationSec: 300 }),
+      },
+      expected: { anonymous: 401, centerOnly: 401, staff: 403, manager: 409 },
+    },
+    {
+      route: 'GET /sessions/active',
+      method: 'get',
+      path: '/sessions/active',
+      bodyFor: {},
+      expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 200 },
+    },
+    {
+      route: 'PATCH /sessions/:id',
+      method: 'patch',
+      path: () => `/sessions/${matrixSessionId}`,
+      bodyFor: {
+        anonymous: () => ({}),
+        centerOnly: () => ({}),
+        staff: () => ({ matchDurationSec: 240 }),
+        manager: () => ({ matchDurationSec: 240 }),
+      },
+      expected: { anonymous: 401, centerOnly: 401, staff: 403, manager: 200 },
+    },
+    {
+      // Declared last: this is the only destructive session row (closes
+      // matrixSessionId), and every case above needs it to still be active.
+      // manager -> 201, matching this codebase's POST default (see
+      // POST /auth/center, POST /auth/login) — no @HttpCode override here.
+      route: 'POST /sessions/:id/close',
+      method: 'post',
+      path: () => `/sessions/${matrixSessionId}/close`,
+      bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
+      expected: { anonymous: 401, centerOnly: 401, staff: 403, manager: 201 },
+    },
   ]
 
   for (const testCase of cases) {
@@ -172,7 +276,7 @@ describe('permission matrix (integration)', () => {
       for (const persona of PERSONAS) {
         it(`${persona} -> ${testCase.expected[persona]}`, async () => {
           const body = testCase.bodyFor[persona]?.()
-          const status = await callAs(persona, testCase.method, testCase.path, body)
+          const status = await callAs(persona, testCase.method, resolvePath(testCase.path), body)
           expect(status).toBe(testCase.expected[persona])
         })
       }
