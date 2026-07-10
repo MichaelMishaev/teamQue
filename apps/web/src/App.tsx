@@ -1,109 +1,88 @@
-import { useState } from 'react'
-import { t } from '@/i18n'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { CaptainChip } from '@/components/CaptainChip'
-import { CaptainSearchResult, CreateCaptainRow } from '@/components/CaptainSearchResult'
+import { useEffect, useState } from 'react'
 import { ConnectivityBanner } from '@/components/ConnectivityBanner'
-import { EmptyState } from '@/components/EmptyState'
-import { FieldCard } from '@/components/FieldCard'
-import { PinPad } from '@/components/PinPad'
-import { QueueRow } from '@/components/QueueRow'
-import { showUndoToast, UndoToaster } from '@/components/UndoToast'
+import { UndoToaster } from '@/components/UndoToast'
+import { ActivityFeed } from '@/screens/ActivityFeed'
+import { HistoryScreen } from '@/screens/HistoryScreen'
+import { MainScreen } from '@/screens/MainScreen'
+import { SettingsScreen } from '@/screens/SettingsScreen'
+import { SwitchUser } from '@/screens/SwitchUser'
+import { t, type MessageKey } from '@/i18n'
+import { cn } from '@/lib/cn'
+import { formatTimeOfDay } from '@/lib/time'
+import { useCurrentStaff } from '@/state/AuthContext'
+import { useSnapshot } from '@/state/SnapshotContext'
 
 /**
- * Component showcase — temporary dev harness so `pnpm dev` renders every shared
- * component in every state. Replaced by the real app shell in the app build phase.
+ * Single responsibility: the app shell — top bar (user chip, tabs, clock,
+ * ConnectivityBanner) shared by every tab, plus the SwitchUser overlay and
+ * the global UndoToaster (client-prd §3.1). Which screen renders per tab is
+ * the only thing that changes below the header.
  */
+type Tab = 'main' | 'history' | 'activity' | 'settings'
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-[13px] font-semibold uppercase tracking-widest text-accent" dir="ltr">{title}</h2>
-      {children}
-    </section>
-  )
-}
+const TABS: { id: Tab; labelKey: MessageKey }[] = [
+  { id: 'main', labelKey: 'tabs.main' },
+  { id: 'history', labelKey: 'tabs.history' },
+  { id: 'activity', labelKey: 'tabs.activity' },
+  { id: 'settings', labelKey: 'tabs.settings' },
+]
 
 export default function App() {
-  const [pinFilled, setPinFilled] = useState(2)
+  const { connection, offsetMs } = useSnapshot()
+  const currentStaff = useCurrentStaff()
+  const [tab, setTab] = useState<Tab>('main')
+  const [switchUserOpen, setSwitchUserOpen] = useState(false)
+  const [nowMs, setNowMs] = useState(() => Date.now())
+
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  const clock = formatTimeOfDay(new Date(nowMs + offsetMs).toISOString())
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-8 p-4 pb-20">
-      <h1 className="text-xl font-bold">ניהול תורים — רכיבים משותפים</h1>
-
-      <Section title="FieldCard">
-        <FieldCard status="live" fieldName="מגרש ראשי" captainA="דניאל" captainB="נועם" secondsLeft={277} />
-        <FieldCard status="paused" fieldName="מגרש ראשי" captainA="דניאל" captainB="נועם" secondsLeft={131} />
-        <FieldCard status="live" fieldName="מגרש קטן" captainA="יוסי" captainB="רון" secondsLeft={23} />
-        <FieldCard status="live" fieldName="מגרש קטן" captainA="יוסי" captainB="רון" secondsLeft={0} />
-        <FieldCard status="free" fieldName="מגרש קטן" nextUp={{ captainA: 'יוסי', captainB: 'רון' }} />
-      </Section>
-
-      <Section title="QueueRow">
-        <QueueRow position={1} captainA="יוסי" captainB="רון" next />
-        <QueueRow position={2} captainA="עומר" captainB="איתי" />
-        <QueueRow position={3} captainA="אלון" captainB="שחר" dragging />
-        <QueueRow position={4} captainA="גיא" captainB="טל" removing />
-      </Section>
-
-      <Section title="CaptainSearchResult / CreateCaptainRow">
-        <div className="rounded-xl border border-line bg-surface px-2">
-          <CaptainSearchResult name="דניאל" gamesToday={3} lastPlayedAt="18:42" onSelect={() => {}} />
-          <CaptainSearchResult name="דניאל" nickname="הקטן" gamesToday={0} onSelect={() => {}} />
-          <CreateCaptainRow name="דניאל" duplicate />
+    <div className="mx-auto flex min-h-dvh max-w-md flex-col">
+      <header className="sticky top-0 z-20 flex flex-col gap-2 border-b border-line bg-bg/95 p-3 backdrop-blur">
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setSwitchUserOpen(true)}
+            className="flex min-h-[var(--touch-target-min)] items-center gap-1.5 rounded-full bg-surface-2 px-3 text-[13.5px] font-semibold"
+          >
+            ○ {currentStaff?.name ?? ''}
+          </button>
+          <nav className="flex items-center gap-1">
+            {TABS.map(({ id, labelKey }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setTab(id)}
+                className={cn(
+                  'min-h-[var(--touch-target-min)] rounded-lg px-2.5 text-[13px] font-semibold',
+                  tab === id ? 'bg-accent-dim text-accent' : 'text-muted',
+                )}
+              >
+                {t(labelKey)}
+              </button>
+            ))}
+          </nav>
+          <bdi dir="ltr" className="tabular text-[13.5px] font-semibold text-muted">
+            {clock}
+          </bdi>
         </div>
-      </Section>
+        <ConnectivityBanner status={connection} />
+      </header>
 
-      <Section title="CaptainChip">
-        <div className="flex gap-2">
-          <CaptainChip name="דניאל" gamesToday={3} onRemove={() => {}} />
-          <CaptainChip empty />
-        </div>
-      </Section>
+      <main className="flex flex-1 flex-col">
+        {tab === 'main' && <MainScreen />}
+        {tab === 'history' && <HistoryScreen />}
+        {tab === 'activity' && <ActivityFeed />}
+        {tab === 'settings' && <SettingsScreen />}
+      </main>
 
-      <Section title="Buttons + Badges">
-        <Button variant="primary" size="big">▶ {t('action.start')}</Button>
-        <div className="flex gap-2">
-          <Button>{t('action.extendMinute')}</Button>
-          <Button variant="danger">{t('action.finish')}</Button>
-          <Button disabled>{t('action.start')}</Button>
-        </div>
-        <div className="flex gap-2">
-          <Badge state="live">{t('field.state.live')}</Badge>
-          <Badge state="paused">{t('field.state.paused')}</Badge>
-          <Badge state="ending">{t('field.state.ending')}</Badge>
-          <Badge state="free">{t('field.state.free')}</Badge>
-        </div>
-      </Section>
-
-      <Section title="ConnectivityBanner">
-        <ConnectivityBanner status="offline" />
-        <ConnectivityBanner status="resynced" />
-      </Section>
-
-      <Section title="UndoToast">
-        <Button onClick={() => showUndoToast('toast.removedFromQueue', () => {})}>
-          {t('queue.remove')} → toast
-        </Button>
-      </Section>
-
-      <Section title="EmptyState">
-        <EmptyState
-          icon="⚽"
-          title={t('empty.noSession.title')}
-          hint={t('empty.noSession.hint')}
-          action={<Button variant="primary" className="min-w-44">{t('empty.noSession.cta')}</Button>}
-        />
-        <EmptyState title={t('empty.queue')} />
-      </Section>
-
-      <Section title="PinPad">
-        <PinPad filled={pinFilled} onDigit={() => setPinFilled((n) => Math.min(4, n + 1))} onDelete={() => setPinFilled((n) => Math.max(0, n - 1))} />
-        <PinPad filled={0} lockedForSec={47} />
-      </Section>
-
+      <SwitchUser open={switchUserOpen} onClose={() => setSwitchUserOpen(false)} />
       <UndoToaster />
-    </main>
+    </div>
   )
 }

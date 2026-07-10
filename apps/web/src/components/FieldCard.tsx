@@ -6,14 +6,19 @@ import { Button } from '@/components/ui/button'
 import { CountdownTimer } from '@/components/CountdownTimer'
 
 /**
- * Single responsibility: one field's live surface — active match + timer + controls,
- * or the free state with next-up (client-prd §3.1). Presentational; server owns truth.
+ * Single responsibility: the field's live surface (client-prd §3.1,
+ * design.md §0). Two states:
+ * - free: shows the front two teams of the line ("הבא במגרש") and a start
+ *   button that pairs them at kickoff — disabled with a reason when the
+ *   line has fewer than two teams.
+ * - live/paused: active match + timer + controls, unchanged from the prior
+ *   build. Presentational; server owns truth.
  */
 
 interface FreeProps {
   status: 'free'
   fieldName: string
-  nextUp?: { captainA: string; captainB: string }
+  nextTwo?: { teamA: string; teamB: string }
   onStart?: () => void
 }
 
@@ -53,23 +58,24 @@ export function FieldCard(props: FieldCardProps) {
           <Badge state="free">{t('field.state.free')}</Badge>
           {props.fieldName}
         </header>
-        {props.nextUp && (
+        {props.nextTwo && (
           <p className="mb-2.5 text-sm text-muted">
-            {t('field.nextUp')}{' '}
+            {t('field.nextOnField')}{' '}
             <b className="font-semibold text-ink">
-              {props.nextUp.captainA} {t('match.vs')} {props.nextUp.captainB}
+              {props.nextTwo.teamA} {t('match.vs')} {props.nextTwo.teamB}
             </b>
           </p>
         )}
-        <Button variant="primary" size="big" className="w-full" onClick={props.onStart} disabled={!props.nextUp}>
-          ▶ {t('field.startOn', { field: props.fieldName })}
+        <Button variant="primary" size="big" className="w-full" onClick={props.onStart} disabled={!props.nextTwo}>
+          ▶ {t('action.start')}
         </Button>
+        {!props.nextTwo && <p className="mt-1.5 text-[12.5px] text-muted">{t('field.startDisabledReason')}</p>}
       </section>
     )
   }
 
   const state = timerState(props.status, props.secondsLeft)
-  // Compact by design: the queue below is the hero surface, this is a status header.
+  // Compact by design: the line below is the hero surface, this is a status header.
   return (
     <section className={cn('rounded-[var(--fieldcard-radius)] border-[1.5px] bg-surface p-3', borderByState[state])}>
       <header className="mb-1.5 flex items-center gap-2 text-[12.5px] text-muted">
