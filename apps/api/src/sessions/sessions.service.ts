@@ -3,18 +3,18 @@
  * features-prd US-010/011/012). Match start/queue lives in Task 3b.
  */
 import { Inject, Injectable } from '@nestjs/common'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import type { OpenSessionBody, UpdateSessionBody } from 'shared'
 import { ActivityWriter } from '../activity/activity.writer'
+import { lockSessionLine } from '../common/session-lock'
 import { NotFoundError } from '../common/errors'
 import { DRIZZLE, type Database } from '../db/db.module'
-import { fields, matches, sessions } from '../db/schema'
+import { fields, matches, queueEntries, sessions } from '../db/schema'
 import { todayInJerusalem } from './date'
 import { SessionAlreadyActiveError, SessionClosedError, SessionHasLiveMatchError } from './errors'
 
 const MAIN_FIELD_NAME = 'מגרש ראשי'
 const ONE_ACTIVE_SESSION_CONSTRAINT = 'one_active_session'
-const LIVE_MATCH_STATUSES = ['live', 'paused'] as const
 
 export type SessionView = {
   id: string
@@ -106,21 +106,40 @@ export class SessionsService {
     return this.toView(updated)
   }
 
-  /** US-011: closes the session iff no match is live/paused, cancelling any
-   * still-queued matches. One activity row for the close + one per
-   * cancelled match, all in one transaction. */
+  /** US-011: closes the session atomically — the "no live/paused match"
+   * precondition is folded into the UPDATE's WHERE clause (NOT EXISTS),
+   * not checked-then-acted-on, so a concurrent start-match can't sneak a
+   * live match in between the check and the close (N-9). Cancels any
+   * still-queued matches (legacy status, unused by the line-manager model
+   * but harmless to keep handling) and clears the line — queue_entries
+   * aren't "cancelled matches", they're just gone, logged as one
+   * line.cleared row — all in one transaction, guarded by the session's
+   * advisory lock so this can't interleave with a line/kickoff mutation. */
   async close(centerId: string, staffId: string, id: string): Promise<SessionView> {
     const existing = await this.findOwned(centerId, id)
     if (existing.status === 'closed') throw new SessionClosedError()
 
-    const [liveMatch] = await this.db
-      .select({ id: matches.id })
-      .from(matches)
-      .where(and(eq(matches.sessionId, id), inArray(matches.status, LIVE_MATCH_STATUSES)))
-      .limit(1)
-    if (liveMatch) throw new SessionHasLiveMatchError()
-
     const closed = await this.db.transaction(async (tx) => {
+      await lockSessionLine(tx, id)
+
+      const [row] = await tx
+        .update(sessions)
+        .set({ status: 'closed' })
+        .where(
+          and(
+            eq(sessions.id, id),
+            eq(sessions.status, 'active'),
+            sql`NOT EXISTS (SELECT 1 FROM ${matches} WHERE ${matches.sessionId} = ${id} AND ${matches.status} IN ('live','paused'))`,
+          ),
+        )
+        .returning()
+
+      if (!row) {
+        const [current] = await tx.select({ status: sessions.status }).from(sessions).where(eq(sessions.id, id)).limit(1)
+        if (current?.status === 'closed') throw new SessionClosedError()
+        throw new SessionHasLiveMatchError()
+      }
+
       const cancelled = await tx
         .update(matches)
         .set({ status: 'cancelled', endReason: 'cancelled', endedAt: new Date(), endedBy: staffId })
@@ -139,8 +158,18 @@ export class SessionsService {
         })
       }
 
-      const [row] = await tx.update(sessions).set({ status: 'closed' }).where(eq(sessions.id, id)).returning()
-      if (!row) throw new NotFoundError('Session not found')
+      const clearedEntries = await tx.delete(queueEntries).where(eq(queueEntries.sessionId, id)).returning()
+      if (clearedEntries.length > 0) {
+        await this.activity.write(tx, {
+          centerId,
+          sessionId: id,
+          staffId,
+          action: 'line.cleared',
+          entityType: 'session',
+          entityId: id,
+          beforeJson: { queueEntryIds: clearedEntries.map((entry) => entry.id) },
+        })
+      }
 
       await this.activity.write(tx, {
         centerId,

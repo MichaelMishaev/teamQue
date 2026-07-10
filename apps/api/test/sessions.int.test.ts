@@ -14,7 +14,7 @@ import request from 'supertest'
 import { apiErrorSchema, sessionSnapshotSchema } from 'shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { AppModule } from '../src/app.module'
-import { activityLog, captains, centers, fields, matches, sessions, staff } from '../src/db/schema'
+import { activityLog, captains, centers, fields, matches, queueEntries, sessions, staff } from '../src/db/schema'
 import { todayInJerusalem } from '../src/sessions/date'
 import { centerCookieHeader, makeTestJwtService, sessionCookieHeader } from './helpers/auth-cookies'
 import { startTestPg, type TestPg } from './helpers/pg'
@@ -266,6 +266,29 @@ describe('sessions (integration)', () => {
         .where(and(eq(activityLog.entityId, queuedMatch.id), eq(activityLog.action, 'match.cancelled')))
       expect(matchCancelLog).toHaveLength(1)
       expect(matchCancelLog[0]).toMatchObject({ centerId, sessionId, staffId: managerId })
+    })
+
+    it('closing also clears the line (deletes queue_entries, logs line.cleared)', async () => {
+      const { centerId, managerId, managerCookies } = await seedCenter()
+      const opened = await request(app.getHttpServer()).post('/sessions').set('Cookie', managerCookies).send({ matchDurationSec: 300 })
+      const sessionId = opened.body.id as string
+      const [captainA, captainB] = await seedCaptainPair(centerId)
+      await pg.db.insert(queueEntries).values([
+        { sessionId, centerId, captainId: captainA, position: 1, createdAt: new Date() },
+        { sessionId, centerId, captainId: captainB, position: 2, createdAt: new Date() },
+      ])
+
+      const res = await request(app.getHttpServer()).post(`/sessions/${sessionId}/close`).set('Cookie', managerCookies)
+
+      expect(res.status).toBe(201)
+      const remaining = await pg.db.select().from(queueEntries).where(eq(queueEntries.sessionId, sessionId))
+      expect(remaining).toHaveLength(0)
+
+      const [clearedLog] = await pg.db
+        .select()
+        .from(activityLog)
+        .where(and(eq(activityLog.entityId, sessionId), eq(activityLog.action, 'line.cleared')))
+      expect(clearedLog).toMatchObject({ centerId, sessionId, staffId: managerId })
     })
 
     it('a live match blocks the close with 409 SESSION_HAS_LIVE_MATCH, session stays active', async () => {
