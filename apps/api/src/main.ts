@@ -14,6 +14,7 @@ async function bootstrap(): Promise<void> {
   app.use(helmet())
   app.use(cookieParser())
   app.enableCors({ origin: env.WEB_ORIGIN, credentials: true })
+  app.enableShutdownHooks()
 
   await app.listen(env.PORT)
 }
