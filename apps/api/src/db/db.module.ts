@@ -8,6 +8,10 @@ export const DRIZZLE = Symbol('DRIZZLE')
 
 export type Database = NodePgDatabase<typeof schema>
 
+/** The `tx` callback parameter type of `Database['transaction']` — used by
+ * anything that writes inside a transaction (e.g. ActivityWriter, N-12). */
+export type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0]
+
 @Injectable()
 export class DbLifecycle implements OnApplicationShutdown {
   private pool: Pool | null = null
