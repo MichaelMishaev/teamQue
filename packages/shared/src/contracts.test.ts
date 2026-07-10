@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  activityEntrySchema,
   activityIdSchema,
   addToLineSchema,
   apiErrorSchema,
@@ -14,6 +15,8 @@ import {
   extendMatchSchema,
   fieldIdSchema,
   fieldViewSchema,
+  finishMatchResultSchema,
+  historyEntrySchema,
   loginSchema,
   matchIdSchema,
   matchStatusSchema,
@@ -21,14 +24,18 @@ import {
   openSessionSchema,
   queueEntryIdSchema,
   queueEntryViewSchema,
+  removeFromLineResultSchema,
+  reorderLineResultSchema,
   reorderLineSchema,
   sessionIdSchema,
+  sessionListItemSchema,
   sessionSnapshotSchema,
   sessionStatusSchema,
   sessionSummarySchema,
   staffIdSchema,
   staffRoleSchema,
   startMatchSchema,
+  undoResultSchema,
   updateCaptainSchema,
   updateSessionSchema,
 } from './index.js'
@@ -266,5 +273,68 @@ describe('summary', () => {
 
   it('sessionSummarySchema rejects a negative totalPlaySec', () => {
     expect(sessionSummarySchema.safeParse({ ...validSummary, totalPlaySec: -1 }).success).toBe(false)
+  })
+})
+
+describe('reads', () => {
+  it('activityEntrySchema accepts a valid row and rejects a missing action', () => {
+    const valid = {
+      id: uuid1,
+      sessionId: uuid2,
+      staffId: uuid3,
+      action: 'line.added',
+      entityType: 'queueEntry',
+      entityId: uuid1,
+      beforeJson: null,
+      afterJson: { position: 1 },
+      createdAt: isoDateTime,
+    }
+    expect(activityEntrySchema.safeParse(valid).success).toBe(true)
+    const { action: _action, ...withoutAction } = valid
+    expect(activityEntrySchema.safeParse(withoutAction).success).toBe(false)
+  })
+
+  it('historyEntrySchema accepts a valid finished match and rejects a negative duration', () => {
+    const valid = {
+      id: uuid1,
+      captainAId: uuid2,
+      captainAName: 'יוסי',
+      captainBId: uuid3,
+      captainBName: 'רון',
+      startedAt: isoDateTime,
+      endedAt: isoDateTime,
+      endReason: 'manual',
+      actualDurationSec: 300,
+    }
+    expect(historyEntrySchema.safeParse(valid).success).toBe(true)
+    expect(historyEntrySchema.safeParse({ ...valid, actualDurationSec: -1 }).success).toBe(false)
+  })
+
+  it('sessionListItemSchema accepts a valid row and rejects a bad status', () => {
+    const valid = { id: uuid1, date: isoDate, location: null, status: 'closed', matchCount: 4 }
+    expect(sessionListItemSchema.safeParse(valid).success).toBe(true)
+    expect(sessionListItemSchema.safeParse({ ...valid, status: 'bogus' }).success).toBe(false)
+  })
+})
+
+describe('results', () => {
+  it('removeFromLineResultSchema accepts an activityId, rejects a non-uuid', () => {
+    expect(removeFromLineResultSchema.safeParse({ activityId: uuid1 }).success).toBe(true)
+    expect(removeFromLineResultSchema.safeParse({ activityId: 'nope' }).success).toBe(false)
+  })
+
+  it('reorderLineResultSchema accepts an activityId, rejects a non-uuid', () => {
+    expect(reorderLineResultSchema.safeParse({ activityId: uuid1 }).success).toBe(true)
+    expect(reorderLineResultSchema.safeParse({ activityId: 'nope' }).success).toBe(false)
+  })
+
+  it('finishMatchResultSchema accepts a match+activityId, rejects a missing match', () => {
+    expect(finishMatchResultSchema.safeParse({ match: validMatchView, activityId: uuid1 }).success).toBe(true)
+    expect(finishMatchResultSchema.safeParse({ activityId: uuid1 }).success).toBe(false)
+  })
+
+  it('undoResultSchema accepts {ok:true}, rejects {ok:false}', () => {
+    expect(undoResultSchema.safeParse({ ok: true }).success).toBe(true)
+    expect(undoResultSchema.safeParse({ ok: false }).success).toBe(false)
   })
 })
