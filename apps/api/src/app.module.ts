@@ -9,6 +9,7 @@ import { DbModule } from './db/db.module'
 import { HealthController } from './health/health.controller'
 import { MatchesModule } from './matches/matches.module'
 import { QueueModule } from './queue/queue.module'
+import { ReadsModule } from './reads/reads.module'
 import { SessionsModule } from './sessions/sessions.module'
 import { StaffModule } from './staff/staff.module'
 
@@ -23,6 +24,7 @@ import { StaffModule } from './staff/staff.module'
     QueueModule,
     MatchesModule,
     ActionsModule,
+    ReadsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_FILTER, useClass: HttpExceptionFilter }],
