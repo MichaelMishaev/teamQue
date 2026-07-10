@@ -9,8 +9,9 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Transaction } from '../db/db.module'
 import { ActivityWriter } from './activity.writer'
 
-function makeTx(): { tx: Transaction; values: ReturnType<typeof vi.fn> } {
-  const values = vi.fn().mockResolvedValue(undefined)
+function makeTx(id = 'activity-1'): { tx: Transaction; values: ReturnType<typeof vi.fn> } {
+  const returning = vi.fn().mockResolvedValue([{ id }])
+  const values = vi.fn(() => ({ returning }))
   const insert = vi.fn(() => ({ values }))
   const tx = { insert } as unknown as Transaction
   return { tx, values }
@@ -78,5 +79,19 @@ describe('ActivityWriter', () => {
       beforeJson: { name: 'before' },
       afterJson: { name: 'after' },
     })
+  })
+
+  it('returns the created row id (undo needs it to reference the exact activity)', async () => {
+    const writer = new ActivityWriter()
+    const { tx } = makeTx('generated-activity-id')
+
+    const id = await writer.write(tx, {
+      centerId: 'center-1',
+      action: 'line.added',
+      entityType: 'queueEntry',
+      entityId: 'entry-1',
+    })
+
+    expect(id).toBe('generated-activity-id')
   })
 })
