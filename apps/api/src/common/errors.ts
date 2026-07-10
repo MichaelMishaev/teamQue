@@ -30,3 +30,17 @@ export class ValidationFailedError extends DomainError {
     super(message, details)
   }
 }
+
+/**
+ * A resource that doesn't exist OR belongs to another center (technical-prd
+ * §6/§9: center scoping). The two cases are deliberately indistinguishable
+ * to the caller — otherwise the response would leak cross-center existence.
+ */
+export class NotFoundError extends DomainError {
+  readonly code = 'NOT_FOUND' as const
+  readonly httpStatus = 404
+
+  constructor(message = 'Not found') {
+    super(message)
+  }
+}

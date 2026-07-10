@@ -62,6 +62,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     logger.error({ err: exception }, 'Unhandled exception')
-    response.status(500).json({ message: 'Internal server error' })
+    const body: ApiError = { code: 'INTERNAL_ERROR', message: 'unexpected error' }
+    response.status(500).json(body)
   }
 }
