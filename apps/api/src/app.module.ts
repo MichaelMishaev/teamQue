@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 import { APP_FILTER } from '@nestjs/core'
+import { ScheduleModule } from '@nestjs/schedule'
 import { LoggerModule } from 'nestjs-pino'
 import { ActionsModule } from './actions/actions.module'
 import { AuthModule } from './auth/auth.module'
@@ -10,12 +11,14 @@ import { HealthController } from './health/health.controller'
 import { MatchesModule } from './matches/matches.module'
 import { QueueModule } from './queue/queue.module'
 import { ReadsModule } from './reads/reads.module'
+import { RealtimeModule } from './realtime/realtime.module'
 import { SessionsModule } from './sessions/sessions.module'
 import { StaffModule } from './staff/staff.module'
 
 @Module({
   imports: [
     LoggerModule.forRoot(),
+    ScheduleModule.forRoot(),
     DbModule,
     AuthModule,
     StaffModule,
@@ -25,6 +28,7 @@ import { StaffModule } from './staff/staff.module'
     MatchesModule,
     ActionsModule,
     ReadsModule,
+    RealtimeModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_FILTER, useClass: HttpExceptionFilter }],

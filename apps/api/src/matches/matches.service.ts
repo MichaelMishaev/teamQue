@@ -14,8 +14,8 @@ import { lockSessionLine } from '../common/session-lock'
 import { NotFoundError } from '../common/errors'
 import { DRIZZLE, type Database, type Transaction } from '../db/db.module'
 import { captains, fields, queueEntries, sessions, matches } from '../db/schema'
-import { applyOrder, listLine, type QueueEntryRow } from '../queue/line.repo'
-import { toQueueEntryView } from '../queue/line.service'
+import { applyOrder, listLine, toQueueEntryView, type QueueEntryRow } from '../queue/line.repo'
+import { SessionEventsService } from '../realtime/session-events.service'
 import { SessionClosedError } from '../sessions/errors'
 import { CaptainAlreadyPlayingError, FieldOccupiedError, InvalidTransitionError, LineTooShortError } from './errors'
 import { buildMatchView, type MatchRow } from './match-view'
@@ -28,6 +28,7 @@ export class MatchesService {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     @Inject(ActivityWriter) private readonly activity: ActivityWriter,
+    @Inject(SessionEventsService) private readonly sessionEvents: SessionEventsService,
   ) {}
 
   /** Pairs two teams from the line onto the session's field, directly as
@@ -37,7 +38,7 @@ export class MatchesService {
     const field = await this.findSingleField(centerId, sessionId)
     if (body.fieldId && body.fieldId !== field.id) throw new NotFoundError('Field not found')
 
-    return this.db.transaction(async (tx) => {
+    const view = await this.db.transaction(async (tx) => {
       await lockSessionLine(tx, sessionId)
 
       const line = await listLine(tx, sessionId)
@@ -115,15 +116,20 @@ export class MatchesService {
 
       return buildMatchView(tx, matchRow)
     })
+
+    await this.sessionEvents.broadcast(sessionId)
+    return view
   }
 
   async pause(centerId: string, staffId: string, matchId: string): Promise<MatchView> {
     const row = await this.transition(centerId, staffId, matchId, ['live'], { status: 'paused', pausedAt: new Date() }, 'match.paused')
-    return buildMatchView(this.db, row)
+    const view = await buildMatchView(this.db, row)
+    await this.sessionEvents.broadcast(row.sessionId)
+    return view
   }
 
   async resume(centerId: string, staffId: string, matchId: string): Promise<MatchView> {
-    return this.db.transaction(async (tx) => {
+    const { view, sessionId } = await this.db.transaction(async (tx) => {
       const [current] = await tx.select().from(matches).where(and(eq(matches.id, matchId), eq(matches.centerId, centerId))).limit(1)
       if (!current) throw new NotFoundError('Match not found')
       if (current.status !== 'paused' || !current.pausedAt) throw new InvalidTransitionError()
@@ -146,12 +152,15 @@ export class MatchesService {
         afterJson: row,
       })
 
-      return buildMatchView(tx, row)
+      return { view: await buildMatchView(tx, row), sessionId: row.sessionId }
     })
+
+    await this.sessionEvents.broadcast(sessionId)
+    return view
   }
 
   async extend(centerId: string, staffId: string, matchId: string, body: ExtendMatchBody): Promise<MatchView> {
-    return this.db.transaction(async (tx) => {
+    const { view, sessionId } = await this.db.transaction(async (tx) => {
       const [row] = await tx
         .update(matches)
         .set({ plannedDurationSec: sql`${matches.plannedDurationSec} + ${body.addSec}` })
@@ -171,14 +180,17 @@ export class MatchesService {
         afterJson: row,
       })
 
-      return buildMatchView(tx, row)
+      return { view: await buildMatchView(tx, row), sessionId: row.sessionId }
     })
+
+    await this.sessionEvents.broadcast(sessionId)
+    return view
   }
 
   /** live|paused -> finished, end_reason='manual'. Undoable 30s (restores
    * to `live` if the field is still free — see ActionsService). */
   async finish(centerId: string, staffId: string, matchId: string): Promise<FinishMatchResult> {
-    return this.db.transaction(async (tx) => {
+    const { result, sessionId } = await this.db.transaction(async (tx) => {
       const [before] = await tx.select().from(matches).where(and(eq(matches.id, matchId), eq(matches.centerId, centerId))).limit(1)
       if (!before) throw new NotFoundError('Match not found')
       if (!LIVE_STATUSES.includes(before.status as (typeof LIVE_STATUSES)[number])) throw new InvalidTransitionError()
@@ -202,8 +214,11 @@ export class MatchesService {
       })
 
       const match = await buildMatchView(tx, row)
-      return { match, activityId }
+      return { result: { match, activityId }, sessionId: row.sessionId }
     })
+
+    await this.sessionEvents.broadcast(sessionId)
+    return result
   }
 
   /** A finished match's two teams rejoin the line bottom as two NEW queue
@@ -217,7 +232,7 @@ export class MatchesService {
     if (!session) throw new NotFoundError('Session not found')
     if (session.status !== 'active') throw new SessionClosedError()
 
-    return this.db.transaction(async (tx) => {
+    const result = await this.db.transaction(async (tx) => {
       await lockSessionLine(tx, matchRow.sessionId)
 
       const [maxRow] = await tx
@@ -266,6 +281,9 @@ export class MatchesService {
         return toQueueEntryView(row, captain, stats.get(captain.id) ?? { gamesToday: 0, lastPlayedAt: null })
       })
     })
+
+    await this.sessionEvents.broadcast(matchRow.sessionId)
+    return result
   }
 
   private async transition(

@@ -81,3 +81,41 @@ describe('SnapshotService.buildActiveSnapshot', () => {
     expect(select).toHaveBeenCalledTimes(4)
   })
 })
+
+describe('SnapshotService.buildSnapshotBySessionId', () => {
+  it('throws NotFoundError when no session exists with that id', async () => {
+    const select = vi.fn().mockReturnValueOnce(chain([]))
+    const db = { select } as unknown as Database
+    const service = new SnapshotService(db)
+
+    await expect(service.buildSnapshotBySessionId(sessionId)).rejects.toMatchObject({ code: 'NOT_FOUND' })
+  })
+
+  it('shapes a CLOSED session (no status filter) into a valid snapshot — the realtime broadcast path', async () => {
+    const sessionRow = {
+      id: sessionId,
+      centerId,
+      date: '2026-07-10',
+      location: 'Center Court',
+      matchDurationSec: 360,
+      status: 'closed',
+      createdBy: staffId,
+      createdAt: new Date('2026-07-10T17:00:00.000Z'),
+    }
+    const fieldRows = [{ id: fieldId, sessionId, centerId, name: 'מגרש ראשי', position: 0 }]
+
+    const select = vi
+      .fn()
+      .mockReturnValueOnce(chain([sessionRow]))
+      .mockReturnValueOnce(chain(fieldRows))
+      .mockReturnValueOnce(chain([]))
+      .mockReturnValueOnce(chain([]))
+    const db = { select } as unknown as Database
+    const service = new SnapshotService(db)
+
+    const snapshot = await service.buildSnapshotBySessionId(sessionId)
+
+    expect(sessionSnapshotSchema.safeParse(snapshot).success).toBe(true)
+    expect(snapshot.session.status).toBe('closed')
+  })
+})

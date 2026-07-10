@@ -13,8 +13,7 @@ import { NotFoundError } from '../common/errors'
 import { DRIZZLE, type Database } from '../db/db.module'
 import { captains, fields, matches, sessions } from '../db/schema'
 import { buildMatchView } from '../matches/match-view'
-import { listLine } from '../queue/line.repo'
-import { toQueueEntryView } from '../queue/line.service'
+import { listLine, toQueueEntryView } from '../queue/line.repo'
 
 const LIVE_STATUSES = ['live', 'paused'] as const
 
@@ -30,6 +29,21 @@ export class SnapshotService {
       .limit(1)
     if (!session) throw new NotFoundError('No active session')
 
+    return this.buildForSession(session)
+  }
+
+  /** Used by the realtime broadcast (src/realtime/session-events.service.ts):
+   * callers there already know the session id and may be broadcasting its
+   * FINAL snapshot (e.g. right after it closed), so — unlike
+   * buildActiveSnapshot — this doesn't filter by status='active'. */
+  async buildSnapshotBySessionId(sessionId: string): Promise<SessionSnapshot> {
+    const [session] = await this.db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
+    if (!session) throw new NotFoundError('Session not found')
+
+    return this.buildForSession(session)
+  }
+
+  private async buildForSession(session: typeof sessions.$inferSelect): Promise<SessionSnapshot> {
     const sessionFields = await this.db
       .select()
       .from(fields)

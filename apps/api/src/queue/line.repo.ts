@@ -3,12 +3,22 @@
  * (kickoff consumes two entries) and the undo path — kept table-operation-only
  * (no activity logging, no ownership checks) so every caller composes them
  * inside its own transaction after calling lockSessionLine (common/session-lock.ts).
+ *
+ * toQueueEntryView also lives here (not in line.service.ts) deliberately: it's
+ * a pure view-shaping function with no DI dependencies, imported by
+ * SnapshotService and MatchesService too. Defining it in line.service.ts
+ * would make those imports pull in LineService's SessionEventsService
+ * dependency, closing a circular import (line.service -> realtime ->
+ * snapshot.service -> line.service).
  */
 import { and, asc, eq } from 'drizzle-orm'
+import type { QueueEntryView } from 'shared'
+import type { CaptainStats } from '../captains/session-stats'
 import type { Database, Transaction } from '../db/db.module'
-import { queueEntries } from '../db/schema'
+import { captains, queueEntries } from '../db/schema'
 
 export type QueueEntryRow = typeof queueEntries.$inferSelect
+type CaptainRow = typeof captains.$inferSelect
 
 /** The session's line, position-ordered. A plain read, so callers that
  * only need to display the line (e.g. SnapshotService) may pass the plain
@@ -46,4 +56,18 @@ export function sameIdSet(a: string[], b: string[]): boolean {
   if (setB.size !== b.length) return false
   for (const id of setA) if (!setB.has(id)) return false
   return true
+}
+
+export function toQueueEntryView(entry: QueueEntryRow, captain: CaptainRow, stats: CaptainStats): QueueEntryView {
+  return {
+    id: entry.id,
+    position: entry.position,
+    team: {
+      id: captain.id,
+      name: captain.name,
+      nickname: captain.nickname,
+      gamesToday: stats.gamesToday,
+      lastPlayedAt: stats.lastPlayedAt,
+    },
+  }
 }

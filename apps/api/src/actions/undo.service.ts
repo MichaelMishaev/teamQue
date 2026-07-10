@@ -17,6 +17,7 @@ import { DRIZZLE, type Database, type Transaction } from '../db/db.module'
 import { activityLog, matches, queueEntries, sessions } from '../db/schema'
 import { applyOrder, listLine, sameIdSet } from '../queue/line.repo'
 import { FieldOccupiedError } from '../matches/errors'
+import { SessionEventsService } from '../realtime/session-events.service'
 import { UndoExpiredError } from './errors'
 
 const LINE_UNDO_WINDOW_SEC = 5
@@ -30,6 +31,7 @@ export class UndoService {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     @Inject(ActivityWriter) private readonly activity: ActivityWriter,
+    @Inject(SessionEventsService) private readonly sessionEvents: SessionEventsService,
   ) {}
 
   async undo(centerId: string, staffId: string, activityId: string): Promise<UndoResult> {
@@ -49,6 +51,7 @@ export class UndoService {
         throw new UndoExpiredError()
     }
 
+    if (original.sessionId) await this.sessionEvents.broadcast(original.sessionId)
     return { ok: true }
   }
 

@@ -8,13 +8,14 @@ import { Inject, Injectable } from '@nestjs/common'
 import { and, eq, sql } from 'drizzle-orm'
 import type { AddToLineBody, CaptainRef, QueueEntryView, ReorderLineBody, ReorderLineResult, RemoveFromLineResult } from 'shared'
 import { ActivityWriter } from '../activity/activity.writer'
-import { getCaptainSessionStats, type CaptainStats } from '../captains/session-stats'
+import { getCaptainSessionStats } from '../captains/session-stats'
 import { lockSessionLine } from '../common/session-lock'
 import { NotFoundError } from '../common/errors'
 import { DRIZZLE, type Database, type Transaction } from '../db/db.module'
 import { captains, queueEntries, sessions } from '../db/schema'
+import { SessionEventsService } from '../realtime/session-events.service'
 import { SessionClosedError } from '../sessions/errors'
-import { applyOrder, listLine, sameIdSet, type QueueEntryRow } from './line.repo'
+import { applyOrder, listLine, sameIdSet, toQueueEntryView, type QueueEntryRow } from './line.repo'
 import { ReorderMismatchError } from './errors'
 
 type CaptainRow = typeof captains.$inferSelect
@@ -25,6 +26,7 @@ export class LineService {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     @Inject(ActivityWriter) private readonly activity: ActivityWriter,
+    @Inject(SessionEventsService) private readonly sessionEvents: SessionEventsService,
   ) {}
 
   /** Adds ONE team to the line bottom (position = current max + 1).
@@ -32,7 +34,7 @@ export class LineService {
   async addToLine(centerId: string, staffId: string, sessionId: string, body: AddToLineBody): Promise<QueueEntryView> {
     await this.findOwnedActiveSession(centerId, sessionId)
 
-    return this.db.transaction(async (tx) => {
+    const view = await this.db.transaction(async (tx) => {
       await lockSessionLine(tx, sessionId)
 
       const captainRow = await this.resolveCaptain(tx, centerId, body.team)
@@ -62,6 +64,9 @@ export class LineService {
       const stats = await getCaptainSessionStats(tx, sessionId, [captainRow.id])
       return toQueueEntryView(entryRow, captainRow, stats.get(captainRow.id) ?? { gamesToday: 0, lastPlayedAt: null })
     })
+
+    await this.sessionEvents.broadcast(sessionId)
+    return view
   }
 
   /** Full permutation of the current line's entry ids -> renumber 1..n.
@@ -70,7 +75,7 @@ export class LineService {
   async reorderLine(centerId: string, staffId: string, sessionId: string, body: ReorderLineBody): Promise<ReorderLineResult> {
     await this.findOwnedActiveSession(centerId, sessionId)
 
-    return this.db.transaction(async (tx) => {
+    const result = await this.db.transaction(async (tx) => {
       await lockSessionLine(tx, sessionId)
 
       const current = await listLine(tx, sessionId)
@@ -92,6 +97,9 @@ export class LineService {
 
       return { activityId }
     })
+
+    await this.sessionEvents.broadcast(sessionId)
+    return result
   }
 
   /** Moves one entry to the front of the line, renumbers. */
@@ -109,7 +117,7 @@ export class LineService {
   async removeFromLine(centerId: string, staffId: string, entryId: string): Promise<RemoveFromLineResult> {
     const owned = await this.findOwnedEntry(centerId, entryId)
 
-    return this.db.transaction(async (tx) => {
+    const result = await this.db.transaction(async (tx) => {
       await lockSessionLine(tx, owned.sessionId)
 
       const current = await listLine(tx, owned.sessionId)
@@ -133,12 +141,15 @@ export class LineService {
 
       return { activityId }
     })
+
+    await this.sessionEvents.broadcast(owned.sessionId)
+    return result
   }
 
   private async move(centerId: string, staffId: string, entryId: string, to: 'top' | 'bottom'): Promise<QueueEntryView> {
     const owned = await this.findOwnedEntry(centerId, entryId)
 
-    return this.db.transaction(async (tx) => {
+    const view = await this.db.transaction(async (tx) => {
       await lockSessionLine(tx, owned.sessionId)
 
       const current = await listLine(tx, owned.sessionId)
@@ -170,6 +181,9 @@ export class LineService {
         stats.get(captainRow.id) ?? { gamesToday: 0, lastPlayedAt: null },
       )
     })
+
+    await this.sessionEvents.broadcast(owned.sessionId)
+    return view
   }
 
   private async resolveCaptain(tx: Transaction, centerId: string, ref: CaptainRef): Promise<CaptainRow> {
@@ -209,19 +223,5 @@ export class LineService {
       .limit(1)
     if (!row) throw new NotFoundError('Queue entry not found')
     return row
-  }
-}
-
-export function toQueueEntryView(entry: QueueEntryRow, captain: CaptainRow, stats: CaptainStats): QueueEntryView {
-  return {
-    id: entry.id,
-    position: entry.position,
-    team: {
-      id: captain.id,
-      name: captain.name,
-      nickname: captain.nickname,
-      gamesToday: stats.gamesToday,
-      lastPlayedAt: stats.lastPlayedAt,
-    },
   }
 }

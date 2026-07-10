@@ -10,6 +10,7 @@ import { lockSessionLine } from '../common/session-lock'
 import { NotFoundError } from '../common/errors'
 import { DRIZZLE, type Database } from '../db/db.module'
 import { fields, matches, queueEntries, sessions } from '../db/schema'
+import { SessionEventsService } from '../realtime/session-events.service'
 import { todayInJerusalem } from './date'
 import { SessionAlreadyActiveError, SessionClosedError, SessionHasLiveMatchError } from './errors'
 
@@ -29,6 +30,7 @@ export class SessionsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     @Inject(ActivityWriter) private readonly activity: ActivityWriter,
+    @Inject(SessionEventsService) private readonly sessionEvents: SessionEventsService,
   ) {}
 
   /** US-010: opens today's session + its single field in one transaction.
@@ -65,6 +67,7 @@ export class SessionsService {
         return row
       })
 
+      await this.sessionEvents.broadcast(session.id)
       return this.toView(session)
     } catch (error) {
       if (isUniqueViolation(error, ONE_ACTIVE_SESSION_CONSTRAINT)) throw new SessionAlreadyActiveError()
@@ -103,6 +106,7 @@ export class SessionsService {
       return row
     })
 
+    await this.sessionEvents.broadcast(id)
     return this.toView(updated)
   }
 
@@ -185,6 +189,7 @@ export class SessionsService {
       return row
     })
 
+    await this.sessionEvents.broadcast(id)
     return this.toView(closed)
   }
 
