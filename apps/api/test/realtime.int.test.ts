@@ -2,10 +2,12 @@
  * Realtime gateway integration test (technical-prd §5): a real in-process
  * Nest app (listening on a real port, not just supertest's virtual server)
  * + real socket.io-client sockets + a real Postgres (Testcontainers).
- * Covers the auth mechanism (handleConnection + client.disconnect(true),
- * NOT io.use() middleware rejection — see session.gateway.ts's header
- * comment), snapshot-on-connect, and broadcast-after-mutation for both a
- * single client and two clients sharing a session room.
+ * Covers the auth mechanism (handleConnection resolves a center — from the
+ * qlm_session cookie, else the single-seeded-center fallback — and only
+ * client.disconnect(true)s when NO center row exists; auth was removed from
+ * prod, so a missing/invalid cookie now CONNECTS instead of disconnecting),
+ * snapshot-on-connect, and broadcast-after-mutation for both a single client
+ * and two clients sharing a session room.
  */
 import type { AddressInfo } from 'node:net'
 import { INestApplication } from '@nestjs/common'
@@ -142,14 +144,21 @@ describe('realtime gateway (integration)', () => {
       expect(snapshot.session.id).toBe(fixture.sessionId)
     })
 
-    it('a socket with no cookie is disconnected (client.disconnect(true) fires native "disconnect")', async () => {
+    it('a socket with no cookie now falls back to the seeded center and receives session:hello (no longer disconnected)', async () => {
       const socket = connectSocket(undefined)
-      await expect(waitForEvent(socket, 'disconnect')).resolves.toBeDefined()
+      const hello = await waitForEvent<{ serverNow: string }>(socket, HELLO_EVENT)
+      expect(typeof hello.serverNow).toBe('string')
+      // Give the fallback a beat; it must NOT disconnect (a center row exists).
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      expect(socket.connected).toBe(true)
     })
 
-    it('a socket with an invalid/garbage session cookie is disconnected', async () => {
+    it('a socket with an invalid/garbage session cookie also falls back and receives session:hello', async () => {
       const socket = connectSocket(`${SESSION_COOKIE_NAME}=not-a-real-jwt`)
-      await expect(waitForEvent(socket, 'disconnect')).resolves.toBeDefined()
+      const hello = await waitForEvent<{ serverNow: string }>(socket, HELLO_EVENT)
+      expect(typeof hello.serverNow).toBe('string')
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      expect(socket.connected).toBe(true)
     })
 
     it('a valid cookie but no active session for the center connects successfully and gets no snapshot', async () => {

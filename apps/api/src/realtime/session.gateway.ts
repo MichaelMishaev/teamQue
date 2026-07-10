@@ -11,6 +11,11 @@
  * handler. Only the `qlm_session` cookie is checked (not `qlm_center`) —
  * `SessionTokenPayload` already embeds `centerId`, a deliberate
  * simplification versus the HTTP StaffSessionGuard's dual-cookie check.
+ *
+ * Auth removed from prod (mirrors CenterGuard/StaffSessionGuard): a missing
+ * or invalid `qlm_session` cookie falls back to the single seeded center
+ * instead of disconnecting. Only disconnects when there's no center row at
+ * all to fall back to.
  */
 import { Inject, Injectable } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
@@ -20,7 +25,7 @@ import { and, eq } from 'drizzle-orm'
 import type { Server, Socket } from 'socket.io'
 import { SESSION_COOKIE_NAME, verifySessionToken, type SessionTokenPayload } from '../auth/token'
 import { DRIZZLE, type Database } from '../db/db.module'
-import { sessions } from '../db/schema'
+import { centers, sessions } from '../db/schema'
 import { SnapshotService } from '../sessions/snapshot.service'
 import { parseCookie } from './parse-cookie'
 import { SessionEventsService, sessionRoom } from './session-events.service'
@@ -58,28 +63,39 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection {
   }
 
   async handleConnection(client: Socket): Promise<void> {
-    const token = parseCookie(client.handshake.headers.cookie, SESSION_COOKIE_NAME)
-    if (!token) {
-      client.disconnect(true)
-      return
-    }
-
-    let payload: SessionTokenPayload
-    try {
-      payload = verifySessionToken(this.jwtService, token)
-    } catch {
+    const token = parseCookie(client.handshake.headers.cookie, SESSION_COOKIE_NAME) ?? null
+    const centerId = await this.resolveCenterId(token)
+    if (!centerId) {
       client.disconnect(true)
       return
     }
 
     client.emit(HELLO_EVENT, { serverNow: new Date().toISOString() })
 
-    const activeSessionId = await this.findActiveSessionId(payload.centerId)
+    const activeSessionId = await this.findActiveSessionId(centerId)
     if (!activeSessionId) return
 
     await client.join(sessionRoom(activeSessionId))
     const snapshot = await this.snapshotService.buildSnapshotBySessionId(activeSessionId)
     client.emit(SOCKET_EVENTS.snapshot, snapshot)
+  }
+
+  private async resolveCenterId(token: string | null): Promise<string | null> {
+    if (token) {
+      const centerId = this.tryReadCenterId(token)
+      if (centerId) return centerId
+    }
+    const [center] = await this.db.select({ id: centers.id }).from(centers).limit(1)
+    return center?.id ?? null
+  }
+
+  private tryReadCenterId(token: string): string | null {
+    try {
+      const payload: SessionTokenPayload = verifySessionToken(this.jwtService, token)
+      return payload.centerId
+    } catch {
+      return null
+    }
   }
 
   private async findActiveSessionId(centerId: string): Promise<string | null> {

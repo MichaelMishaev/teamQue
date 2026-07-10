@@ -136,11 +136,15 @@ describe('auth (integration)', () => {
       expect(sessionCookie).toMatch(/SameSite=Lax/i)
     })
 
-    it('wrong pin -> 401 without a center cookie is rejected before body validation', async () => {
+    it('without a center cookie now falls back to the single seeded center, so a valid login succeeds', async () => {
+      // Pre-auth-removal this 401'd at CenterGuard before any login logic ran.
+      // Now CenterGuard falls back to the single center (only Test Center
+      // exists at this point — Other Center is inserted by the next test), so
+      // the correct PIN logs in. Wrong-PIN failure is still covered below.
       const res = await request(app.getHttpServer()).post('/auth/login').send({ staffId: happyStaffId, pin: STAFF_PIN })
 
-      expect(res.status).toBe(401)
-      expect(res.body.code).toBe('UNAUTHORIZED')
+      expect(res.status).toBe(201)
+      expect(res.body).toEqual({ staffId: happyStaffId, name: 'שרה', role: 'manager' })
     })
 
     it('unknown staffId, foreign-center staffId, and inactive staff all fail closed with the same 401', async () => {
@@ -284,9 +288,9 @@ describe('auth (integration)', () => {
       await app.close()
     })
 
-    it('without a center cookie -> 401', async () => {
+    it('without a center cookie now falls back to the single seeded center -> 200', async () => {
       const res = await request(app.getHttpServer()).get('/staff')
-      expect(res.status).toBe(401)
+      expect(res.status).toBe(200)
     })
 
     it('with a center cookie -> active staff of the center, no hash fields, ordered by name', async () => {
@@ -341,9 +345,15 @@ describe('auth (integration)', () => {
       })
     })
 
-    it('me without a session cookie -> 401', async () => {
+    it('me without a session cookie now falls back to the center manager -> 200', async () => {
       const res = await request(app.getHttpServer()).get('/auth/me').set('Cookie', [centerCookie])
-      expect(res.status).toBe(401)
+      expect(res.status).toBe(200)
+      // Test Center's only active manager is happyStaffId (שרה) — the row the
+      // StaffSessionGuard fallback resolves when no session cookie is present.
+      expect(res.body).toEqual({
+        staff: { id: happyStaffId, name: 'שרה', role: 'manager' },
+        center: { id: centerId, name: 'Test Center' },
+      })
     })
 
     it('logout clears the session cookie and returns 204', async () => {
@@ -358,9 +368,11 @@ describe('auth (integration)', () => {
       expect(cleared).toMatch(/qlm_session=;/)
     })
 
-    it('logout without any auth -> 401', async () => {
+    it('logout without any auth now falls back to the seeded center manager -> 204', async () => {
+      // No cookies: CenterGuard falls back to the first seeded center (Test
+      // Center) and StaffSessionGuard to its active manager, so logout runs.
       const res = await request(app.getHttpServer()).post('/auth/logout')
-      expect(res.status).toBe(401)
+      expect(res.status).toBe(204)
     })
   })
 })

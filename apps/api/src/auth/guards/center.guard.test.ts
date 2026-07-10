@@ -1,15 +1,27 @@
 /**
- * Unit test: CenterGuard (technical-prd §6) — valid qlm_center JWT required,
- * else 401 UNAUTHORIZED (fail closed, R-16); on success attaches
- * req.centerId. JwtService is mocked — no real signing/verifying.
+ * Unit test: CenterGuard — a valid qlm_center JWT attaches its centerId.
+ * Anonymous access (no cookie, or an invalid/incomplete one) falls back to
+ * the single seeded center rather than rejecting (auth removed from prod —
+ * see AGENTS note in center.guard.ts). Only an empty `centers` table still
+ * throws UnauthorizedError, since there is nothing to fall back to.
  */
 import type { ExecutionContext } from '@nestjs/common'
 import type { JwtService } from '@nestjs/jwt'
 import type { Request } from 'express'
 import { describe, expect, it, vi } from 'vitest'
+import type { Database } from '../../db/db.module'
 import { UnauthorizedError } from '../../common/errors'
 import { CENTER_COOKIE_NAME } from '../token'
 import { CenterGuard } from './center.guard'
+
+function chain<T>(rows: T[]): PromiseLike<T[]> & Record<string, unknown> {
+  const builder: Record<string, unknown> = {
+    from: () => builder,
+    limit: () => builder,
+    then: (resolve: (rows: T[]) => unknown) => resolve(rows),
+  }
+  return builder as PromiseLike<T[]> & Record<string, unknown>
+}
 
 function makeContext(cookies: Record<string, string>): { context: ExecutionContext; request: Request } {
   const request = { cookies } as unknown as Request
@@ -20,43 +32,61 @@ function makeContext(cookies: Record<string, string>): { context: ExecutionConte
 }
 
 describe('CenterGuard', () => {
-  it('throws UnauthorizedError when there is no center cookie', () => {
-    const jwtService = { verify: vi.fn() } as unknown as JwtService
-    const guard = new CenterGuard(jwtService)
-    const { context } = makeContext({})
+  it('attaches req.centerId and returns true for a valid token', async () => {
+    const jwtService = { verify: vi.fn().mockReturnValue({ centerId: 'center-1' }) } as unknown as JwtService
+    const db = { select: vi.fn() } as unknown as Database
+    const guard = new CenterGuard(jwtService, db)
+    const { context, request } = makeContext({ [CENTER_COOKIE_NAME]: 'token' })
 
-    expect(() => guard.canActivate(context)).toThrow(UnauthorizedError)
-    expect(jwtService.verify).not.toHaveBeenCalled()
+    await expect(guard.canActivate(context)).resolves.toBe(true)
+    expect(request.centerId).toBe('center-1')
+    expect(db.select).not.toHaveBeenCalled()
   })
 
-  it('throws UnauthorizedError when the token fails verification', () => {
+  it('falls back to the seeded center when there is no center cookie', async () => {
+    const jwtService = { verify: vi.fn() } as unknown as JwtService
+    const select = vi.fn().mockReturnValueOnce(chain([{ id: 'fallback-center' }]))
+    const db = { select } as unknown as Database
+    const guard = new CenterGuard(jwtService, db)
+    const { context, request } = makeContext({})
+
+    await expect(guard.canActivate(context)).resolves.toBe(true)
+    expect(request.centerId).toBe('fallback-center')
+  })
+
+  it('falls back to the seeded center when the token fails verification', async () => {
     const jwtService = {
       verify: vi.fn().mockImplementation(() => {
         throw new Error('bad token')
       }),
     } as unknown as JwtService
-    const guard = new CenterGuard(jwtService)
-    const { context } = makeContext({ [CENTER_COOKIE_NAME]: 'bogus' })
+    const select = vi.fn().mockReturnValueOnce(chain([{ id: 'fallback-center' }]))
+    const db = { select } as unknown as Database
+    const guard = new CenterGuard(jwtService, db)
+    const { context, request } = makeContext({ [CENTER_COOKIE_NAME]: 'bogus' })
 
-    expect(() => guard.canActivate(context)).toThrow(UnauthorizedError)
+    await expect(guard.canActivate(context)).resolves.toBe(true)
+    expect(request.centerId).toBe('fallback-center')
   })
 
-  it('throws UnauthorizedError when the payload has no centerId', () => {
+  it('falls back to the seeded center when the payload has no centerId', async () => {
     const jwtService = { verify: vi.fn().mockReturnValue({}) } as unknown as JwtService
-    const guard = new CenterGuard(jwtService)
-    const { context } = makeContext({ [CENTER_COOKIE_NAME]: 'token' })
-
-    expect(() => guard.canActivate(context)).toThrow(UnauthorizedError)
-  })
-
-  it('attaches req.centerId and returns true for a valid token', () => {
-    const jwtService = {
-      verify: vi.fn().mockReturnValue({ centerId: 'center-1' }),
-    } as unknown as JwtService
-    const guard = new CenterGuard(jwtService)
+    const select = vi.fn().mockReturnValueOnce(chain([{ id: 'fallback-center' }]))
+    const db = { select } as unknown as Database
+    const guard = new CenterGuard(jwtService, db)
     const { context, request } = makeContext({ [CENTER_COOKIE_NAME]: 'token' })
 
-    expect(guard.canActivate(context)).toBe(true)
-    expect(request.centerId).toBe('center-1')
+    await expect(guard.canActivate(context)).resolves.toBe(true)
+    expect(request.centerId).toBe('fallback-center')
+  })
+
+  it('throws UnauthorizedError when there is no center to fall back to', async () => {
+    const jwtService = { verify: vi.fn() } as unknown as JwtService
+    const select = vi.fn().mockReturnValueOnce(chain([]))
+    const db = { select } as unknown as Database
+    const guard = new CenterGuard(jwtService, db)
+    const { context } = makeContext({})
+
+    await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedError)
   })
 })

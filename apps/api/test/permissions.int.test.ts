@@ -3,9 +3,21 @@
  * {anonymous, center-only, staff, manager} asserting exact status codes.
  * Table-driven so Phase 3 endpoints add rows, not new test scaffolding.
  *
- * Task 3a adds the first role-differentiated rows (session open/update/close
- * are @Roles('manager')) — `staff` and `manager` diverge there; every other
- * route still treats them identically, the baseline earlier phases locked in.
+ * Auth was deliberately removed from prod (owner's request): CenterGuard now
+ * falls back to the single seeded center and StaffSessionGuard to that
+ * center's active manager whenever a cookie is missing/invalid. So on every
+ * StaffSessionGuard route BOTH `anonymous` (no cookies) AND `center-only` (a
+ * valid center cookie but no session cookie) resolve to the SAME manager
+ * fallback identity — they no longer 401. The only role differentiation left
+ * is on @Roles('manager') routes (session open/update/close): `staff` still
+ * gets 403, everyone else (anonymous/center-only/manager, all manager-role)
+ * passes.
+ *
+ * Personas run in PERSONAS order (anonymous → center-only → staff → manager)
+ * against a shared DB, so on NON-idempotent rows `anonymous` is now the
+ * FIRST caller and performs the successful mutation (its old `staff` value);
+ * center-only/staff/manager then hit the resulting business-state error (the
+ * old `manager` value: 409 already-paused/field-occupied, 404 already-gone).
  */
 import { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
@@ -251,7 +263,7 @@ describe('permission matrix (integration)', () => {
       method: 'get',
       path: '/staff',
       bodyFor: {},
-      expected: { anonymous: 401, centerOnly: 200, staff: 200, manager: 200 },
+      expected: { anonymous: 200, centerOnly: 200, staff: 200, manager: 200 },
     },
     {
       route: 'POST /auth/login',
@@ -261,26 +273,28 @@ describe('permission matrix (integration)', () => {
       // login (staffId/pin don't need to relate to the calling persona —
       // the persona is defined by which cookies are sent).
       bodyFor: {
-        anonymous: () => ({}),
+        // No cookie now falls back to the single center, so login is
+        // reachable and a valid body succeeds (201) like every other persona.
+        anonymous: () => ({ staffId, pin: STAFF_PIN }),
         centerOnly: () => ({ staffId, pin: STAFF_PIN }),
         staff: () => ({ staffId, pin: STAFF_PIN }),
         manager: () => ({ staffId, pin: STAFF_PIN }),
       },
-      expected: { anonymous: 401, centerOnly: 201, staff: 201, manager: 201 },
+      expected: { anonymous: 201, centerOnly: 201, staff: 201, manager: 201 },
     },
     {
       route: 'GET /auth/me',
       method: 'get',
       path: '/auth/me',
       bodyFor: {},
-      expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 200 },
+      expected: { anonymous: 200, centerOnly: 200, staff: 200, manager: 200 },
     },
     {
       route: 'POST /auth/logout',
       method: 'post',
       path: '/auth/logout',
       bodyFor: {},
-      expected: { anonymous: 401, centerOnly: 401, staff: 204, manager: 204 },
+      expected: { anonymous: 204, centerOnly: 204, staff: 204, manager: 204 },
     },
     // --- Task 3a: captains (StaffSessionGuard only, no role gate) ---
     {
@@ -288,7 +302,7 @@ describe('permission matrix (integration)', () => {
       method: 'get',
       path: '/captains',
       bodyFor: {},
-      expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 200 },
+      expected: { anonymous: 200, centerOnly: 200, staff: 200, manager: 200 },
     },
     {
       route: 'POST /captains',
@@ -297,24 +311,24 @@ describe('permission matrix (integration)', () => {
       // Duplicate names are allowed (technical-prd §3), so both personas
       // reusing the same name below is intentional, not a collision risk.
       bodyFor: {
-        anonymous: () => ({}),
-        centerOnly: () => ({}),
+        anonymous: () => ({ name: 'Matrix Captain (anon)' }),
+        centerOnly: () => ({ name: 'Matrix Captain (center)' }),
         staff: () => ({ name: 'Matrix Captain (staff)' }),
         manager: () => ({ name: 'Matrix Captain (manager)' }),
       },
-      expected: { anonymous: 401, centerOnly: 401, staff: 201, manager: 201 },
+      expected: { anonymous: 201, centerOnly: 201, staff: 201, manager: 201 },
     },
     {
       route: 'PATCH /captains/:id',
       method: 'patch',
       path: () => `/captains/${matrixCaptainId}`,
       bodyFor: {
-        anonymous: () => ({}),
-        centerOnly: () => ({}),
+        anonymous: () => ({ note: 'left by anon' }),
+        centerOnly: () => ({ note: 'left by center' }),
         staff: () => ({ note: 'left by staff' }),
         manager: () => ({ note: 'left by manager' }),
       },
-      expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 200 },
+      expected: { anonymous: 200, centerOnly: 200, staff: 200, manager: 200 },
     },
     // --- Task 3a: sessions (@Roles('manager') on open/update/close) ---
     {
@@ -327,31 +341,33 @@ describe('permission matrix (integration)', () => {
       // (staff -> 403, manager -> past the guard); the true 201 happy path
       // is covered by test/sessions.int.test.ts.
       bodyFor: {
-        anonymous: () => ({}),
-        centerOnly: () => ({}),
+        // manager-role fallback (anon/center) passes RolesGuard and reaches
+        // create, which 409s on the pre-seeded active session; staff -> 403.
+        anonymous: () => ({ matchDurationSec: 300 }),
+        centerOnly: () => ({ matchDurationSec: 300 }),
         staff: () => ({ matchDurationSec: 300 }),
         manager: () => ({ matchDurationSec: 300 }),
       },
-      expected: { anonymous: 401, centerOnly: 401, staff: 403, manager: 409 },
+      expected: { anonymous: 409, centerOnly: 409, staff: 403, manager: 409 },
     },
     {
       route: 'GET /sessions/active',
       method: 'get',
       path: '/sessions/active',
       bodyFor: {},
-      expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 200 },
+      expected: { anonymous: 200, centerOnly: 200, staff: 200, manager: 200 },
     },
     {
       route: 'PATCH /sessions/:id',
       method: 'patch',
       path: () => `/sessions/${matrixSessionId}`,
       bodyFor: {
-        anonymous: () => ({}),
-        centerOnly: () => ({}),
+        anonymous: () => ({ matchDurationSec: 240 }),
+        centerOnly: () => ({ matchDurationSec: 240 }),
         staff: () => ({ matchDurationSec: 240 }),
         manager: () => ({ matchDurationSec: 240 }),
       },
-      expected: { anonymous: 401, centerOnly: 401, staff: 403, manager: 200 },
+      expected: { anonymous: 200, centerOnly: 200, staff: 403, manager: 200 },
     },
     // --- Task: line-domain (line-manager model) — StaffSessionGuard only,
     // no @Roles gate, so staff and manager are expected to reach the SAME
@@ -366,12 +382,12 @@ describe('permission matrix (integration)', () => {
       method: 'post',
       path: () => `/sessions/${matrixSessionId}/line`,
       bodyFor: {
-        anonymous: () => ({}),
-        centerOnly: () => ({}),
+        anonymous: () => ({ team: { newName: 'Matrix Line Anon' } }),
+        centerOnly: () => ({ team: { newName: 'Matrix Line Center' } }),
         staff: () => ({ team: { newName: 'Matrix Line Staff' } }),
         manager: () => ({ team: { newName: 'Matrix Line Manager' } }),
       },
-      expected: { anonymous: 401, centerOnly: 401, staff: 201, manager: 201 },
+      expected: { anonymous: 201, centerOnly: 201, staff: 201, manager: 201 },
     },
     {
       route: 'PATCH /sessions/:id/line',
@@ -382,26 +398,26 @@ describe('permission matrix (integration)', () => {
       // permutation regardless of what earlier rows (add/move/delete) did
       // to it, and safe to call twice (staff, then manager).
       bodyFor: {
-        anonymous: () => ({}),
-        centerOnly: () => ({}),
+        anonymous: async () => ({ entryIds: await currentLineIds() }),
+        centerOnly: async () => ({ entryIds: await currentLineIds() }),
         staff: async () => ({ entryIds: await currentLineIds() }),
         manager: async () => ({ entryIds: await currentLineIds() }),
       },
-      expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 200 },
+      expected: { anonymous: 200, centerOnly: 200, staff: 200, manager: 200 },
     },
     {
       route: 'POST /line/:entryId/move-top',
       method: 'post',
       path: () => `/line/${matrixMoveEntryId}/move-top`,
       bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
-      expected: { anonymous: 401, centerOnly: 401, staff: 201, manager: 201 },
+      expected: { anonymous: 201, centerOnly: 201, staff: 201, manager: 201 },
     },
     {
       route: 'POST /line/:entryId/move-bottom',
       method: 'post',
       path: () => `/line/${matrixMoveEntryId}/move-bottom`,
       bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
-      expected: { anonymous: 401, centerOnly: 401, staff: 201, manager: 201 },
+      expected: { anonymous: 201, centerOnly: 201, staff: 201, manager: 201 },
     },
     {
       // Not idempotent: staff's call actually deletes the row, so
@@ -411,7 +427,7 @@ describe('permission matrix (integration)', () => {
       method: 'delete',
       path: () => `/line/${matrixDeleteEntryId}`,
       bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
-      expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 404 },
+      expected: { anonymous: 200, centerOnly: 404, staff: 404, manager: 404 },
     },
     {
       // staff's call pairs the front two of matrixSessionId's line and
@@ -421,40 +437,40 @@ describe('permission matrix (integration)', () => {
       method: 'post',
       path: () => `/sessions/${matrixSessionId}/start`,
       bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
-      expected: { anonymous: 401, centerOnly: 401, staff: 201, manager: 409 },
+      expected: { anonymous: 201, centerOnly: 409, staff: 409, manager: 409 },
     },
     {
       route: 'POST /matches/:id/pause',
       method: 'post',
       path: () => `/matches/${matrixMatchId}/pause`,
       bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
-      expected: { anonymous: 401, centerOnly: 401, staff: 201, manager: 409 },
+      expected: { anonymous: 201, centerOnly: 409, staff: 409, manager: 409 },
     },
     {
       route: 'POST /matches/:id/resume',
       method: 'post',
       path: () => `/matches/${matrixMatchId}/resume`,
       bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
-      expected: { anonymous: 401, centerOnly: 401, staff: 201, manager: 409 },
+      expected: { anonymous: 201, centerOnly: 409, staff: 409, manager: 409 },
     },
     {
       route: 'POST /matches/:id/extend',
       method: 'post',
       path: () => `/matches/${matrixMatchId}/extend`,
       bodyFor: {
-        anonymous: () => ({}),
-        centerOnly: () => ({}),
+        anonymous: () => ({ addSec: 30 }),
+        centerOnly: () => ({ addSec: 30 }),
         staff: () => ({ addSec: 30 }),
         manager: () => ({ addSec: 30 }),
       },
-      expected: { anonymous: 401, centerOnly: 401, staff: 201, manager: 201 },
+      expected: { anonymous: 201, centerOnly: 201, staff: 201, manager: 201 },
     },
     {
       route: 'POST /matches/:id/finish',
       method: 'post',
       path: () => `/matches/${matrixMatchId}/finish`,
       bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
-      expected: { anonymous: 401, centerOnly: 401, staff: 201, manager: 409 },
+      expected: { anonymous: 201, centerOnly: 409, staff: 409, manager: 409 },
     },
     {
       // matrixMatchId's session is pre-closed (see beforeAll) — replay
@@ -465,42 +481,42 @@ describe('permission matrix (integration)', () => {
       method: 'post',
       path: () => `/matches/${matrixMatchId}/replay`,
       bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
-      expected: { anonymous: 401, centerOnly: 401, staff: 409, manager: 409 },
+      expected: { anonymous: 409, centerOnly: 409, staff: 409, manager: 409 },
     },
     {
       route: 'POST /actions/:activityId/undo',
       method: 'post',
       path: () => `/actions/${matrixUndoActivityId}/undo`,
       bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
-      expected: { anonymous: 401, centerOnly: 401, staff: 409, manager: 409 },
+      expected: { anonymous: 409, centerOnly: 409, staff: 409, manager: 409 },
     },
     {
       route: 'GET /activity',
       method: 'get',
       path: () => `/activity?sessionId=${matrixSessionId}`,
       bodyFor: {},
-      expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 200 },
+      expected: { anonymous: 200, centerOnly: 200, staff: 200, manager: 200 },
     },
     {
       route: 'GET /sessions',
       method: 'get',
       path: '/sessions',
       bodyFor: {},
-      expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 200 },
+      expected: { anonymous: 200, centerOnly: 200, staff: 200, manager: 200 },
     },
     {
       route: 'GET /sessions/:id/history',
       method: 'get',
       path: () => `/sessions/${matrixSessionId}/history`,
       bodyFor: {},
-      expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 200 },
+      expected: { anonymous: 200, centerOnly: 200, staff: 200, manager: 200 },
     },
     {
       route: 'GET /sessions/:id/summary',
       method: 'get',
       path: () => `/sessions/${matrixSessionId}/summary`,
       bodyFor: {},
-      expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 200 },
+      expected: { anonymous: 200, centerOnly: 200, staff: 200, manager: 200 },
     },
   ]
 
@@ -517,7 +533,7 @@ describe('permission matrix (integration)', () => {
     method: 'post',
     path: () => `/sessions/${matrixSessionId}/close`,
     bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
-    expected: { anonymous: 401, centerOnly: 401, staff: 403, manager: 201 },
+    expected: { anonymous: 201, centerOnly: 409, staff: 403, manager: 409 },
   }
 
   for (const testCase of cases) {
