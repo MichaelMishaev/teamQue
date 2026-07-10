@@ -20,6 +20,9 @@ Dev rules baseline: `~/Desktop/devRules.md` (adapted — see §12)
 | Offline | Online-first; resilient reconnect; no offline action queue (post-MVP) |
 | Language | Hebrew only, RTL, all strings in locale files |
 | Client UI | Tailwind CSS v4 + shadcn/ui (Radix) + dnd-kit + Sonner |
+| **Core model** | **Line-manager: queue = a line of single teams (`queue_entries`), matches created live at kickoff by pairing two teams. Matches are never `queued`.** |
+
+> **⚠️ MODEL UPDATE (2026-07-10):** the queue is a **line of single teams**, held in a `queue_entries` table (id, session_id, center_id, captain_id, position). The `matches` table is live-only — a match is created directly as `live` when two line teams pair at kickoff. `SessionSnapshot.queue` is `QueueEntryView[]`; the API line endpoints are `POST/PATCH /sessions/:id/line`, `POST /line/:id/move-top|move-bottom`, `DELETE /line/:id`, and `POST /sessions/:id/start` (pairs the front two, or two chosen entries).
 
 ## 2. System Architecture
 

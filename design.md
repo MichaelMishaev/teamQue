@@ -5,14 +5,17 @@ Tokens live in [`apps/web/src/index.css`](./apps/web/src/index.css). Components 
 
 **One deliberate constraint:** single dark theme. This app is used outdoors, in the evening, at a football pitch — dark high-contrast is the product decision, not a preference toggle (client-prd §2). The token hierarchy still exists so a second theme is a token override away, never a component change.
 
-## 0. Hierarchy: the queue is the hero
+## 0. Hierarchy & model: the line is the hero
 
-The manager's job is deciding **who plays next** — the countdown is a status readout, not the point of the app. Every layout decision follows from this:
+**The app manages the LINE, not matches.** The queue is a **line of single teams** — one team per row, never "A vs B". Two teams pair into a match only at **kickoff**, when a field is free and the front two go play. (Pattern reference: Spotify/SoundCloud "Up Next" — a prominent now-playing header above single-item rows.)
 
-- The queue owns the majority of the main screen and the largest text (17px rows, 64px min height).
-- The first queued match gets the accent "הבא" treatment — it's the decision about to be made.
-- Field cards are compact status headers: names + inline 32px timer + controls. The timer must be glanceable, never dominant.
-- When space competes, the queue wins.
+The manager's job is deciding **who's next in line** — the countdown is a status readout, not the point of the app. Every layout decision follows:
+
+- The **line** owns the majority of the main screen and the largest text (single-team rows, 17px, 64px min height).
+- The **front team** gets the accent "הבא" treatment — it's next to play.
+- The live **match** (the only place two teams appear together) is a compact status header at the top: the pairing + inline 32px timer + controls. Glanceable, never dominant.
+- The **free field** shows the front two teams and a "התחל: A נגד B" kickoff button.
+- When space competes, the line wins.
 
 ---
 

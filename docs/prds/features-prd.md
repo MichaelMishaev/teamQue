@@ -5,6 +5,8 @@ Companion docs: [technical-prd.md](./technical-prd.md), [client-prd.md](./client
 
 User stories below are **the acceptance criteria** (dev rule R-31). Every E2E spec must reference its US-ID (N-14). Roles: **Manager** (full control) and **Staff** (live operations).
 
+> **⚠️ MODEL UPDATE (2026-07-10): line-manager, not team-manager.** The queue is a **line of single teams** — you add ONE team to the line, reorder, remove. Two teams pair into a match only at **kickoff** (a field frees up → front two play). Stories written as "add a match / A-vs-B in the queue" are superseded: quick-add adds ONE team (US-020/021), the queue holds single teams (US-030…), and "start" pairs the front two teams onto the field (US-040). A match is only the transient live pairing + its history. Authoritative model: `line-manager-not-team-manager` memory + the shared contract (`QueueEntryView`).
+
 ---
 
 ## 1. MVP Scope Table

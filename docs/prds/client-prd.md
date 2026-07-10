@@ -5,6 +5,8 @@ Companion docs: [technical-prd.md](./technical-prd.md), [features-prd.md](./feat
 
 The app must feel like an **airport control tower, not a form**. Every rule here serves: speed, one-handed use, outdoors, zero interruptions.
 
+> **⚠️ MODEL UPDATE (2026-07-10): the LINE is the hero.** The queue is a **line of single teams** (one team per row, never "A vs B"). The live **match** is a compact top header (the only place two teams pair); the free field shows the front two teams + a "התחל: A נגד B" kickoff button. Quick-add adds ONE team. Pattern reference: Spotify/SoundCloud "Up Next". See design.md §0.
+
 ---
 
 ## 1. Client Stack
