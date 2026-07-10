@@ -9,7 +9,7 @@ import { alias } from 'drizzle-orm/pg-core'
 import type { ActivityEntry, HistoryEntry, SessionListItem, SessionSummary } from 'shared'
 import { NotFoundError } from '../common/errors'
 import { DRIZZLE, type Database } from '../db/db.module'
-import { activityLog, captains, matches, sessions } from '../db/schema'
+import { activityLog, captains, fields, matches, sessions, staff } from '../db/schema'
 
 const DEFAULT_ACTIVITY_LIMIT = 50
 
@@ -45,6 +45,8 @@ export class ReadsService {
 
     const captainA = alias(captains, 'captain_a')
     const captainB = alias(captains, 'captain_b')
+    const startedByStaff = alias(staff, 'started_by_staff')
+    const endedByStaff = alias(staff, 'ended_by_staff')
 
     const rows = await this.db
       .select({
@@ -53,15 +55,21 @@ export class ReadsService {
         captainAName: captainA.name,
         captainBId: matches.captainBId,
         captainBName: captainB.name,
+        fieldName: fields.name,
         startedAt: matches.startedAt,
         endedAt: matches.endedAt,
         endReason: matches.endReason,
         plannedDurationSec: matches.plannedDurationSec,
         accumulatedPauseSec: matches.accumulatedPauseSec,
+        startedByName: startedByStaff.name,
+        endedByName: endedByStaff.name,
       })
       .from(matches)
       .innerJoin(captainA, eq(captainA.id, matches.captainAId))
       .innerJoin(captainB, eq(captainB.id, matches.captainBId))
+      .leftJoin(fields, eq(fields.id, matches.fieldId))
+      .leftJoin(startedByStaff, eq(startedByStaff.id, matches.startedBy))
+      .leftJoin(endedByStaff, eq(endedByStaff.id, matches.endedBy))
       .where(and(eq(matches.sessionId, sessionId), eq(matches.status, 'finished')))
       .orderBy(desc(matches.endedAt))
 
@@ -73,10 +81,14 @@ export class ReadsService {
         captainAName: row.captainAName,
         captainBId: row.captainBId,
         captainBName: row.captainBName,
+        fieldName: row.fieldName,
         startedAt: row.startedAt.toISOString(),
         endedAt: row.endedAt.toISOString(),
         endReason: row.endReason as HistoryEntry['endReason'],
+        plannedDurationSec: row.plannedDurationSec,
         actualDurationSec: actualDurationSec(row.startedAt, row.endedAt, row.accumulatedPauseSec),
+        startedByName: row.startedByName,
+        endedByName: row.endedByName,
       }))
   }
 

@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { SessionSnapshot } from 'shared'
+import type {
+  ActivityEntry as WireActivityEntry,
+  CaptainSearchResult,
+  HistoryEntry,
+  SessionSnapshot,
+  SessionSummary,
+} from 'shared'
 import { apiGet, apiPost, ApiRequestError } from '@/lib/api'
 import { computeOffsetMs } from '@/lib/server-clock'
 import { createSessionSocket } from '@/lib/socket'
-import { ActivityContext } from '@/state/ActivityContext'
-import { CaptainsContext } from '@/state/CaptainsContext'
+import { ActivityContext, type ActivityEntry } from '@/state/ActivityContext'
+import { CaptainsContext, type CaptainProfile } from '@/state/CaptainsContext'
 import { HistoryContext, type HistoryState } from '@/state/HistoryContext'
+import { toActivityEntry, toCaptainProfile, toFinishedMatchView } from '@/state/real/readAdapters'
 import { createRealSessionActions, type SessionIdHandle } from '@/state/real/realSessionActions'
 import { SessionActionsContext } from '@/state/SessionActions'
 import { SnapshotContext, type SnapshotState } from '@/state/SnapshotContext'
@@ -37,6 +44,20 @@ function socketUrl(): string {
 export function RealProviders({ children }: { children: ReactNode }) {
   const [snapshotState, setSnapshotState] = useState<SnapshotState>(INITIAL_SNAPSHOT_STATE)
   const [roster, setRoster] = useState<StaffRosterItem[]>([])
+  const [history, setHistory] = useState<HistoryState>(EMPTY_HISTORY)
+  const [activity, setActivity] = useState<ActivityEntry[]>([])
+  const [captainProfiles, setCaptainProfiles] = useState<CaptainProfile[]>([])
+  // Bumped whenever a session is opened or closed. Opening a session from a
+  // client that connected before any session existed leaves it outside the
+  // broadcast room, so the socket must reconnect (rejoin the new session's
+  // room) and the snapshot must be re-seeded — both effects depend on this.
+  const [reseedNonce, setReseedNonce] = useState(0)
+
+  // Mirror the roster in a ref so the read-fetch effect can resolve activity
+  // staff names from the latest roster without depending on it (which would
+  // refetch history/activity every time the roster loads).
+  const rosterRef = useRef<StaffRosterItem[]>([])
+  rosterRef.current = roster
 
   const sessionIdRef = useRef<string | null>(null)
   const sessionIdHandle = useMemo<SessionIdHandle>(
@@ -47,6 +68,8 @@ export function RealProviders({ children }: { children: ReactNode }) {
         // The snapshot schema has no "no session" shape, and closing a
         // session never gets a matching socket push — clear it locally.
         if (id === null) setSnapshotState((prev) => ({ ...prev, snapshot: null }))
+        // Session-level change (open/close): force a socket reconnect + reseed.
+        setReseedNonce((n) => n + 1)
       },
     }),
     [],
@@ -73,7 +96,7 @@ export function RealProviders({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [reseedNonce])
 
   // Live socket: every snapshot event replaces the snapshot; connection
   // status tracks connect/disconnect, with a brief "resynced" on reconnect.
@@ -108,7 +131,43 @@ export function RealProviders({ children }: { children: ReactNode }) {
       clearTimeout(resyncTimer)
       socket.disconnect()
     }
-  }, [])
+  }, [reseedNonce])
+
+  // History / Activity / Captains read side. These aren't part of the snapshot
+  // (which only carries the live line + fields), so fetch them alongside it and
+  // refresh on every snapshot broadcast (each broadcast means a mutation landed,
+  // possibly a finish or a new activity row). No active session → clear them.
+  const sessionId = snapshotState.snapshot?.session.id ?? null
+  const snapshotStamp = snapshotState.snapshot?.emittedAt ?? null
+  useEffect(() => {
+    if (sessionId === null) {
+      setHistory(EMPTY_HISTORY)
+      setActivity([])
+      setCaptainProfiles([])
+      return
+    }
+    let cancelled = false
+    void Promise.allSettled([
+      apiGet<HistoryEntry[]>(`/sessions/${sessionId}/history`),
+      apiGet<SessionSummary>(`/sessions/${sessionId}/summary`),
+      apiGet<WireActivityEntry[]>(`/activity?sessionId=${sessionId}`),
+      apiGet<CaptainSearchResult[]>('/captains'),
+    ]).then((results) => {
+      if (cancelled) return
+      const [historyRes, summaryRes, activityRes, captainsRes] = results
+      const matches = historyRes.status === 'fulfilled' ? historyRes.value.map(toFinishedMatchView) : []
+      const summary = summaryRes.status === 'fulfilled' ? summaryRes.value : null
+      setHistory({ summary, matches })
+      if (activityRes.status === 'fulfilled') {
+        const nameById = new Map(rosterRef.current.map((s) => [s.id, s.name]))
+        setActivity(activityRes.value.map((row) => toActivityEntry(row, (id) => nameById.get(id) ?? null)))
+      }
+      if (captainsRes.status === 'fulfilled') setCaptainProfiles(captainsRes.value.map(toCaptainProfile))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId, snapshotStamp])
 
   // Staff roster for SwitchUser (StaffLogin's own picker fetches this directly).
   useEffect(() => {
@@ -142,9 +201,9 @@ export function RealProviders({ children }: { children: ReactNode }) {
   return (
     <SnapshotContext.Provider value={snapshotState}>
       <SessionActionsContext.Provider value={actions}>
-        <HistoryContext.Provider value={EMPTY_HISTORY}>
-          <ActivityContext.Provider value={[]}>
-            <CaptainsContext.Provider value={[]}>
+        <HistoryContext.Provider value={history}>
+          <ActivityContext.Provider value={activity}>
+            <CaptainsContext.Provider value={captainProfiles}>
               <StaffDirectoryContext.Provider value={staffDirectory}>{children}</StaffDirectoryContext.Provider>
             </CaptainsContext.Provider>
           </ActivityContext.Provider>

@@ -29,10 +29,14 @@ export const historyEntrySchema = z.object({
   captainAName: z.string(),
   captainBId: captainIdSchema,
   captainBName: z.string(),
+  fieldName: z.string().nullable(),
   startedAt: z.iso.datetime(),
   endedAt: z.iso.datetime(),
   endReason: endReasonSchema,
+  plannedDurationSec: z.number().int().positive(),
   actualDurationSec: z.number().int().min(0),
+  startedByName: z.string().nullable(),
+  endedByName: z.string().nullable(),
 })
 export type HistoryEntry = z.infer<typeof historyEntrySchema>
 

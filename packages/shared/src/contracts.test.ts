@@ -301,10 +301,14 @@ describe('reads', () => {
       captainAName: 'יוסי',
       captainBId: uuid3,
       captainBName: 'רון',
+      fieldName: 'מגרש ראשי',
       startedAt: isoDateTime,
       endedAt: isoDateTime,
       endReason: 'manual',
+      plannedDurationSec: 360,
       actualDurationSec: 300,
+      startedByName: 'שרה',
+      endedByName: null,
     }
     expect(historyEntrySchema.safeParse(valid).success).toBe(true)
     expect(historyEntrySchema.safeParse({ ...valid, actualDurationSec: -1 }).success).toBe(false)
