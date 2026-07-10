@@ -16,7 +16,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { verify } from '@node-rs/argon2'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import type { StaffRole } from 'shared'
 import { UnauthorizedError } from '../common/errors'
 import { DRIZZLE, type Database } from '../db/db.module'
@@ -68,7 +68,7 @@ export class AuthService {
     }
 
     if (!(await verify(member.pinHash, pin))) {
-      await this.recordFailedAttempt(member.id, member.failedAttempts, now)
+      await this.recordFailedAttempt(member.id, now)
       throw new UnauthorizedError()
     }
 
@@ -99,15 +99,30 @@ export class AuthService {
     return { staff: { ...member, role: member.role as StaffRole }, center }
   }
 
-  private async recordFailedAttempt(memberId: string, previousFailedAttempts: number, now: Date): Promise<void> {
-    const failedAttempts = previousFailedAttempts + 1
-    const lockSec = lockoutDurationSec(failedAttempts)
+  /**
+   * Atomic increment (`failed_attempts = failed_attempts + 1 RETURNING`) —
+   * Postgres row-level locking serializes concurrent callers, so N
+   * concurrent wrong-PIN requests each get a distinct, correct count
+   * instead of collapsing into +1 (see test/auth.int.test.ts's race test).
+   * The lockout write is a second, separately-guarded UPDATE: it only
+   * applies `WHERE failed_attempts` still equals the value just returned,
+   * so a slower request computing an earlier (shorter) lockout can never
+   * clobber a longer one already set by a request that reached a higher count.
+   */
+  private async recordFailedAttempt(memberId: string, now: Date): Promise<void> {
+    const [updated] = await this.db
+      .update(staff)
+      .set({ failedAttempts: sql`${staff.failedAttempts} + 1` })
+      .where(eq(staff.id, memberId))
+      .returning({ failedAttempts: staff.failedAttempts })
+    if (!updated) return
+
+    const lockSec = lockoutDurationSec(updated.failedAttempts)
+    if (lockSec <= 0) return
+
     await this.db
       .update(staff)
-      .set({
-        failedAttempts,
-        lockedUntil: lockSec > 0 ? new Date(now.getTime() + lockSec * 1000) : null,
-      })
-      .where(eq(staff.id, memberId))
+      .set({ lockedUntil: new Date(now.getTime() + lockSec * 1000) })
+      .where(and(eq(staff.id, memberId), eq(staff.failedAttempts, updated.failedAttempts)))
   }
 }

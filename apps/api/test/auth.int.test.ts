@@ -227,6 +227,29 @@ describe('auth (integration)', () => {
         expect(row?.lockedUntil).toBeNull()
       })
     })
+
+    describe('concurrent failed attempts (race condition, dev rule N-9)', () => {
+      it('8 parallel wrong-PIN requests -> failed_attempts = 8 and locked_until is set', async () => {
+        const [member] = await pg.db
+          .insert(staff)
+          .values({ centerId, name: 'מירוץ-בדיקה', role: 'staff', pinHash: await hash('9999') })
+          .returning()
+        if (!member) throw new Error('staff insert returned no row')
+
+        await Promise.all(
+          Array.from({ length: 8 }, () =>
+            request(app.getHttpServer())
+              .post('/auth/login')
+              .set('Cookie', [centerCookie])
+              .send({ staffId: member.id, pin: '0000' }),
+          ),
+        )
+
+        const [row] = await pg.db.select().from(staff).where(eq(staff.id, member.id))
+        expect(row?.failedAttempts).toBe(8)
+        expect(row?.lockedUntil).not.toBeNull()
+      })
+    })
   })
 
   describe('GET /staff', () => {
