@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   activityIdSchema,
+  addToLineSchema,
   apiErrorSchema,
   captainIdSchema,
   captainSearchResultSchema,
@@ -18,8 +19,9 @@ import {
   matchStatusSchema,
   matchViewSchema,
   openSessionSchema,
-  quickAddMatchSchema,
-  reorderQueueSchema,
+  queueEntryIdSchema,
+  queueEntryViewSchema,
+  reorderLineSchema,
   sessionIdSchema,
   sessionSnapshotSchema,
   sessionStatusSchema,
@@ -50,12 +52,17 @@ const validMatchView = {
   captainA: validCaptainView,
   captainB: { ...validCaptainView, id: uuid3, name: 'רון' },
   status: 'live',
-  queuePosition: null,
   plannedDurationSec: 360,
   startedAt: isoDateTime,
   pausedAt: null,
   accumulatedPauseSec: 0,
   endsAt: isoDateTime,
+}
+
+const validQueueEntry = {
+  id: uuid3,
+  position: 1,
+  team: validCaptainView,
 }
 
 const validFieldView = {
@@ -73,6 +80,7 @@ describe('ids', () => {
     ['sessionIdSchema', sessionIdSchema],
     ['fieldIdSchema', fieldIdSchema],
     ['matchIdSchema', matchIdSchema],
+    ['queueEntryIdSchema', queueEntryIdSchema],
     ['activityIdSchema', activityIdSchema],
   ])('%s accepts a valid uuid and rejects a bad one', (_name, schema) => {
     expect(schema.safeParse(uuid1).success).toBe(true)
@@ -133,6 +141,11 @@ describe('views', () => {
     expect(matchViewSchema.safeParse({ ...validMatchView, plannedDurationSec: -1 }).success).toBe(false)
   })
 
+  it('queueEntryViewSchema accepts a single-team entry and rejects position below 1', () => {
+    expect(queueEntryViewSchema.safeParse(validQueueEntry).success).toBe(true)
+    expect(queueEntryViewSchema.safeParse({ ...validQueueEntry, position: 0 }).success).toBe(false)
+  })
+
   it('fieldViewSchema accepts a valid field and rejects an unknown match status inside liveMatch', () => {
     expect(fieldViewSchema.safeParse(validFieldView).success).toBe(true)
     const badLiveMatch = { ...validMatchView, status: 'bogus' }
@@ -158,7 +171,7 @@ describe('snapshot', () => {
       status: 'active',
     },
     fields: [validFieldView],
-    queue: [validMatchView],
+    queue: [validQueueEntry],
     emittedAt: isoDateTime,
     serverNow: isoDateTime,
   }
@@ -174,18 +187,21 @@ describe('snapshot', () => {
 })
 
 describe('requests', () => {
-  it('quickAddMatchSchema accepts captains by id or by newName, rejects a plain number', () => {
-    expect(quickAddMatchSchema.safeParse({ captainA: uuid1, captainB: { newName: 'חדש' } }).success).toBe(true)
-    expect(quickAddMatchSchema.safeParse({ captainA: 5, captainB: uuid2 }).success).toBe(false)
+  it('addToLineSchema accepts a team by id or by newName, rejects a plain number', () => {
+    expect(addToLineSchema.safeParse({ team: uuid1 }).success).toBe(true)
+    expect(addToLineSchema.safeParse({ team: { newName: 'חדש' } }).success).toBe(true)
+    expect(addToLineSchema.safeParse({ team: 5 }).success).toBe(false)
   })
 
-  it('reorderQueueSchema accepts a non-empty id list, rejects an empty one', () => {
-    expect(reorderQueueSchema.safeParse({ matchIds: [uuid1, uuid2] }).success).toBe(true)
-    expect(reorderQueueSchema.safeParse({ matchIds: [] }).success).toBe(false)
+  it('reorderLineSchema accepts a non-empty entry-id list, rejects an empty one', () => {
+    expect(reorderLineSchema.safeParse({ entryIds: [uuid1, uuid2] }).success).toBe(true)
+    expect(reorderLineSchema.safeParse({ entryIds: [] }).success).toBe(false)
   })
 
-  it('startMatchSchema accepts an omitted fieldId, rejects a malformed one', () => {
+  it('startMatchSchema accepts empty (pair front two), an explicit entry pair, rejects a malformed field', () => {
     expect(startMatchSchema.safeParse({}).success).toBe(true)
+    expect(startMatchSchema.safeParse({ entryIds: [uuid1, uuid2] }).success).toBe(true)
+    expect(startMatchSchema.safeParse({ entryIds: [uuid1] }).success).toBe(false)
     expect(startMatchSchema.safeParse({ fieldId: 'not-a-uuid' }).success).toBe(false)
   })
 

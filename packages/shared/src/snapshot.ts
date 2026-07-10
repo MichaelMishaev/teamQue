@@ -5,7 +5,7 @@
 import { z } from 'zod'
 import { sessionIdSchema } from './ids.js'
 import { sessionStatusSchema } from './enums.js'
-import { fieldViewSchema, matchViewSchema } from './views.js'
+import { fieldViewSchema, queueEntryViewSchema } from './views.js'
 
 export const sessionSnapshotSchema = z.object({
   session: z.object({
@@ -16,7 +16,8 @@ export const sessionSnapshotSchema = z.object({
     status: sessionStatusSchema,
   }),
   fields: z.array(fieldViewSchema),
-  queue: z.array(matchViewSchema),
+  // The line of waiting teams — single-team entries, not matches.
+  queue: z.array(queueEntryViewSchema),
   emittedAt: z.iso.datetime(),
   serverNow: z.iso.datetime(),
 })

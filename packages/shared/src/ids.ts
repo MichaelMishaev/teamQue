@@ -9,6 +9,7 @@ export const captainIdSchema = z.uuid()
 export const sessionIdSchema = z.uuid()
 export const fieldIdSchema = z.uuid()
 export const matchIdSchema = z.uuid()
+export const queueEntryIdSchema = z.uuid()
 export const activityIdSchema = z.uuid()
 
 export type CenterId = z.infer<typeof centerIdSchema>
@@ -17,4 +18,5 @@ export type CaptainId = z.infer<typeof captainIdSchema>
 export type SessionId = z.infer<typeof sessionIdSchema>
 export type FieldId = z.infer<typeof fieldIdSchema>
 export type MatchId = z.infer<typeof matchIdSchema>
+export type QueueEntryId = z.infer<typeof queueEntryIdSchema>
 export type ActivityId = z.infer<typeof activityIdSchema>

@@ -2,23 +2,31 @@
  * API request body schemas (technical-prd §7).
  */
 import { z } from 'zod'
-import { captainIdSchema, fieldIdSchema, matchIdSchema, staffIdSchema } from './ids.js'
+import { captainIdSchema, fieldIdSchema, queueEntryIdSchema, staffIdSchema } from './ids.js'
 
-const captainRefSchema = z.union([captainIdSchema, z.object({ newName: z.string().min(1).max(60) })])
+export const captainRefSchema = z.union([captainIdSchema, z.object({ newName: z.string().min(1).max(60) })])
+export type CaptainRef = z.infer<typeof captainRefSchema>
 
-export const quickAddMatchSchema = z.object({
-  captainA: captainRefSchema,
-  captainB: captainRefSchema,
+/** Add ONE team to the line (line-manager model). Create inline if newName. */
+export const addToLineSchema = z.object({
+  team: captainRefSchema,
 })
-export type QuickAddMatchBody = z.infer<typeof quickAddMatchSchema>
+export type AddToLineBody = z.infer<typeof addToLineSchema>
 
-export const reorderQueueSchema = z.object({
-  matchIds: z.array(matchIdSchema).min(1),
+/** Reorder the line — a full permutation of the current queue-entry ids. */
+export const reorderLineSchema = z.object({
+  entryIds: z.array(queueEntryIdSchema).min(1),
 })
-export type ReorderQueueBody = z.infer<typeof reorderQueueSchema>
+export type ReorderLineBody = z.infer<typeof reorderLineSchema>
 
+/**
+ * Start a match on a field by pairing two teams from the line. Omit entryIds to
+ * pair the FRONT TWO of the line (the default kickoff); provide exactly two to
+ * pair specific teams. fieldId optional — inferred on the single-field MVP.
+ */
 export const startMatchSchema = z.object({
   fieldId: fieldIdSchema.optional(),
+  entryIds: z.tuple([queueEntryIdSchema, queueEntryIdSchema]).optional(),
 })
 export type StartMatchBody = z.infer<typeof startMatchSchema>
 

@@ -2,7 +2,7 @@
  * Read models carried by the session snapshot (technical-prd §5).
  */
 import { z } from 'zod'
-import { captainIdSchema, fieldIdSchema, matchIdSchema } from './ids.js'
+import { captainIdSchema, fieldIdSchema, matchIdSchema, queueEntryIdSchema } from './ids.js'
 import { matchStatusSchema } from './enums.js'
 
 export const captainViewSchema = z.object({
@@ -23,12 +23,29 @@ export const captainSearchResultSchema = captainViewSchema.extend({
 })
 export type CaptainSearchResult = z.infer<typeof captainSearchResultSchema>
 
+/**
+ * The LINE is a list of single teams waiting (line-manager model): one team per
+ * entry, position-ordered. Two teams pair into a match only at kickoff — a queue
+ * entry is never "A vs B". Carries the team's fairness stats inline (gamesToday /
+ * lastPlayedAt) so the manager sees them at a glance while managing the line.
+ */
+export const queueEntryViewSchema = z.object({
+  id: queueEntryIdSchema,
+  position: z.number().int().min(1),
+  team: captainViewSchema,
+})
+export type QueueEntryView = z.infer<typeof queueEntryViewSchema>
+
+/**
+ * A match = two teams playing on a field. Only ever live | paused | finished |
+ * cancelled — matches are created directly as live at kickoff, never queued
+ * (the queue holds single teams, not matches).
+ */
 export const matchViewSchema = z.object({
   id: matchIdSchema,
   captainA: captainViewSchema,
   captainB: captainViewSchema,
   status: matchStatusSchema,
-  queuePosition: z.number().int().min(1).nullable(),
   plannedDurationSec: z.number().int().positive(),
   startedAt: z.iso.datetime().nullable(),
   pausedAt: z.iso.datetime().nullable(),
