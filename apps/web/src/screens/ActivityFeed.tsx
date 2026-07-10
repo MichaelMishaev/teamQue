@@ -30,7 +30,14 @@ const MESSAGE_KEY: Record<ActivityAction, MessageKey> = {
 }
 
 function activityMessage(entry: ActivityEntry): string {
-  return t(MESSAGE_KEY[entry.action], { a: entry.captainA ?? '', b: entry.captainB ?? '', field: entry.fieldName ?? '' })
+  const base = t(MESSAGE_KEY[entry.action])
+  // Append the team/field detail only when it's available (demo mode and any
+  // enriched entry). Real-mode activity rows carry no team names, so they show
+  // the clean action label alone rather than a dangling ": נגד ()".
+  if (!entry.captainA) return base
+  const pair = entry.captainB ? `${entry.captainA} נגד ${entry.captainB}` : entry.captainA
+  const field = entry.fieldName ? ` (${entry.fieldName})` : ''
+  return `${base}: ${pair}${field}`
 }
 
 export function ActivityFeed() {
