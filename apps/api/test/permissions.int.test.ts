@@ -11,10 +11,11 @@ import { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 import { hash } from '@node-rs/argon2'
 import cookieParser from 'cookie-parser'
+import { and, asc, eq, inArray } from 'drizzle-orm'
 import request from 'supertest'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { AppModule } from '../src/app.module'
-import { captains, centers, sessions, staff } from '../src/db/schema'
+import { activityLog, captains, centers, fields, matches, queueEntries, sessions, staff } from '../src/db/schema'
 import { centerCookieHeader, makeTestJwtService, sessionCookieHeader } from './helpers/auth-cookies'
 import { startTestPg, type TestPg } from './helpers/pg'
 
@@ -28,7 +29,7 @@ const PERSONAS: Persona[] = ['anonymous', 'centerOnly', 'staff', 'manager']
 
 type Case = {
   route: string
-  method: 'get' | 'post' | 'patch'
+  method: 'get' | 'post' | 'patch' | 'delete'
   // A function, not a plain string, when the path embeds an id that only
   // exists after beforeAll seeds it (same reason bodyFor's entries are
   // functions below) — resolved lazily inside the `it()` callback.
@@ -36,8 +37,11 @@ type Case = {
   // Functions, not plain objects: the `cases` table is built once at
   // collection time (before beforeAll seeds the DB and assigns
   // staffId/managerId), so a body that needs those ids must be read
-  // lazily, inside the `it()` callback that runs after beforeAll.
-  bodyFor: Partial<Record<Persona, () => Record<string, unknown>>>
+  // lazily, inside the `it()` callback that runs after beforeAll. May be
+  // async — the line-domain reorder row reads the CURRENT line from the DB
+  // so its body is always a valid full permutation regardless of what
+  // earlier rows in the array did to it.
+  bodyFor: Partial<Record<Persona, () => Record<string, unknown> | Promise<Record<string, unknown>>>>
   expected: Record<Persona, number>
 }
 
@@ -48,7 +52,16 @@ describe('permission matrix (integration)', () => {
   let staffId: string
   let managerId: string
   let matrixCaptainId: string
+  let matrixCaptainId2: string
   let matrixSessionId: string
+  // Line-domain fixtures (line-manager model): queue entries seeded into
+  // matrixSessionId's line (the only session this center can have 'active'
+  // at once — see beforeAll), plus a separate pre-closed session+match for
+  // the match-lifecycle rows.
+  let matrixMoveEntryId: string
+  let matrixDeleteEntryId: string
+  let matrixMatchId: string
+  let matrixUndoActivityId: string
   let jwtService: ReturnType<typeof makeTestJwtService>
   let cookiesByPersona: Record<Persona, string[]>
 
@@ -95,6 +108,77 @@ describe('permission matrix (integration)', () => {
     if (!session) throw new Error('session insert returned no row')
     matrixSessionId = session.id
 
+    const [captain2] = await pg.db.insert(captains).values({ centerId, name: 'Matrix Captain 2' }).returning()
+    if (!captain2) throw new Error('captain insert returned no row')
+    matrixCaptainId2 = captain2.id
+
+    // Every line-domain fixture below reuses matrixSessionId — the center's
+    // `one_active_session` partial unique index means only ONE session for
+    // this center can be 'active' at a time, and matrixSessionId already
+    // holds that slot (needed by the PATCH/close rows above). A field is
+    // added so POST /sessions/:id/start has somewhere to kick off onto.
+    const [field] = await pg.db.insert(fields).values({ sessionId: matrixSessionId, centerId, name: 'מגרש', position: 0 }).returning()
+    if (!field) throw new Error('field insert returned no row')
+
+    async function seedMatrixEntry(captainId: string, position: number): Promise<string> {
+      const [row] = await pg.db
+        .insert(queueEntries)
+        .values({ sessionId: matrixSessionId, centerId, captainId, position, createdAt: new Date() })
+        .returning()
+      if (!row) throw new Error('queue entry insert returned no row')
+      return row.id
+    }
+
+    matrixMoveEntryId = await seedMatrixEntry(matrixCaptainId, 1)
+    matrixDeleteEntryId = await seedMatrixEntry(matrixCaptainId2, 2)
+    // Front-two candidates for POST /sessions/:id/start below — ids aren't
+    // referenced directly since that row omits entryIds (default: front two).
+    await seedMatrixEntry(matrixCaptainId, 3)
+    await seedMatrixEntry(matrixCaptainId2, 4)
+
+    // A pre-CLOSED session for the match-lifecycle rows: pause/resume/
+    // extend/finish don't check session status at all, and a closed
+    // session gives POST /matches/:id/replay a clean, symmetric 409
+    // SESSION_CLOSED for both staff and manager (it can't succeed twice on
+    // the same match anyway — replay doesn't consume the match, so a
+    // "real" active session would make BOTH calls 201, which is a fine
+    // outcome too, but this avoids needing a second simultaneously-active
+    // session, which the DB constraint above rules out).
+    const [matrixMatchSession] = await pg.db
+      .insert(sessions)
+      .values({ centerId, date: '2026-07-10', matchDurationSec: 300, status: 'closed', createdBy: managerId })
+      .returning()
+    if (!matrixMatchSession) throw new Error('session insert returned no row')
+    const [matrixMatchField] = await pg.db.insert(fields).values({ sessionId: matrixMatchSession.id, centerId, name: 'מגרש', position: 0 }).returning()
+    if (!matrixMatchField) throw new Error('field insert returned no row')
+    const [matchRow] = await pg.db
+      .insert(matches)
+      .values({
+        sessionId: matrixMatchSession.id,
+        centerId,
+        fieldId: matrixMatchField.id,
+        captainAId: matrixCaptainId,
+        captainBId: matrixCaptainId2,
+        status: 'live',
+        plannedDurationSec: 300,
+        startedAt: new Date(),
+      })
+      .returning()
+    if (!matchRow) throw new Error('match insert returned no row')
+    matrixMatchId = matchRow.id
+
+    // action 'session.opened' has no undo handler (UndoService only
+    // supports line.removed / line.reordered / match.finished) — a
+    // deterministic 409 UNDO_EXPIRED for BOTH staff and manager, which is
+    // exactly what this row needs to prove: the guard lets both through to
+    // the same business outcome, no role differentiation here.
+    const [activityRow] = await pg.db
+      .insert(activityLog)
+      .values({ centerId, sessionId: matrixSessionId, staffId: managerId, action: 'session.opened', entityType: 'session', entityId: matrixSessionId, createdAt: new Date() })
+      .returning()
+    if (!activityRow) throw new Error('activity insert returned no row')
+    matrixUndoActivityId = activityRow.id
+
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile()
     app = moduleRef.createNestApplication()
     app.use(cookieParser())
@@ -117,13 +201,19 @@ describe('permission matrix (integration)', () => {
 
   async function callAs(
     persona: Persona,
-    method: 'get' | 'post' | 'patch',
+    method: 'get' | 'post' | 'patch' | 'delete',
     path: string,
     body?: Record<string, unknown>,
   ): Promise<number> {
     const server = app.getHttpServer()
     let req =
-      method === 'get' ? request(server).get(path) : method === 'post' ? request(server).post(path) : request(server).patch(path)
+      method === 'get'
+        ? request(server).get(path)
+        : method === 'post'
+          ? request(server).post(path)
+          : method === 'patch'
+            ? request(server).patch(path)
+            : request(server).delete(path)
     const cookies = cookiesByPersona[persona]
     if (cookies.length > 0) req = req.set('Cookie', cookies)
     if (body !== undefined) req = req.send(body)
@@ -133,6 +223,11 @@ describe('permission matrix (integration)', () => {
 
   function resolvePath(path: Case['path']): string {
     return typeof path === 'function' ? path() : path
+  }
+
+  async function currentLineIds(): Promise<string[]> {
+    const rows = await pg.db.select({ id: queueEntries.id }).from(queueEntries).where(eq(queueEntries.sessionId, matrixSessionId)).orderBy(asc(queueEntries.position))
+    return rows.map((row) => row.id)
   }
 
   const cases: Case[] = [
@@ -258,28 +353,199 @@ describe('permission matrix (integration)', () => {
       },
       expected: { anonymous: 401, centerOnly: 401, staff: 403, manager: 200 },
     },
+    // --- Task: line-domain (line-manager model) — StaffSessionGuard only,
+    // no @Roles gate, so staff and manager are expected to reach the SAME
+    // service call. Where that call isn't idempotent (DELETE, kickoff,
+    // pause/resume/finish), staff runs first (PERSONAS order) and manager's
+    // identical follow-up call legitimately hits a business-state 409/404 —
+    // that still proves manager passed the guard, which is this matrix's
+    // only job (the real happy paths are covered by the dedicated
+    // line/matches/actions/reads int test files).
     {
-      // Declared last: this is the only destructive session row (closes
-      // matrixSessionId), and every case above needs it to still be active.
-      // manager -> 201, matching this codebase's POST default (see
-      // POST /auth/center, POST /auth/login) — no @HttpCode override here.
-      route: 'POST /sessions/:id/close',
+      route: 'POST /sessions/:id/line',
       method: 'post',
-      path: () => `/sessions/${matrixSessionId}/close`,
+      path: () => `/sessions/${matrixSessionId}/line`,
+      bodyFor: {
+        anonymous: () => ({}),
+        centerOnly: () => ({}),
+        staff: () => ({ team: { newName: 'Matrix Line Staff' } }),
+        manager: () => ({ team: { newName: 'Matrix Line Manager' } }),
+      },
+      expected: { anonymous: 401, centerOnly: 401, staff: 201, manager: 201 },
+    },
+    {
+      route: 'PATCH /sessions/:id/line',
+      method: 'patch',
+      path: () => `/sessions/${matrixSessionId}/line`,
+      // A no-op reorder built from whatever is CURRENTLY in matrixSessionId's
+      // line at call time (same set, same order) — always a valid full
+      // permutation regardless of what earlier rows (add/move/delete) did
+      // to it, and safe to call twice (staff, then manager).
+      bodyFor: {
+        anonymous: () => ({}),
+        centerOnly: () => ({}),
+        staff: async () => ({ entryIds: await currentLineIds() }),
+        manager: async () => ({ entryIds: await currentLineIds() }),
+      },
+      expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 200 },
+    },
+    {
+      route: 'POST /line/:entryId/move-top',
+      method: 'post',
+      path: () => `/line/${matrixMoveEntryId}/move-top`,
       bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
-      expected: { anonymous: 401, centerOnly: 401, staff: 403, manager: 201 },
+      expected: { anonymous: 401, centerOnly: 401, staff: 201, manager: 201 },
+    },
+    {
+      route: 'POST /line/:entryId/move-bottom',
+      method: 'post',
+      path: () => `/line/${matrixMoveEntryId}/move-bottom`,
+      bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
+      expected: { anonymous: 401, centerOnly: 401, staff: 201, manager: 201 },
+    },
+    {
+      // Not idempotent: staff's call actually deletes the row, so
+      // manager's identical follow-up legitimately 404s (already gone) —
+      // a real business response, not an auth block.
+      route: 'DELETE /line/:entryId',
+      method: 'delete',
+      path: () => `/line/${matrixDeleteEntryId}`,
+      bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
+      expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 404 },
+    },
+    {
+      // staff's call pairs the front two of matrixSessionId's line and
+      // occupies its field; manager's identical (front-two, unspecified)
+      // call still finds >=2 entries left but the field is now occupied.
+      route: 'POST /sessions/:id/start',
+      method: 'post',
+      path: () => `/sessions/${matrixSessionId}/start`,
+      bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
+      expected: { anonymous: 401, centerOnly: 401, staff: 201, manager: 409 },
+    },
+    {
+      route: 'POST /matches/:id/pause',
+      method: 'post',
+      path: () => `/matches/${matrixMatchId}/pause`,
+      bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
+      expected: { anonymous: 401, centerOnly: 401, staff: 201, manager: 409 },
+    },
+    {
+      route: 'POST /matches/:id/resume',
+      method: 'post',
+      path: () => `/matches/${matrixMatchId}/resume`,
+      bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
+      expected: { anonymous: 401, centerOnly: 401, staff: 201, manager: 409 },
+    },
+    {
+      route: 'POST /matches/:id/extend',
+      method: 'post',
+      path: () => `/matches/${matrixMatchId}/extend`,
+      bodyFor: {
+        anonymous: () => ({}),
+        centerOnly: () => ({}),
+        staff: () => ({ addSec: 30 }),
+        manager: () => ({ addSec: 30 }),
+      },
+      expected: { anonymous: 401, centerOnly: 401, staff: 201, manager: 201 },
+    },
+    {
+      route: 'POST /matches/:id/finish',
+      method: 'post',
+      path: () => `/matches/${matrixMatchId}/finish`,
+      bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
+      expected: { anonymous: 401, centerOnly: 401, staff: 201, manager: 409 },
+    },
+    {
+      // matrixMatchId's session is pre-closed (see beforeAll) — replay
+      // checks the session is active, so BOTH calls hit the same 409
+      // SESSION_CLOSED. Proves the guard passes both through; the real
+      // active-session replay path is covered by matches.int.test.ts.
+      route: 'POST /matches/:id/replay',
+      method: 'post',
+      path: () => `/matches/${matrixMatchId}/replay`,
+      bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
+      expected: { anonymous: 401, centerOnly: 401, staff: 409, manager: 409 },
+    },
+    {
+      route: 'POST /actions/:activityId/undo',
+      method: 'post',
+      path: () => `/actions/${matrixUndoActivityId}/undo`,
+      bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
+      expected: { anonymous: 401, centerOnly: 401, staff: 409, manager: 409 },
+    },
+    {
+      route: 'GET /activity',
+      method: 'get',
+      path: () => `/activity?sessionId=${matrixSessionId}`,
+      bodyFor: {},
+      expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 200 },
+    },
+    {
+      route: 'GET /sessions',
+      method: 'get',
+      path: '/sessions',
+      bodyFor: {},
+      expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 200 },
+    },
+    {
+      route: 'GET /sessions/:id/history',
+      method: 'get',
+      path: () => `/sessions/${matrixSessionId}/history`,
+      bodyFor: {},
+      expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 200 },
+    },
+    {
+      route: 'GET /sessions/:id/summary',
+      method: 'get',
+      path: () => `/sessions/${matrixSessionId}/summary`,
+      bodyFor: {},
+      expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 200 },
     },
   ]
+
+  // Declared last, outside `cases`: this is the only destructive session
+  // row (closes matrixSessionId), and every case above needs it to still be
+  // active. manager -> 201, matching this codebase's POST default (see
+  // POST /auth/center, POST /auth/login) — no @HttpCode override here.
+  // Split out from `cases` (rather than just appended) because it needs a
+  // real cleanup step first: POST /sessions/:id/start above left a live
+  // match on matrixSessionId's field, which would otherwise block the
+  // close with SESSION_HAS_LIVE_MATCH.
+  const closeCase: Case = {
+    route: 'POST /sessions/:id/close',
+    method: 'post',
+    path: () => `/sessions/${matrixSessionId}/close`,
+    bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
+    expected: { anonymous: 401, centerOnly: 401, staff: 403, manager: 201 },
+  }
 
   for (const testCase of cases) {
     describe(testCase.route, () => {
       for (const persona of PERSONAS) {
         it(`${persona} -> ${testCase.expected[persona]}`, async () => {
-          const body = testCase.bodyFor[persona]?.()
+          const body = await testCase.bodyFor[persona]?.()
           const status = await callAs(persona, testCase.method, resolvePath(testCase.path), body)
           expect(status).toBe(testCase.expected[persona])
         })
       }
     })
   }
+
+  it('cleanup: finishes the live match POST /sessions/:id/start created on matrixSessionId, so close can succeed', async () => {
+    await pg.db
+      .update(matches)
+      .set({ status: 'finished', endedAt: new Date(), endReason: 'manual' })
+      .where(and(eq(matches.sessionId, matrixSessionId), inArray(matches.status, ['live', 'paused'])))
+  })
+
+  describe(closeCase.route, () => {
+    for (const persona of PERSONAS) {
+      it(`${persona} -> ${closeCase.expected[persona]}`, async () => {
+        const body = await closeCase.bodyFor[persona]?.()
+        const status = await callAs(persona, closeCase.method, resolvePath(closeCase.path), body)
+        expect(status).toBe(closeCase.expected[persona])
+      })
+    }
+  })
 })
