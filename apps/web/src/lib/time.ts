@@ -2,8 +2,10 @@
  * Timer math — pure functions over server snapshot fields (technical-prd §4).
  * Timers are computed, never ticked: the server owns endsAt; clients render.
  */
+import type { MatchStatus } from 'shared'
 
-export type MatchStatus = 'live' | 'paused'
+/** The subset of MatchStatus a running/paused timer can be in. */
+export type RunningStatus = Extract<MatchStatus, 'live' | 'paused'>
 export type TimerState = 'live' | 'paused' | 'ending' | 'finishing'
 
 /** Seconds under which a live match renders as "ending" (red). */
@@ -29,7 +31,7 @@ export function remainingSeconds(endsAtMs: number, nowMs: number): number {
  * Visual timer state (design.md §1 state language). "ending" and "finishing"
  * are derived, not stored — the server only knows live/paused.
  */
-export function timerState(status: MatchStatus, secondsLeft: number): TimerState {
+export function timerState(status: RunningStatus, secondsLeft: number): TimerState {
   if (status === 'paused') return 'paused'
   if (secondsLeft <= 0) return 'finishing'
   if (secondsLeft <= ENDING_THRESHOLD_SEC) return 'ending'

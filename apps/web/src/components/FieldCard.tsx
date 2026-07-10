@@ -1,6 +1,6 @@
 import { t } from '@/i18n'
 import { cn } from '@/lib/cn'
-import { timerState, type MatchStatus, type TimerState } from '@/lib/time'
+import { timerState, type RunningStatus, type TimerState } from '@/lib/time'
 import { Badge, type BadgeState } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CountdownTimer } from '@/components/CountdownTimer'
@@ -18,7 +18,7 @@ interface FreeProps {
 }
 
 interface ActiveProps {
-  status: MatchStatus
+  status: RunningStatus
   fieldName: string
   captainA: string
   captainB: string
