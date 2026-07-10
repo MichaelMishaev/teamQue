@@ -5,15 +5,18 @@
  * inside its own transaction after calling lockSessionLine (common/session-lock.ts).
  */
 import { and, asc, eq } from 'drizzle-orm'
-import type { Transaction } from '../db/db.module'
+import type { Database, Transaction } from '../db/db.module'
 import { queueEntries } from '../db/schema'
 
 export type QueueEntryRow = typeof queueEntries.$inferSelect
 
-/** The session's line, position-ordered. Caller must hold the session's
- * advisory lock first for any read-then-write sequence to be race-free. */
-export async function listLine(tx: Transaction, sessionId: string): Promise<QueueEntryRow[]> {
-  return tx.select().from(queueEntries).where(eq(queueEntries.sessionId, sessionId)).orderBy(asc(queueEntries.position))
+/** The session's line, position-ordered. A plain read, so callers that
+ * only need to display the line (e.g. SnapshotService) may pass the plain
+ * Database; callers doing read-then-write must hold the session's advisory
+ * lock first (and therefore always pass a Transaction) for the sequence to
+ * be race-free. */
+export async function listLine(db: Database | Transaction, sessionId: string): Promise<QueueEntryRow[]> {
+  return db.select().from(queueEntries).where(eq(queueEntries.sessionId, sessionId)).orderBy(asc(queueEntries.position))
 }
 
 /** Sets positions to 1..n following `orderedIds` exactly. Every id must

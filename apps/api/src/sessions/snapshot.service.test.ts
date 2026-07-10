@@ -1,8 +1,11 @@
 /**
  * Unit test (mock db): SnapshotService shapes raw session/field rows into
- * the exact sessionSnapshotSchema contract (technical-prd §5). Matches/queue
- * are always empty here — Task 3b wires them in; this test locks the seed
- * shape so that extension can't silently break session/fields shaping.
+ * the exact sessionSnapshotSchema contract (technical-prd §5), covering the
+ * empty-queue/no-live-match path with a hand-rolled query-chain mock. The
+ * populated case (real queue entries, a real live match) needs real
+ * aggregate SQL (leftJoin/groupBy/inArray) that this mock can't faithfully
+ * fake — that path is covered by test/sessions.int.test.ts's
+ * GET /sessions/active scenarios against a real Postgres.
  */
 import { sessionSnapshotSchema } from 'shared'
 import { describe, expect, it, vi } from 'vitest'
@@ -50,7 +53,16 @@ describe('SnapshotService.buildActiveSnapshot', () => {
     }
     const fieldRows = [{ id: fieldId, sessionId, centerId, name: 'מגרש ראשי', position: 0 }]
 
-    const select = vi.fn().mockReturnValueOnce(chain([sessionRow])).mockReturnValueOnce(chain(fieldRows))
+    // Call order: session, fields (both in buildActiveSnapshot), then
+    // Promise.all([buildQueue, buildLiveMatchesByFieldId]) — buildQueue's
+    // listLine() runs first (empty queue -> no further queries), then
+    // buildLiveMatchesByFieldId's live-match lookup (empty -> no match).
+    const select = vi
+      .fn()
+      .mockReturnValueOnce(chain([sessionRow]))
+      .mockReturnValueOnce(chain(fieldRows))
+      .mockReturnValueOnce(chain([]))
+      .mockReturnValueOnce(chain([]))
     const db = { select } as unknown as Database
     const service = new SnapshotService(db)
 
@@ -66,6 +78,6 @@ describe('SnapshotService.buildActiveSnapshot', () => {
     })
     expect(snapshot.fields).toEqual([{ id: fieldId, name: 'מגרש ראשי', position: 0, liveMatch: null }])
     expect(snapshot.queue).toEqual([])
-    expect(select).toHaveBeenCalledTimes(2)
+    expect(select).toHaveBeenCalledTimes(4)
   })
 })

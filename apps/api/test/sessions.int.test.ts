@@ -396,6 +396,33 @@ describe('sessions (integration)', () => {
       expect(res.body.queue).toEqual([])
     })
 
+    it('reflects a populated line (position-ordered) and a live match on its field', async () => {
+      const { centerId, managerCookies, staffCookies } = await seedCenter()
+      const opened = await request(app.getHttpServer()).post('/sessions').set('Cookie', managerCookies).send({ matchDurationSec: 300 })
+      const sessionId = opened.body.id as string
+      const [field] = await pg.db.select().from(fields).where(eq(fields.sessionId, sessionId))
+      if (!field) throw new Error('field not found')
+
+      const [waiting] = await pg.db.insert(captains).values({ centerId, name: 'ממתין' }).returning()
+      if (!waiting) throw new Error('captain insert returned no row')
+      await pg.db.insert(queueEntries).values({ sessionId, centerId, captainId: waiting.id, position: 1, createdAt: new Date() })
+
+      const [captainA, captainB] = await seedCaptainPair(centerId)
+      const [liveMatch] = await pg.db
+        .insert(matches)
+        .values({ sessionId, centerId, fieldId: field.id, captainAId: captainA, captainBId: captainB, status: 'live', plannedDurationSec: 300, startedAt: new Date() })
+        .returning()
+      if (!liveMatch) throw new Error('match insert returned no row')
+
+      const res = await request(app.getHttpServer()).get('/sessions/active').set('Cookie', staffCookies)
+
+      expect(res.status).toBe(200)
+      expect(sessionSnapshotSchema.safeParse(res.body).success).toBe(true)
+      expect(res.body.queue).toEqual([{ id: expect.any(String), position: 1, team: expect.objectContaining({ id: waiting.id, name: 'ממתין' }) }])
+      expect(res.body.fields[0].liveMatch).toMatchObject({ id: liveMatch.id, status: 'live' })
+      expect([res.body.fields[0].liveMatch.captainA.id, res.body.fields[0].liveMatch.captainB.id].sort()).toEqual([captainA, captainB].sort())
+    })
+
     it('no active session -> 404 NOT_FOUND', async () => {
       const { staffCookies } = await seedCenter()
 
