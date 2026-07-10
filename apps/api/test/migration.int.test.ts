@@ -20,7 +20,7 @@ describe('migrations (integration)', () => {
     await pg.stop()
   })
 
-  it('creates all 7 tables from the schema', async () => {
+  it('creates all 8 tables from the schema', async () => {
     const result = await pg.db.execute<{ table_name: string }>(sql`
       SELECT table_name FROM information_schema.tables
       WHERE table_schema = 'public'
@@ -29,7 +29,7 @@ describe('migrations (integration)', () => {
     const names = result.rows.map((row) => row.table_name)
 
     expect(names).toEqual(
-      ['activity_log', 'captains', 'centers', 'fields', 'matches', 'sessions', 'staff'].sort(),
+      ['activity_log', 'captains', 'centers', 'fields', 'matches', 'queue_entries', 'sessions', 'staff'].sort(),
     )
   })
 

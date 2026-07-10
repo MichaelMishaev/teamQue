@@ -136,6 +136,31 @@ export const matches = pgTable(
   ],
 )
 
+/**
+ * The line: single-team entries waiting for a field (line-manager model,
+ * technical-prd refactor). A row is ONE team, never "A vs B" — two entries
+ * pair into a `matches` row only at kickoff (POST /sessions/:id/start),
+ * which deletes both rows here. `position` is renumbered 1..n on every
+ * line mutation; see queue/line.service.ts for the per-session advisory
+ * lock that keeps renumbering race-free.
+ */
+export const queueEntries = pgTable(
+  'queue_entries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sessionId: uuid('session_id')
+      .notNull()
+      .references(() => sessions.id),
+    centerId: uuid('center_id').notNull(),
+    captainId: uuid('captain_id')
+      .notNull()
+      .references(() => captains.id),
+    position: integer('position').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  },
+  (table) => [index('queue_entries_session_position_idx').on(table.sessionId, table.position)],
+)
+
 export const activityLog = pgTable('activity_log', {
   id: uuid('id').primaryKey().defaultRandom(),
   centerId: uuid('center_id').notNull(),
