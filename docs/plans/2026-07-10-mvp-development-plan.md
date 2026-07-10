@@ -38,16 +38,17 @@ Gate results are recorded by checking the boxes in THIS file + a one-line date/i
 **Why:** the project is not even a git repository yet; nothing else is safely checkable.
 
 Tasks:
-- [ ] `git init`, initial commit of current state (respect smart-commit rules: explicit paths, no `git add .`)
-- [ ] GitHub repo + trunk-based `main` (R-27)
-- [ ] CI workflow: `pnpm install → typecheck → test → build` on every push; all gates required (R-38)
-- [ ] `packages/shared` skeleton (empty zod barrel) so the workspace shape is final
+- [x] `git init`, initial commit of current state (respect smart-commit rules: explicit paths, no `git add .`)
+- [x] GitHub repo + trunk-based `main` (R-27) — https://github.com/MichaelMishaev/queuLineManager (private)
+- [x] CI workflow: `pnpm install → typecheck → test → build` on every push; all gates required (R-38)
+- [x] `packages/shared` skeleton (empty zod barrel) so the workspace shape is final
 
 ### 🛑 QA GATE 0
-- [ ] `auto` — CI green on `main` for typecheck + 22 existing tests + web build
-- [ ] `auto` — `git log --oneline` shows conventional commits only
-- [ ] `manual` — clean clone on a second directory: `pnpm install && pnpm test && pnpm build` all pass
-- Gate closed: ____ (date/initials)
+- [x] `auto` — CI green on `main` for typecheck + 22 existing tests + web build (run 29088702420, 30s)
+- [x] `auto` — `git log --oneline` shows conventional commits only (feat/fix/docs)
+- [x] `manual` — clean clone on a second directory: `pnpm install && pnpm test && pnpm build` all pass
+  - Gate caught a real bug: clean-clone typecheck failed — `@types/node` was implicit via hoisting. Fixed in `babaf77`.
+- Gate closed: 2026-07-10 (Claude + CI evidence)
 
 ---
 
@@ -240,8 +241,8 @@ Tasks:
 | Phase | Scope | Status |
 |---|---|---|
 | W0 | Design system, tokens, 11 shared components, 22 tests, showcase | ✅ done 2026-07-10 (evidence: tests green, build 83KB gzip, phone-size render verified) |
-| 0 | git + CI baseline | ⬜ next |
-| 1 | shared contracts | ⬜ |
+| 0 | git + CI baseline | ✅ done 2026-07-10 (commits c5f0ac7..d411569, CI run 29088702420 green, clean-clone verified) |
+| 1 | shared contracts | ⬜ next |
 | 2 | API foundation + auth | ⬜ |
 | 3 | API domain | ⬜ |
 | 4 | realtime | ⬜ |
