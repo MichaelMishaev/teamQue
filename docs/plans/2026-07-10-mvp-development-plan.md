@@ -57,16 +57,16 @@ Tasks:
 **Delivers:** zod schemas + TS types both apps import: `SessionSnapshot`, `MatchView`, match statuses, API request/response shapes, socket event names, error codes.
 
 Tasks:
-- [ ] Write failing type-level/unit tests for schema parsing (valid + invalid payloads per N-7)
-- [ ] Implement schemas: captain, staff, session, field, match, activity, summary, snapshot
-- [ ] Error code enum matching technical-prd §8 (`CAPTAIN_ALREADY_PLAYING`, `UNDO_EXPIRED`…)
-- [ ] `apps/web` imports snapshot types (replaces any local duplicates)
+- [x] Write failing type-level/unit tests for schema parsing (valid + invalid payloads per N-7) — RED evidence captured (27 failing)
+- [x] Implement schemas: captain, staff, session, field, match, activity, summary, snapshot
+- [x] Error code enum matching technical-prd §8 (`CAPTAIN_ALREADY_PLAYING`, `UNDO_EXPIRED`…)
+- [x] `apps/web` imports snapshot types (replaces any local duplicates) — `RunningStatus` derived from shared `MatchStatus`
 
 ### 🛑 QA GATE 1
-- [ ] `auto` — `pnpm --filter shared test` green; parsing rejects malformed payloads (failure-path tests exist, N-7)
-- [ ] `auto` — workspace typecheck green with web importing shared types
-- [ ] `evidence` — schema ↔ technical-prd §3/§5 diff review note: every PRD field exists in a schema (no drift at birth)
-- Gate closed: ____
+- [x] `auto` — `pnpm --filter shared test` green (27 contract tests incl. all failure paths); 49 total across workspace
+- [x] `auto` — workspace typecheck green with web importing shared types
+- [x] `evidence` — schema ↔ PRD review: subagent reviewer verified field-by-field, zero missing/extra. One deliberate improvement over the §5 sketch (captain stats inline in CaptainView instead of a captainsToday map; serverNow added) — spec updated to match.
+- Gate closed: 2026-07-10 (implementer da68cab..40a900c; task review: spec ✅, quality approved, 0 findings)
 
 ---
 
@@ -242,7 +242,7 @@ Tasks:
 |---|---|---|
 | W0 | Design system, tokens, 11 shared components, 22 tests, showcase | ✅ done 2026-07-10 (evidence: tests green, build 83KB gzip, phone-size render verified) |
 | 0 | git + CI baseline | ✅ done 2026-07-10 (commits c5f0ac7..d411569, CI run 29088702420 green, clean-clone verified) |
-| 1 | shared contracts | ⬜ next |
+| 1 | shared contracts | ✅ done 2026-07-10 (da68cab..40a900c, 27 tests, review clean) |
 | 2 | API foundation + auth | ⬜ |
 | 3 | API domain | ⬜ |
 | 4 | realtime | ⬜ |

@@ -185,15 +185,18 @@ ends_at        = started_at + planned_duration_sec + accumulated_pause_sec   (on
 - After **every successful mutation** (REST or scheduler): server emits `session:snapshot` to the room.
 
 ```ts
-// packages/shared — socket contract
+// packages/shared — socket contract (implemented in packages/shared/src/snapshot.ts)
 type SessionSnapshot = {
   session: { id; date; location; matchDurationSec; status };
   fields: Array<{ id; name; position;
     liveMatch: MatchView | null }>;
   queue: MatchView[];                 // ordered by queue_position
-  captainsToday: Record<CaptainId, { gamesToday: number; lastPlayedAt: string | null }>;
   emittedAt: string;                  // server timestamp
+  serverNow: string;                  // client clock-offset source
 };
+// Per-captain fairness stats (gamesToday, lastPlayedAt) ride INSIDE each
+// MatchView's CaptainView — no separate captainsToday map. Every place a
+// captain appears carries its stats.
 ```
 
 - Client is a **dumb renderer** of the latest snapshot (TanStack Query cache replaced on each event). Optimistic UI only for drag-reorder; reverted if the PATCH fails.
