@@ -75,20 +75,21 @@ Tasks:
 **Delivers:** NestJS app boots against Railway-compatible Postgres; migrations; center-PIN device unlock; staff-PIN login; guards; rate limiting.
 
 Tasks:
-- [ ] NestJS 11 scaffold + Pino + config + `/health` (checks DB)
-- [ ] Drizzle schema per technical-prd §3 **including partial unique indexes** (`one_active_session`, `one_live_match_per_field`); first migration
-- [ ] Migration runs on empty DB in CI before tests (R-36)
-- [ ] Auth module TDD: center PIN → 90d cookie; staff PIN → 12h JWT cookie; argon2id; progressive lockout; throttler (R-25)
-- [ ] Guards: `CenterGuard` → `StaffSessionGuard` → `RolesGuard`, fail closed (R-16) + permission-matrix test skeleton (R-13)
-- [ ] Seed script: one center, 3 staff (dev PINs)
+- [x] NestJS 11 scaffold + Pino + config + `/health` (checks DB)
+- [x] Drizzle schema per technical-prd §3 **including partial unique indexes** (`one_active_session`, `one_live_match_per_field`); first migration
+- [x] Migration runs on empty DB in CI before tests (R-36) — Testcontainers per run
+- [x] Auth module TDD: center PIN → 90d cookie; staff PIN → 12h JWT cookie; argon2id; progressive lockout; throttler (R-25)
+- [x] Guards: `CenterGuard` → `StaffSessionGuard` → `RolesGuard`, fail closed (R-16) + permission-matrix test skeleton (R-13)
+- [x] Seed script: one center, 3 staff (dev PINs)
+- [x] BONUS (review-driven): compiled prod boot fixed (shared dist + DI metadata bug), pg pool drained on SIGTERM, **atomic lockout counter** (race found by review — 8 parallel failures collapsed to 1 before fix)
 
 ### 🛑 QA GATE 2
-- [ ] `auto` — integration suite (Testcontainers): unlock/login/lockout/expiry — happy + failure paths
-- [ ] `auto` — permission matrix test: every existing endpoint × {manager, staff, anonymous} asserts allow/deny
-- [ ] `auto` — 6 wrong PINs → 429/lockout with countdown; correct PIN during lockout still rejected
-- [ ] `manual` — curl checklist in phase notes: unlock, login, `GET /auth/me`, logout
-- [ ] `evidence` — auth module coverage ≥90% (R-15)
-- Gate closed: ____
+- [x] `auto` — integration suite (Testcontainers): unlock/login/lockout/expiry — happy + failure paths (14 auth int tests + N=8 race test, 5× stable)
+- [x] `auto` — permission matrix test: 5 routes × 4 personas = 20 cases (R-13)
+- [x] `auto` — 6 wrong PINs → lockout w/ retryAfterSec; correct PIN during lockout still 423; throttler 429 on center PIN
+- [x] `manual` — curl pass against seeded data (tsx + compiled dist/main.js), incl. /health, unlock, login, me — in task-p2b report
+- [x] `evidence` — auth coverage 98.92% lines (target ≥90%)
+- Gate closed: 2026-07-10 (2 review rounds: 1 Critical race + 1 Critical DI-bootstrap found & fixed; 160 workspace tests green)
 
 ---
 
@@ -243,7 +244,8 @@ Tasks:
 | W0 | Design system, tokens, 11 shared components, 22 tests, showcase | ✅ done 2026-07-10 (evidence: tests green, build 83KB gzip, phone-size render verified) |
 | 0 | git + CI baseline | ✅ done 2026-07-10 (commits c5f0ac7..d411569, CI run 29088702420 green, clean-clone verified) |
 | 1 | shared contracts | ✅ done 2026-07-10 (da68cab..40a900c, 27 tests, review clean) |
-| 2 | API foundation + auth | ⬜ |
+| 2 | API foundation + auth | ✅ done 2026-07-10 (11478bd..fa75699, 74 api tests, auth cov 98.92%, 2 Criticals caught by review) |
+| 5a | web foundations (early start) | ✅ merged 2026-07-10 (581c699..9ee5315, 37 new web tests — api client, clock offset, countdown, socket, auth screens) |
 | 3 | API domain | ⬜ |
 | 4 | realtime | ⬜ |
 | 5 | web shell + auth | ⬜ |
