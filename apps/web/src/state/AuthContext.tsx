@@ -5,8 +5,8 @@ import type { StaffRole } from 'shared'
  * Single responsibility: exposes the signed-in staff member's identity/role
  * to screens gated on it (SettingsScreen = manager-only, SwitchUser, staff
  * attribution). Mounted by AppGate once `phase === 'authed'` — the role
- * itself comes from whoever drives AppGate (mock in demo mode; a future
- * `/auth/me` response shape in real mode, TODO once that endpoint returns it).
+ * itself comes from whoever drives AppGate (mock in demo mode; the
+ * GET /auth/me response in real mode).
  */
 
 export interface CurrentStaff {
@@ -21,7 +21,7 @@ export function AuthProvider({ currentStaff, children }: { currentStaff: Current
   return <AuthContext.Provider value={currentStaff}>{children}</AuthContext.Provider>
 }
 
-/** Null in real mode until `/auth/me` carries staff identity (later task). */
+/** Non-null once AppGate resolves GET /auth/me; null only in the error state. */
 export function useCurrentStaff(): CurrentStaff | null {
   const value = useContext(AuthContext)
   if (value === undefined) throw new Error('useCurrentStaff must be used within AuthProvider')

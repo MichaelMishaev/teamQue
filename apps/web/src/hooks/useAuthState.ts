@@ -3,17 +3,13 @@ import { apiGet } from '@/lib/api'
 import type { CurrentStaff } from '@/state/AuthContext'
 
 /**
- * Auth phases driving AppGate (client-prd §3.4): GET /auth/me on mount picks
- * the starting phase and, on success, seeds `currentStaff` from its
- * `staff` field. Per spec, ANY failure (not just 401) restarts the flow
- * at CenterUnlock — MVP intentionally doesn't distinguish "no center cookie"
- * from "expired staff session" (see AppGate.tsx TODO/concern).
- *
- * `onLoggedIn` takes the staff StaffLogin just authenticated as — the only
- * other place `currentStaff` can come from — so AppGate always has an
- * identity by the time it renders `children`.
+ * Resolves the current identity for AppGate. GET /auth/me now always returns a
+ * real identity — the API falls back to the seeded center + its manager when no
+ * cookies are present (auth is open, no PIN gate), or to a real staff member if
+ * a session cookie exists from SwitchUser. `error` covers only the pathological
+ * cases where /auth/me itself can't resolve (network failure, empty database).
  */
-export type AuthPhase = 'loading' | 'needs-center' | 'needs-login' | 'authed'
+export type AuthPhase = 'loading' | 'authed' | 'error'
 
 interface AuthMeResponse {
   staff: CurrentStaff
@@ -23,8 +19,6 @@ interface AuthMeResponse {
 export interface UseAuthStateResult {
   phase: AuthPhase
   currentStaff: CurrentStaff | null
-  onCenterUnlocked: () => void
-  onLoggedIn: (staff: CurrentStaff) => void
 }
 
 export function useAuthState(): UseAuthStateResult {
@@ -40,20 +34,12 @@ export function useAuthState(): UseAuthStateResult {
         setPhase('authed')
       })
       .catch(() => {
-        if (!cancelled) setPhase('needs-center')
+        if (!cancelled) setPhase('error')
       })
     return () => {
       cancelled = true
     }
   }, [])
 
-  return {
-    phase,
-    currentStaff,
-    onCenterUnlocked: () => setPhase('needs-login'),
-    onLoggedIn: (staff: CurrentStaff) => {
-      setCurrentStaff(staff)
-      setPhase('authed')
-    },
-  }
+  return { phase, currentStaff }
 }

@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from '@testing-library/react'
+import { renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiGet, ApiRequestError } from '@/lib/api'
 import { useAuthState } from './useAuthState'
@@ -29,22 +29,10 @@ describe('useAuthState', () => {
     expect(result.current.currentStaff).toEqual({ id: 's1', name: 'שרה', role: 'manager' })
   })
 
-  it('moves to needs-center on a 401 from GET /auth/me', async () => {
-    vi.mocked(apiGet).mockRejectedValue(new ApiRequestError('UNAUTHORIZED', 'no cookie'))
+  it('moves to error when GET /auth/me fails (e.g. network error)', async () => {
+    vi.mocked(apiGet).mockRejectedValue(new ApiRequestError('VALIDATION_FAILED', 'Network request failed'))
     const { result } = renderHook(() => useAuthState())
-    await waitFor(() => expect(result.current.phase).toBe('needs-center'))
-  })
-
-  it('onCenterUnlocked moves to needs-login, onLoggedIn moves to authed and sets currentStaff', async () => {
-    vi.mocked(apiGet).mockRejectedValue(new ApiRequestError('UNAUTHORIZED', 'no cookie'))
-    const { result } = renderHook(() => useAuthState())
-    await waitFor(() => expect(result.current.phase).toBe('needs-center'))
-
-    act(() => result.current.onCenterUnlocked())
-    expect(result.current.phase).toBe('needs-login')
-
-    act(() => result.current.onLoggedIn({ id: 's2', name: 'משה', role: 'staff' }))
-    expect(result.current.phase).toBe('authed')
-    expect(result.current.currentStaff).toEqual({ id: 's2', name: 'משה', role: 'staff' })
+    await waitFor(() => expect(result.current.phase).toBe('error'))
+    expect(result.current.currentStaff).toBeNull()
   })
 })

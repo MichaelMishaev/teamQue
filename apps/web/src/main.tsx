@@ -10,14 +10,12 @@ const root = document.getElementById('root')
 if (!root) throw new Error('missing #root element')
 
 /**
- * VITE_DEMO=1 mounts the mock-backed providers directly (no backend to
- * authenticate against — the app starts already "signed in", switchable via
- * SwitchUser). Otherwise AppGate drives the real center-PIN → staff-PIN flow
- * first; RealProviders is passed as its `children`, so it (and the
- * GET /sessions/active + /staff + socket calls its effects make) only mounts
- * once `phase === 'authed'` — i.e. once the cookies StaffSessionGuard
- * requires actually exist. Mounting it the other way around (wrapping
- * AppGate) would fire those calls before login and leave them 401'd forever.
+ * VITE_DEMO=1 mounts the mock-backed providers directly (mock data, switchable
+ * via SwitchUser). Otherwise AppGate resolves the current identity via
+ * GET /auth/me first (auth is open — no PIN gate); RealProviders is passed as
+ * its `children`, so it (and the GET /sessions/active + /staff + socket calls
+ * its effects make) only mounts once `phase === 'authed'`, i.e. once AppGate
+ * has an identity to seed AuthContext with.
  */
 const isDemo = import.meta.env.VITE_DEMO === '1'
 
