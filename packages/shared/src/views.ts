@@ -2,8 +2,8 @@
  * Read models carried by the session snapshot (technical-prd §5).
  */
 import { z } from 'zod'
-import { captainIdSchema, fieldIdSchema, matchIdSchema } from './ids'
-import { matchStatusSchema } from './enums'
+import { captainIdSchema, fieldIdSchema, matchIdSchema } from './ids.js'
+import { matchStatusSchema } from './enums.js'
 
 export const captainViewSchema = z.object({
   id: captainIdSchema,

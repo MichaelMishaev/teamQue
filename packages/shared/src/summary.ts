@@ -2,7 +2,7 @@
  * End-of-session report shape (technical-prd §7, GET /sessions/:id/summary).
  */
 import { z } from 'zod'
-import { captainIdSchema } from './ids'
+import { captainIdSchema } from './ids.js'
 
 export const sessionSummarySchema = z.object({
   totalMatches: z.number().int().min(0),

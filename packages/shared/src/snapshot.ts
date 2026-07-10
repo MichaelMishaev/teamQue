@@ -3,9 +3,9 @@
  * The client is a dumb renderer of the latest snapshot.
  */
 import { z } from 'zod'
-import { sessionIdSchema } from './ids'
-import { sessionStatusSchema } from './enums'
-import { fieldViewSchema, matchViewSchema } from './views'
+import { sessionIdSchema } from './ids.js'
+import { sessionStatusSchema } from './enums.js'
+import { fieldViewSchema, matchViewSchema } from './views.js'
 
 export const sessionSnapshotSchema = z.object({
   session: z.object({

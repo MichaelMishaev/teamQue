@@ -2,7 +2,7 @@
  * API request body schemas (technical-prd §7).
  */
 import { z } from 'zod'
-import { captainIdSchema, fieldIdSchema, matchIdSchema, staffIdSchema } from './ids'
+import { captainIdSchema, fieldIdSchema, matchIdSchema, staffIdSchema } from './ids.js'
 
 const captainRefSchema = z.union([captainIdSchema, z.object({ newName: z.string().min(1).max(60) })])
 
