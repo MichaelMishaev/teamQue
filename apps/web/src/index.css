@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+/*
+ * Token architecture: primitives → semantic → component (see /design.md).
+ * Single committed dark theme — outdoor evening use (client-prd §2).
+ */
+
+/* ── Layer 1: primitives (raw values, never used by components) ── */
+:root {
+  --green-950: #06130b;
+  --green-900: #0b100d;
+  --green-850: #141c16;
+  --green-800: #1c2620;
+  --green-700: #28352c;
+  --green-500: #1e5c38;
+  --green-300: #3be081;
+  --gray-300: #90a697;
+  --gray-100: #eaf2ec;
+  --amber-400: #f2b94f;
+  --red-400: #f0584c;
+
+  --space-unit: 4px;
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --duration-fast: 150ms;
+  --duration-slow: 200ms;
+}
+
+/* ── Layer 2: semantic tokens (what things mean) — exposed as Tailwind utilities ── */
+@theme inline {
+  --color-bg: var(--green-900);
+  --color-surface: var(--green-850);
+  --color-surface-2: var(--green-800);
+  --color-line: var(--green-700);
+  --color-ink: var(--gray-100);
+  --color-muted: var(--gray-300);
+  --color-accent: var(--green-300);
+  --color-accent-dim: var(--green-500);
+  --color-on-accent: var(--green-950);
+  --color-warn: var(--amber-400);
+  --color-danger: var(--red-400);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+  --radius-card: var(--radius-lg);
+}
+
+/* ── Layer 3: component tokens (consumed by components only) ── */
+:root {
+  --btn-height: 52px;
+  --btn-height-big: 60px;
+  --btn-radius: var(--radius-md);
+  --touch-target-min: 44px;
+  /* Timer is a glanceable readout, not the hero — the queue is (design.md §0). */
+  --timer-font-size: 32px;
+  --queuerow-min-height: 64px;
+  --fieldcard-radius: var(--radius-card);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--green-900);
+  color: var(--gray-100);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Timer digits and any aligned numbers */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Accessibility: visible focus everywhere (design.md §a11y) */
+:focus-visible {
+  outline: 2px solid var(--green-300);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
