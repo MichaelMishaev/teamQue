@@ -14,7 +14,7 @@ import { NotFoundError } from '../common/errors'
 import { DRIZZLE, type Database, type Transaction } from '../db/db.module'
 import { captains, queueEntries, sessions } from '../db/schema'
 import { SessionClosedError } from '../sessions/errors'
-import { applyOrder, listLine, type QueueEntryRow } from './line.repo'
+import { applyOrder, listLine, sameIdSet, type QueueEntryRow } from './line.repo'
 import { ReorderMismatchError } from './errors'
 
 type CaptainRow = typeof captains.$inferSelect
@@ -210,16 +210,6 @@ export class LineService {
     if (!row) throw new NotFoundError('Queue entry not found')
     return row
   }
-}
-
-function sameIdSet(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) return false
-  const setA = new Set(a)
-  if (setA.size !== a.length) return false
-  const setB = new Set(b)
-  if (setB.size !== b.length) return false
-  for (const id of setA) if (!setB.has(id)) return false
-  return true
 }
 
 export function toQueueEntryView(entry: QueueEntryRow, captain: CaptainRow, stats: CaptainStats): QueueEntryView {

@@ -33,3 +33,17 @@ export async function applyOrder(tx: Transaction, sessionId: string, orderedIds:
       .where(and(eq(queueEntries.id, id), eq(queueEntries.sessionId, sessionId)))
   }
 }
+
+/** True iff `a` and `b` contain exactly the same ids (order-independent,
+ * each exactly once) — used both to validate a reorder's entryIds against
+ * the current line and to detect an undo(line.reordered) superseded by a
+ * later add/remove. */
+export function sameIdSet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false
+  const setA = new Set(a)
+  if (setA.size !== a.length) return false
+  const setB = new Set(b)
+  if (setB.size !== b.length) return false
+  for (const id of setA) if (!setB.has(id)) return false
+  return true
+}
