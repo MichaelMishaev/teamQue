@@ -32,7 +32,8 @@
     "rxjs": "^7.8.2",
     "shared": "workspace:*",
     "socket.io": "^4.8.3",
-    "zod": "^4.0.0"
+    "zod": "^4.0.0",
+    "@nestjs/serve-static": "^5.0.0"
   },
   "devDependencies": {
     "@nestjs/testing": "^11.1.28",
