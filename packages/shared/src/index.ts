@@ -1,6 +1,12 @@
 /**
  * Shared contracts between apps/api and apps/web.
- * Phase 1 (see docs/plans/2026-07-10-mvp-development-plan.md) fills this with
- * zod schemas for the session snapshot, API shapes, socket events, and error codes.
+ * zod schemas + inferred TS types for the session snapshot, API shapes,
+ * socket events, and error codes (technical-prd §3, §5, §7, §8).
  */
-export {}
+export * from './ids'
+export * from './enums'
+export * from './errors'
+export * from './views'
+export * from './snapshot'
+export * from './requests'
+export * from './summary'

@@ -1,0 +1,26 @@
+/**
+ * Domain error codes and the API error envelope (technical-prd §8).
+ * `code` is the client's i18n key input; UI never displays raw server messages.
+ */
+import { z } from 'zod'
+
+export const errorCodeSchema = z.enum([
+  'INVALID_TRANSITION',
+  'CAPTAIN_ALREADY_PLAYING',
+  'FIELD_OCCUPIED',
+  'UNDO_EXPIRED',
+  'SESSION_CLOSED',
+  'PIN_LOCKED',
+  'VALIDATION_FAILED',
+  'UNAUTHORIZED',
+  'FORBIDDEN',
+  'NOT_FOUND',
+])
+export type ErrorCode = z.infer<typeof errorCodeSchema>
+
+export const apiErrorSchema = z.object({
+  code: errorCodeSchema,
+  message: z.string(),
+  details: z.unknown().optional(),
+})
+export type ApiError = z.infer<typeof apiErrorSchema>
