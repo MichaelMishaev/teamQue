@@ -18,6 +18,7 @@ vi.mock('@/screens/StaffLogin', () => ({
 function mockPhase(phase: AuthPhase) {
   vi.mocked(useAuthState).mockReturnValue({
     phase,
+    currentStaff: null,
     onCenterUnlocked: vi.fn(),
     onLoggedIn: vi.fn(),
   })

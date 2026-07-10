@@ -19,10 +19,14 @@ describe('useAuthState', () => {
     expect(result.current.phase).toBe('loading')
   })
 
-  it('moves to authed when GET /auth/me resolves', async () => {
-    vi.mocked(apiGet).mockResolvedValue({ staffId: 's1' })
+  it('moves to authed when GET /auth/me resolves, seeding currentStaff from it', async () => {
+    vi.mocked(apiGet).mockResolvedValue({
+      staff: { id: 's1', name: 'שרה', role: 'manager' },
+      center: { id: 'c1', name: 'המרכז' },
+    })
     const { result } = renderHook(() => useAuthState())
     await waitFor(() => expect(result.current.phase).toBe('authed'))
+    expect(result.current.currentStaff).toEqual({ id: 's1', name: 'שרה', role: 'manager' })
   })
 
   it('moves to needs-center on a 401 from GET /auth/me', async () => {
@@ -31,7 +35,7 @@ describe('useAuthState', () => {
     await waitFor(() => expect(result.current.phase).toBe('needs-center'))
   })
 
-  it('onCenterUnlocked moves to needs-login, onLoggedIn moves to authed', async () => {
+  it('onCenterUnlocked moves to needs-login, onLoggedIn moves to authed and sets currentStaff', async () => {
     vi.mocked(apiGet).mockRejectedValue(new ApiRequestError('UNAUTHORIZED', 'no cookie'))
     const { result } = renderHook(() => useAuthState())
     await waitFor(() => expect(result.current.phase).toBe('needs-center'))
@@ -39,7 +43,8 @@ describe('useAuthState', () => {
     act(() => result.current.onCenterUnlocked())
     expect(result.current.phase).toBe('needs-login')
 
-    act(() => result.current.onLoggedIn())
+    act(() => result.current.onLoggedIn({ id: 's2', name: 'משה', role: 'staff' }))
     expect(result.current.phase).toBe('authed')
+    expect(result.current.currentStaff).toEqual({ id: 's2', name: 'משה', role: 'staff' })
   })
 })
