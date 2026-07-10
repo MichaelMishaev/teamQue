@@ -2,11 +2,15 @@ import { useEffect, useState } from 'react'
 import { PinPad } from '@/components/PinPad'
 import { t } from '@/i18n'
 import { apiGet, apiPost, ApiRequestError } from '@/lib/api'
+import type { CurrentStaff } from '@/state/AuthContext'
 
 /**
  * Single responsibility: staff picker (name-chip grid, ≥48px targets) → PIN
  * login (client-prd §3.4). A PIN_LOCKED response feeds PinPad's own lockout
- * countdown from the server's retryAfterSec.
+ * countdown from the server's retryAfterSec. `onSuccess` receives the staff
+ * POST /auth/login just authenticated as — the identity AppGate needs to
+ * seed AuthContext with, since /auth/login's response is the only place it's
+ * available before the next /auth/me round trip.
  */
 
 const PIN_LENGTH = 4
@@ -16,8 +20,14 @@ export interface StaffListItem {
   name: string
 }
 
+interface LoginResponse {
+  staffId: string
+  name: string
+  role: CurrentStaff['role']
+}
+
 export interface StaffLoginProps {
-  onSuccess: () => void
+  onSuccess: (staff: CurrentStaff) => void
 }
 
 function retryAfterSecFrom(details: unknown): number | undefined {
@@ -55,8 +65,8 @@ export function StaffLogin({ onSuccess }: StaffLoginProps) {
     if (!selected) return
     setSubmitting(true)
     try {
-      await apiPost('/auth/login', { staffId: selected.id, pin: candidate })
-      onSuccess()
+      const result = await apiPost<LoginResponse>('/auth/login', { staffId: selected.id, pin: candidate })
+      onSuccess({ id: result.staffId, name: result.name, role: result.role })
     } catch (err) {
       setPin('')
       if (err instanceof ApiRequestError && err.code === 'PIN_LOCKED') {

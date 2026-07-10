@@ -12,9 +12,12 @@ if (!root) throw new Error('missing #root element')
 /**
  * VITE_DEMO=1 mounts the mock-backed providers directly (no backend to
  * authenticate against — the app starts already "signed in", switchable via
- * SwitchUser). Otherwise the real placeholder providers wrap the real
- * AppGate auth flow; the real socket/API wiring behind those same contexts
- * is a later task.
+ * SwitchUser). Otherwise AppGate drives the real center-PIN → staff-PIN flow
+ * first; RealProviders is passed as its `children`, so it (and the
+ * GET /sessions/active + /staff + socket calls its effects make) only mounts
+ * once `phase === 'authed'` — i.e. once the cookies StaffSessionGuard
+ * requires actually exist. Mounting it the other way around (wrapping
+ * AppGate) would fire those calls before login and leave them 401'd forever.
  */
 const isDemo = import.meta.env.VITE_DEMO === '1'
 
@@ -27,11 +30,11 @@ function Root() {
     )
   }
   return (
-    <RealProviders>
-      <AppGate>
+    <AppGate>
+      <RealProviders>
         <App />
-      </AppGate>
-    </RealProviders>
+      </RealProviders>
+    </AppGate>
   )
 }
 

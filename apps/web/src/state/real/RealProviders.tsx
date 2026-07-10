@@ -1,55 +1,151 @@
-import type { ReactNode } from 'react'
-import { SnapshotContext, type SnapshotState } from '@/state/SnapshotContext'
-import { SessionActionsContext, type SessionActions } from '@/state/SessionActions'
-import { HistoryContext, type HistoryState } from '@/state/HistoryContext'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import type { SessionSnapshot } from 'shared'
+import { apiGet, apiPost, ApiRequestError } from '@/lib/api'
+import { computeOffsetMs } from '@/lib/server-clock'
+import { createSessionSocket } from '@/lib/socket'
 import { ActivityContext } from '@/state/ActivityContext'
 import { CaptainsContext } from '@/state/CaptainsContext'
-import { StaffDirectoryContext } from '@/state/StaffDirectoryContext'
+import { HistoryContext, type HistoryState } from '@/state/HistoryContext'
+import { createRealSessionActions, type SessionIdHandle } from '@/state/real/realSessionActions'
+import { SessionActionsContext } from '@/state/SessionActions'
+import { SnapshotContext, type SnapshotState } from '@/state/SnapshotContext'
+import { StaffDirectoryContext, type StaffRosterItem } from '@/state/StaffDirectoryContext'
+
+const EMPTY_HISTORY: HistoryState = { summary: null, matches: [] }
+const INITIAL_SNAPSHOT_STATE: SnapshotState = { snapshot: null, connection: 'offline', offsetMs: 0 }
+/** How long the "resynced" flash shows before settling to "online" (ConnectivityBanner). */
+const RESYNC_DISPLAY_MS = 1500
+
+function socketUrl(): string {
+  return (import.meta.env.VITE_API_URL as string | undefined) ?? window.location.origin
+}
 
 /**
- * Real-mode placeholder (VITE_DEMO unset). Feeds the same contexts screens
- * read from with "nothing" — a null snapshot, offline connection, actions
- * that reject — so AppGate + a not-connected MainScreen render without
- * crashing while the real socket/API wiring (lib/socket.ts, lib/api.ts) is
- * plugged in behind these same contexts in a later task.
+ * Real-mode composition root (VITE_DEMO unset). Mounted by main.tsx as
+ * AppGate's `children` — i.e. only once `phase === 'authed'` — so every
+ * effect below runs with the center + staff session cookies StaffSessionGuard
+ * requires already set (see main.tsx for why the nesting order matters: an
+ * unauthed mount would 401 on /sessions/active, /staff, and the socket).
+ *
+ * Feeds SnapshotContext from the initial `GET /sessions/active` fetch plus a
+ * live session socket (technical-prd §5: full-snapshot broadcast after every
+ * mutation — screens are dumb renderers of whatever arrives here), and
+ * SessionActionsContext from realSessionActions. History/Activity/Captains
+ * stay empty placeholders — wiring their read endpoints isn't part of this
+ * task's scope (screens using them just render empty, same as before).
  */
-const EMPTY_SNAPSHOT: SnapshotState = { snapshot: null, connection: 'offline', offsetMs: 0 }
-const EMPTY_HISTORY: HistoryState = { summary: null, matches: [] }
-
-function notImplemented(): Promise<never> {
-  return Promise.reject(new Error('real API/socket wiring is not implemented yet'))
-}
-
-const REAL_ACTIONS: SessionActions = {
-  addToLine: notImplemented,
-  searchTeams: async () => [],
-  reorderLine: notImplemented,
-  moveTop: notImplemented,
-  moveBottom: notImplemented,
-  removeFromLine: notImplemented,
-  startMatch: notImplemented,
-  pause: notImplemented,
-  resume: notImplemented,
-  finish: notImplemented,
-  extend: notImplemented,
-  replay: notImplemented,
-  undo: notImplemented,
-  openSession: notImplemented,
-  closeSession: notImplemented,
-  updateDuration: notImplemented,
-  updateTeam: notImplemented,
-}
-
 export function RealProviders({ children }: { children: ReactNode }) {
+  const [snapshotState, setSnapshotState] = useState<SnapshotState>(INITIAL_SNAPSHOT_STATE)
+  const [roster, setRoster] = useState<StaffRosterItem[]>([])
+
+  const sessionIdRef = useRef<string | null>(null)
+  const sessionIdHandle = useMemo<SessionIdHandle>(
+    () => ({
+      get: () => sessionIdRef.current,
+      set: (id) => {
+        sessionIdRef.current = id
+        // The snapshot schema has no "no session" shape, and closing a
+        // session never gets a matching socket push — clear it locally.
+        if (id === null) setSnapshotState((prev) => ({ ...prev, snapshot: null }))
+      },
+    }),
+    [],
+  )
+
+  const actions = useMemo(() => createRealSessionActions(sessionIdHandle), [sessionIdHandle])
+
+  // Initial snapshot seed: GET /sessions/active, 404 → no active session.
+  useEffect(() => {
+    let cancelled = false
+    apiGet<SessionSnapshot>('/sessions/active')
+      .then((snapshot) => {
+        if (cancelled) return
+        sessionIdRef.current = snapshot.session.id
+        setSnapshotState((prev) => ({ ...prev, snapshot }))
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        if (err instanceof ApiRequestError && err.code === 'NOT_FOUND') {
+          sessionIdRef.current = null
+          setSnapshotState((prev) => ({ ...prev, snapshot: null }))
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Live socket: every snapshot event replaces the snapshot; connection
+  // status tracks connect/disconnect, with a brief "resynced" on reconnect.
+  useEffect(() => {
+    let hasConnectedOnce = false
+    let resyncTimer: ReturnType<typeof setTimeout> | undefined
+
+    const socket = createSessionSocket({
+      url: socketUrl(),
+      onConnect(serverNowIso) {
+        const offsetMs = computeOffsetMs(serverNowIso, Date.now())
+        const isReconnect = hasConnectedOnce
+        hasConnectedOnce = true
+        setSnapshotState((prev) => ({ ...prev, offsetMs, connection: isReconnect ? 'resynced' : 'online' }))
+        if (isReconnect) {
+          clearTimeout(resyncTimer)
+          resyncTimer = setTimeout(() => {
+            setSnapshotState((prev) => (prev.connection === 'resynced' ? { ...prev, connection: 'online' } : prev))
+          }, RESYNC_DISPLAY_MS)
+        }
+      },
+      onSnapshot(snapshot) {
+        sessionIdRef.current = snapshot.session.id
+        setSnapshotState((prev) => ({ ...prev, snapshot }))
+      },
+      onDisconnect() {
+        setSnapshotState((prev) => ({ ...prev, connection: 'offline' }))
+      },
+    })
+
+    return () => {
+      clearTimeout(resyncTimer)
+      socket.disconnect()
+    }
+  }, [])
+
+  // Staff roster for SwitchUser (StaffLogin's own picker fetches this directly).
+  useEffect(() => {
+    let cancelled = false
+    apiGet<StaffRosterItem[]>('/staff')
+      .then((list) => {
+        if (!cancelled) setRoster(list)
+      })
+      .catch(() => {
+        // SwitchUser's picker degrades to empty — no retry loop for MVP.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const staffDirectory = useMemo(
+    () => ({
+      roster,
+      async login(staffId: string, pin: string): Promise<StaffRosterItem> {
+        const result = await apiPost<{ staffId: string; name: string; role: StaffRosterItem['role'] }>('/auth/login', {
+          staffId,
+          pin,
+        })
+        return { id: result.staffId, name: result.name, role: result.role }
+      },
+    }),
+    [roster],
+  )
+
   return (
-    <SnapshotContext.Provider value={EMPTY_SNAPSHOT}>
-      <SessionActionsContext.Provider value={REAL_ACTIONS}>
+    <SnapshotContext.Provider value={snapshotState}>
+      <SessionActionsContext.Provider value={actions}>
         <HistoryContext.Provider value={EMPTY_HISTORY}>
           <ActivityContext.Provider value={[]}>
             <CaptainsContext.Provider value={[]}>
-              <StaffDirectoryContext.Provider value={{ roster: [], login: notImplemented }}>
-                {children}
-              </StaffDirectoryContext.Provider>
+              <StaffDirectoryContext.Provider value={staffDirectory}>{children}</StaffDirectoryContext.Provider>
             </CaptainsContext.Provider>
           </ActivityContext.Provider>
         </HistoryContext.Provider>
