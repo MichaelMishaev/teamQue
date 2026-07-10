@@ -9,6 +9,7 @@
  */
 import { Inject, Injectable, type CanActivate, type ExecutionContext } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
+import { asc } from 'drizzle-orm'
 import type { Request } from 'express'
 import { UnauthorizedError } from '../../common/errors'
 import { DRIZZLE, type Database } from '../../db/db.module'
@@ -46,8 +47,10 @@ export class CenterGuard implements CanActivate {
     }
   }
 
+  /** Deterministic pick (oldest-created first) so the fallback can't vary
+   * between requests if the `centers` table ever has more than one row. */
   private async fallbackCenterId(): Promise<string> {
-    const [center] = await this.db.select().from(centers).limit(1)
+    const [center] = await this.db.select().from(centers).orderBy(asc(centers.createdAt)).limit(1)
     if (!center) throw new UnauthorizedError()
     return center.id
   }

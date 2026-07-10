@@ -17,6 +17,7 @@ import { CenterGuard } from './center.guard'
 function chain<T>(rows: T[]): PromiseLike<T[]> & Record<string, unknown> {
   const builder: Record<string, unknown> = {
     from: () => builder,
+    orderBy: () => builder,
     limit: () => builder,
     then: (resolve: (rows: T[]) => unknown) => resolve(rows),
   }

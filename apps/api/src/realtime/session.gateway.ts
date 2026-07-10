@@ -21,7 +21,7 @@ import { Inject, Injectable } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { OnGatewayConnection, OnGatewayInit, WebSocketGateway, WebSocketServer } from '@nestjs/websockets'
 import { SOCKET_EVENTS } from 'shared'
-import { and, eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import type { Server, Socket } from 'socket.io'
 import { SESSION_COOKIE_NAME, verifySessionToken, type SessionTokenPayload } from '../auth/token'
 import { DRIZZLE, type Database } from '../db/db.module'
@@ -85,7 +85,7 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection {
       const centerId = this.tryReadCenterId(token)
       if (centerId) return centerId
     }
-    const [center] = await this.db.select({ id: centers.id }).from(centers).limit(1)
+    const [center] = await this.db.select({ id: centers.id }).from(centers).orderBy(asc(centers.createdAt)).limit(1)
     return center?.id ?? null
   }
 

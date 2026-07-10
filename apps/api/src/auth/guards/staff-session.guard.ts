@@ -8,7 +8,7 @@
  */
 import { Inject, Injectable, type ExecutionContext } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
-import { and, eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import type { Request } from 'express'
 import type { StaffRole } from 'shared'
 import { UnauthorizedError } from '../../common/errors'
@@ -53,11 +53,14 @@ export class StaffSessionGuard extends CenterGuard {
     return { staffId: payload.staffId, centerId: payload.centerId, role: payload.role }
   }
 
+  /** Deterministic pick (oldest-created first) so the fallback can't vary
+   * between requests if a center ever has more than one active manager. */
   private async fallbackStaff(centerId: string): Promise<StaffAuthContext> {
     const [member] = await this.db
       .select({ id: staff.id, role: staff.role })
       .from(staff)
       .where(and(eq(staff.centerId, centerId), eq(staff.role, 'manager'), eq(staff.active, true)))
+      .orderBy(asc(staff.createdAt))
       .limit(1)
     if (!member) throw new UnauthorizedError()
     return { staffId: member.id, centerId, role: member.role as StaffRole }
