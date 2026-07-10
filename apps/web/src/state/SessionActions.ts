@@ -23,6 +23,7 @@ import type { CaptainSearchResult, OpenSessionBody } from 'shared'
 export type CaptainRef = { id: string } | { newName: string }
 
 export interface CaptainProfilePatch {
+  name?: string
   nickname?: string
   tags?: string[]
   note?: string

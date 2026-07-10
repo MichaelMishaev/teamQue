@@ -20,6 +20,7 @@
   "queue.header": "התור ({count})",
   "queue.next": "הבא",
   "queue.remove": "הסר",
+  "queue.actions.rename": "שנה שם",
   "queue.actions.moveTop": "לראש התור",
   "queue.actions.moveBottom": "לסוף התור",
   "queue.actions.replay": "משחק חוזר",

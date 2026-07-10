@@ -643,6 +643,7 @@ export function createMockSession(opts: CreateMockSessionOptions = {}): MockSess
     async updateTeam(id, patch: CaptainProfilePatch) {
       const c = captains.get(id)
       if (!c) throw new Error('captain not found')
+      if (patch.name !== undefined) c.name = patch.name
       if (patch.nickname !== undefined) c.nickname = patch.nickname || null
       if (patch.tags !== undefined) c.tags = patch.tags
       if (patch.note !== undefined) c.note = patch.note

@@ -66,4 +66,28 @@ describe('QueueActionsSheet', () => {
     renderSheet(entry('e1', 'א', 1))
     expect(screen.queryByText('החלף קפטנים')).toBeNull()
   })
+
+  it('rename reveals an input pre-filled with the team name and saves via updateTeam on blur', async () => {
+    const updateTeam = vi.fn().mockResolvedValue(undefined)
+    const { actions } = renderSheet(entry('e1', 'א', 1), { updateTeam })
+    fireEvent.click(screen.getByText('שנה שם'))
+    const input = screen.getByDisplayValue('א')
+    fireEvent.change(input, { target: { value: 'ב' } })
+    fireEvent.blur(input)
+    await waitFor(() => expect(actions.updateTeam).toHaveBeenCalledWith('e1-cap', { name: 'ב' }))
+  })
+
+  it('rename does not save when blurred unchanged or emptied', async () => {
+    const updateTeam = vi.fn().mockResolvedValue(undefined)
+    renderSheet(entry('e1', 'א', 1), { updateTeam })
+    fireEvent.click(screen.getByText('שנה שם'))
+    fireEvent.blur(screen.getByDisplayValue('א'))
+    expect(updateTeam).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByText('שנה שם'))
+    const input = screen.getByDisplayValue('א')
+    fireEvent.change(input, { target: { value: '   ' } })
+    fireEvent.blur(input)
+    expect(updateTeam).not.toHaveBeenCalled()
+  })
 })
