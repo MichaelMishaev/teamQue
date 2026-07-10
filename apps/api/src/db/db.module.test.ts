@@ -13,7 +13,8 @@ describe('DbModule DbLifecycle', () => {
       end: vi.fn().mockResolvedValue(undefined),
     }
 
-    const lifecycle = new DbLifecycle(mockPool as Pool)
+    const lifecycle = new DbLifecycle()
+    lifecycle.setPool(mockPool as Pool)
 
     await lifecycle.onApplicationShutdown()
 

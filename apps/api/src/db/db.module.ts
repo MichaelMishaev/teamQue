@@ -10,7 +10,7 @@ export type Database = NodePgDatabase<typeof schema>
 
 @Injectable()
 export class DbLifecycle implements OnApplicationShutdown {
-  constructor(private pool: Pool | null = null) {}
+  private pool: Pool | null = null
 
   setPool(pool: Pool): void {
     this.pool = pool
