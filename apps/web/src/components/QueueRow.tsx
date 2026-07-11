@@ -25,7 +25,7 @@ export interface QueueRowProps {
   handleProps?: HTMLAttributes<HTMLSpanElement>
 }
 
-export function QueueRow({ position, teamName, nickname, gamesToday, next, dragging, removing, onMenu, handleProps }: QueueRowProps) {
+export function QueueRow({ position, teamName, nickname, gamesToday, lastPlayedAt, next, dragging, removing, onMenu, handleProps }: QueueRowProps) {
   return (
     <div
       className={cn(
@@ -50,7 +50,17 @@ export function QueueRow({ position, teamName, nickname, gamesToday, next, dragg
       <span className="flex-1 text-[17px] font-semibold">
         {teamName}
         {nickname && <small className="ms-1 font-normal text-muted">({nickname})</small>}
-        {gamesToday > 0 && <small className="ms-1 font-normal text-muted">{t('captain.todayShort', { count: gamesToday })}</small>}
+        {gamesToday > 0 && (
+          <small className="ms-1 font-normal text-muted">
+            <span>{t('captain.todayShort', { count: gamesToday })}</span>
+            {lastPlayedAt && (
+              <>
+                {' · '}
+                <bdi className="tabular font-mono">{lastPlayedAt}</bdi>
+              </>
+            )}
+          </small>
+        )}
       </span>
       {removing ? (
         <span className="text-[13px] font-bold text-danger">{t('queue.remove')}</span>

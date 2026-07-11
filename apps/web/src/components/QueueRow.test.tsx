@@ -26,6 +26,18 @@ describe('QueueRow', () => {
     expect(screen.queryByText(/היום/)).toBeNull()
   })
 
+  it('shows the last-played time alongside games-today when provided', () => {
+    render(<QueueRow position={1} teamName="דניאל" gamesToday={1} lastPlayedAt="21:12" />)
+    expect(screen.getByText('· 1 היום')).toBeDefined()
+    expect(screen.getByText('21:12')).toBeDefined()
+  })
+
+  it('hides the last-played time when not provided', () => {
+    render(<QueueRow position={1} teamName="דניאל" gamesToday={1} />)
+    expect(screen.getByText('· 1 היום')).toBeDefined()
+    expect(screen.queryByText('21:12')).toBeNull()
+  })
+
   it('shows the nickname alongside the team name when present', () => {
     render(<QueueRow position={1} teamName="דניאל" nickname="הקטן" gamesToday={0} />)
     expect(screen.getByText('(הקטן)')).toBeDefined()

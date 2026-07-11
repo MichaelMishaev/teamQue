@@ -6,6 +6,7 @@ import type { QueueEntryView } from 'shared'
 import { QueueRow } from '@/components/QueueRow'
 import { QueueActionsSheet } from '@/components/QueueActionsSheet'
 import { t } from '@/i18n'
+import { formatTimeOfDay } from '@/lib/time'
 import { useSessionActions } from '@/state/SessionActions'
 
 /**
@@ -86,6 +87,7 @@ function SortableQueueRow({
         teamName={entry.team.name}
         {...(entry.team.nickname ? { nickname: entry.team.nickname } : {})}
         gamesToday={entry.team.gamesToday}
+        {...(entry.team.lastPlayedAt ? { lastPlayedAt: formatTimeOfDay(entry.team.lastPlayedAt) } : {})}
         next={isNext}
         dragging={isDragging}
         onMenu={onMenu}
