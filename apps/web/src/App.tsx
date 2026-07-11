@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ConnectivityBanner } from '@/components/ConnectivityBanner'
+import { InstallAppButton } from '@/components/InstallAppButton'
+import { IntroSplash } from '@/components/IntroSplash'
 import { UndoToaster } from '@/components/UndoToast'
 import { ActivityFeed } from '@/screens/ActivityFeed'
 import { HistoryScreen } from '@/screens/HistoryScreen'
@@ -9,7 +11,6 @@ import { SwitchUser } from '@/screens/SwitchUser'
 import { t, type MessageKey } from '@/i18n'
 import { cn } from '@/lib/cn'
 import { formatTimeOfDay } from '@/lib/time'
-import { useCurrentStaff } from '@/state/AuthContext'
 import { useSnapshot } from '@/state/SnapshotContext'
 
 /**
@@ -29,7 +30,6 @@ const TABS: { id: Tab; labelKey: MessageKey }[] = [
 
 export default function App() {
   const { connection, offsetMs } = useSnapshot()
-  const currentStaff = useCurrentStaff()
   const [tab, setTab] = useState<Tab>('main')
   const [switchUserOpen, setSwitchUserOpen] = useState(false)
   const [nowMs, setNowMs] = useState(() => Date.now())
@@ -43,15 +43,9 @@ export default function App() {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col">
+      <IntroSplash />
       <header className="sticky top-0 z-20 flex flex-col gap-2 border-b border-line bg-bg/95 p-3 backdrop-blur">
         <div className="flex items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={() => setSwitchUserOpen(true)}
-            className="flex min-h-[var(--touch-target-min)] items-center gap-1.5 rounded-full bg-surface-2 px-3 text-[13.5px] font-semibold"
-          >
-            ○ {currentStaff?.name ?? ''}
-          </button>
           <nav className="flex items-center gap-1">
             {TABS.map(({ id, labelKey }) => (
               <button
@@ -67,9 +61,12 @@ export default function App() {
               </button>
             ))}
           </nav>
-          <bdi dir="ltr" className="tabular text-[13.5px] font-semibold text-muted">
-            {clock}
-          </bdi>
+          <div className="flex items-center gap-1.5">
+            <InstallAppButton />
+            <bdi dir="ltr" className="tabular text-[13.5px] font-semibold text-muted">
+              {clock}
+            </bdi>
+          </div>
         </div>
         <ConnectivityBanner status={connection} />
       </header>

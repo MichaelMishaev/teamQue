@@ -82,6 +82,22 @@ body {
   outline-offset: 2px;
 }
 
+/* App-open intro splash (design.md §0 dot motif) — plays once on mount, see IntroSplash.tsx */
+@keyframes intro-dot-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.6); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes intro-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+@keyframes intro-overlay-out {
+  0%, 65% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

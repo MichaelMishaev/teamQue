@@ -52,6 +52,7 @@
   "toast.removedFromQueue": "הקבוצה הוסרה מהתור",
   "toast.matchFinished": "המשחק הסתיים",
   "toast.newVersion": "גרסה חדשה זמינה",
+  "app.install": "התקן אפליקציה",
   "empty.noSession.title": "אין ערב פעיל",
   "empty.noSession.hint": "מנהל יכול לפתוח ערב משחקים חדש",
   "empty.noSession.staffHint": "ממתינים שמנהל יפתח ערב משחקים",
