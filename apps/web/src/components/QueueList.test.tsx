@@ -4,8 +4,13 @@ import type { QueueEntryView } from 'shared'
 import { QueueList } from './QueueList'
 import { SessionActionsContext, type SessionActions } from '@/state/SessionActions'
 
-function entry(id: string, name: string, position: number): QueueEntryView {
-  return { id, position, team: { id: `${id}-cap`, name, nickname: null, gamesToday: 0, lastPlayedAt: null } }
+function entry(
+  id: string,
+  name: string,
+  position: number,
+  stats: Pick<QueueEntryView['team'], 'gamesToday' | 'lastPlayedAt'> = { gamesToday: 0, lastPlayedAt: null },
+): QueueEntryView {
+  return { id, position, team: { id: `${id}-cap`, name, nickname: null, ...stats } }
 }
 
 function renderQueueList(queue: QueueEntryView[]) {
@@ -42,6 +47,17 @@ describe('QueueList', () => {
     renderQueueList(queue)
     expect(screen.getAllByText('הבא')).toHaveLength(2) // both halves of the imminent match are marked next
     expect(screen.getByText('3')).toBeDefined() // third row shows its position, not "הבא"
+  })
+
+  it('keeps the selected teen\'s last-played time visible after they enter the queue', () => {
+    const queue = [
+      entry('e1', 'טורי', 1, { gamesToday: 1, lastPlayedAt: '2026-07-12T06:16:00.000Z' }),
+    ]
+
+    renderQueueList(queue)
+
+    expect(screen.getByText('· 1 היום')).toBeDefined()
+    expect(screen.getByText('09:16')).toBeDefined()
   })
 
   it('opens QueueActionsSheet for the row whose ⋯ was tapped', () => {

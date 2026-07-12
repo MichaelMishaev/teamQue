@@ -47,7 +47,12 @@ describe('captains (integration)', () => {
   })
 
   let centerCounter = 0
-  async function seedCenter(): Promise<{ centerId: string; staffId: string; staffCookies: string[] }> {
+  async function seedCenter(): Promise<{
+    centerId: string
+    staffId: string
+    staffCookies: string[]
+    managerCookies: string[]
+  }> {
     centerCounter += 1
     const [center] = await pg.db
       .insert(centers)
@@ -61,6 +66,12 @@ describe('captains (integration)', () => {
       .returning()
     if (!staffMember) throw new Error('staff insert returned no row')
 
+    const [manager] = await pg.db
+      .insert(staff)
+      .values({ centerId: center.id, name: 'Manager', role: 'manager', pinHash: await hash('7777') })
+      .returning()
+    if (!manager) throw new Error('manager insert returned no row')
+
     const centerCookie = centerCookieHeader(jwtService, center.id)
     return {
       centerId: center.id,
@@ -68,6 +79,10 @@ describe('captains (integration)', () => {
       staffCookies: [
         centerCookie,
         sessionCookieHeader(jwtService, { staffId: staffMember.id, centerId: center.id, role: 'staff' }),
+      ],
+      managerCookies: [
+        centerCookie,
+        sessionCookieHeader(jwtService, { staffId: manager.id, centerId: center.id, role: 'manager' }),
       ],
     }
   }
@@ -188,6 +203,43 @@ describe('captains (integration)', () => {
       expect(res.status).toBe(200)
       expect(res.body).toHaveLength(1)
       expect(res.body[0]).toMatchObject({ gamesToday: 0, lastPlayedAt: null })
+    })
+
+    it('resets today stats after closing the evening but preserves the match timestamp in history', async () => {
+      const { centerId, staffId, staffCookies, managerCookies } = await seedCenter()
+      const captainId = await seedCaptain(centerId, { name: 'טורי' })
+      const opponentId = await seedCaptain(centerId, { name: 'יריב' })
+      const sessionId = await seedActiveSession(centerId, staffId)
+      const startedAt = new Date('2026-07-12T06:16:00.000Z')
+      const endedAt = new Date('2026-07-12T06:24:00.000Z')
+      await seedMatch(sessionId, centerId, captainId, opponentId, {
+        status: 'finished',
+        startedAt,
+        endedAt,
+        endReason: 'manual',
+      })
+
+      const beforeClose = await request(app.getHttpServer()).get('/captains?q=טורי').set('Cookie', staffCookies)
+      expect(beforeClose.body[0]).toMatchObject({ gamesToday: 1, lastPlayedAt: startedAt.toISOString() })
+
+      const close = await request(app.getHttpServer())
+        .post(`/sessions/${sessionId}/close`)
+        .set('Cookie', managerCookies)
+      expect(close.status).toBe(201)
+
+      const afterClose = await request(app.getHttpServer()).get('/captains?q=טורי').set('Cookie', staffCookies)
+      expect(afterClose.body[0]).toMatchObject({ gamesToday: 0, lastPlayedAt: null, totalMatches: 1 })
+
+      const history = await request(app.getHttpServer())
+        .get(`/sessions/${sessionId}/history`)
+        .set('Cookie', staffCookies)
+      expect(history.status).toBe(200)
+      expect(history.body).toHaveLength(1)
+      expect(history.body[0]).toMatchObject({
+        captainAId: captainId,
+        startedAt: startedAt.toISOString(),
+        endedAt: endedAt.toISOString(),
+      })
     })
 
     it('deterministic ordering: prefix match first, then lastPlayedAt desc, then createdAt desc', async () => {
