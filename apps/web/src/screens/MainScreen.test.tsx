@@ -96,6 +96,19 @@ describe('MainScreen — active session, field free', () => {
     expect((screen.getByRole('button', { name: /התחל/ }) as HTMLButtonElement).disabled).toBe(false)
   })
 
+  it('shows a games-ahead/eta estimate for queue entries past the front two', () => {
+    const snapshot = activeSnapshot({
+      queue: [
+        { id: 'e1', position: 1, team: team('ca', 'א') },
+        { id: 'e2', position: 2, team: team('cb', 'ב') },
+        { id: 'e3', position: 3, team: team('cc', 'ג') },
+        { id: 'e4', position: 4, team: team('cd', 'ד') },
+      ],
+    })
+    renderMain({ snapshot, connection: 'online', offsetMs: 0 }, 'staff')
+    expect(screen.getAllByText('משחק אחד לפניך')).toHaveLength(2)
+  })
+
   it('shows the empty-line state when there is an active session but no waiting teams', () => {
     renderMain({ snapshot: activeSnapshot(), connection: 'online', offsetMs: 0 }, 'manager')
     expect(screen.getByText('התור ריק — הוסיפו משחק בשורת החיפוש למטה')).toBeDefined()
@@ -157,5 +170,35 @@ describe('MainScreen — active session, field live', () => {
     renderMain({ snapshot, connection: 'online', offsetMs: 0 }, 'staff')
     expect(screen.getByText('משחק פעיל')).toBeDefined()
     expect(screen.queryByText('הבא במגרש')).toBeNull()
+  })
+
+  it('marks a trailing odd queue entry as waiting for a pair while a match is live', () => {
+    const snapshot = activeSnapshot({
+      fields: [
+        {
+          id: 'f1',
+          name: 'מגרש ראשי',
+          position: 0,
+          liveMatch: {
+            id: 'm1',
+            captainA: team('ca', 'א'),
+            captainB: team('cb', 'ב'),
+            status: 'live',
+            plannedDurationSec: 360,
+            startedAt: new Date().toISOString(),
+            pausedAt: null,
+            accumulatedPauseSec: 0,
+            endsAt: new Date(Date.now() + 360_000).toISOString(),
+          },
+        },
+      ],
+      queue: [
+        { id: 'e1', position: 1, team: team('cc', 'ג') },
+        { id: 'e2', position: 2, team: team('cd', 'ד') },
+        { id: 'e3', position: 3, team: team('ce', 'ה') },
+      ],
+    })
+    renderMain({ snapshot, connection: 'online', offsetMs: 0 }, 'staff')
+    expect(screen.getByText('ממתין/ה לזוג')).toBeDefined()
   })
 })

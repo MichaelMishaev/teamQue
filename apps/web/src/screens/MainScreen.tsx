@@ -7,6 +7,7 @@ import { QuickAddBar } from '@/components/QuickAddBar'
 import { SessionSetupDialog } from '@/components/SessionSetupDialog'
 import { showStatusToast } from '@/components/UndoToast'
 import { t } from '@/i18n'
+import { computeBaseSec } from '@/lib/queue-pairing'
 import { matchCountdownInput, type RunningStatus } from '@/lib/time'
 import { useCountdown } from '@/hooks/useCountdown'
 import { useCurrentStaff } from '@/state/AuthContext'
@@ -35,6 +36,7 @@ export function MainScreen() {
   const isRunning = liveMatch !== null && (liveMatch.status === 'live' || liveMatch.status === 'paused')
   const countdownInput = isRunning && liveMatch ? matchCountdownInput(liveMatch) : { endsAtMs: null, pausedRemainingSec: null }
   const secondsLeft = useCountdown({ ...countdownInput, offsetMs })
+  const baseSec = computeBaseSec(isRunning, secondsLeft)
 
   if (!snapshot) {
     const isManager = currentStaff?.role === 'manager'
@@ -113,7 +115,11 @@ export function MainScreen() {
           <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">
             {t('queue.header', { count: snapshot.queue.length })}
           </h2>
-          {snapshot.queue.length === 0 ? <EmptyState title={t('empty.queue')} /> : <QueueList queue={snapshot.queue} onError={setError} />}
+          {snapshot.queue.length === 0 ? (
+            <EmptyState title={t('empty.queue')} />
+          ) : (
+            <QueueList queue={snapshot.queue} matchDurationSec={snapshot.session.matchDurationSec} baseSec={baseSec} onError={setError} />
+          )}
         </section>
       </div>
 
