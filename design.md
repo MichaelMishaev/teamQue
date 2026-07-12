@@ -84,7 +84,7 @@ Semantic state colors are not decoration; `accent` doubles as the single brand h
 ## 4. Interaction rules
 
 - **Touch targets:** ≥44px always; standard controls 52px; primary live actions 60px (`--btn-height-big`). Outdoor, gloves, one-handed.
-- **No blocking popups in live flows:** destructive → undo toast (5s / finish 30s); impossible → disabled button + visible reason; rejected (409) → inline error at the origin, auto-clears. Dialogs allowed only for session setup / settings / staff admin.
+- **No blocking popups in live flows:** destructive queue action → undo toast (5s); finish → informational toast without undo; impossible → disabled button + visible reason; rejected (409) → inline error at the origin, auto-clears. Dialogs allowed only for session setup / settings / staff admin.
 - **Feedback ≤100ms:** state change is the success signal; subtle haptic where supported.
 - **Motion:** 150–200ms, none decorative during live operation; everything honors `prefers-reduced-motion`.
 - **Focus:** `:focus-visible` ring (2px accent, 2px offset) on every interactive element.

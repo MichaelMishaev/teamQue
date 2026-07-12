@@ -13,8 +13,8 @@ import type { CaptainSearchResult, OpenSessionBody } from 'shared'
  * for the same reasons:
  * 1. "all Promise<void>": `removeFromLine` and `finish` resolve with
  *    `{ activityId }` because the no-confirm-dialog rule (design.md §4)
- *    requires an undo toast wired to `undo(activityId)`, and there is no
- *    other channel to hand that id to the caller.
+ *    requires the queue-removal undo toast to call `undo(activityId)`.
+ *    Finish retains the result contract but presents a final status toast.
  * 2. `updateDuration` isn't in the brief's method list, but SettingsScreen's
  *    session duration stepper (US-012, "change duration mid-session")
  *    directly needs it — there is no other action that could carry it.

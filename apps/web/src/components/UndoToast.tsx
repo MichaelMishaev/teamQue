@@ -31,3 +31,7 @@ export function showUndoToast(messageKey: MessageKey, onUndo: () => void, durati
     action: { label: t('action.undo'), onClick: onUndo },
   })
 }
+
+export function showStatusToast(messageKey: MessageKey, durationMs: number = UNDO_WINDOW_MS): void {
+  toast(t(messageKey), { duration: durationMs })
+}

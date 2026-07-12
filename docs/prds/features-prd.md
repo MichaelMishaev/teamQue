@@ -129,7 +129,7 @@ State machine (single source of truth, technical-prd §7): `queued → live → 
 - **Given** a live or paused match, **When** I tap "+1 דקה" (repeatable), **Then** remaining time increases by 60s; logged.
 
 ### US-043 — Manual finish
-- **Given** a live/paused match, **When** I tap "סיים", **Then** it finishes immediately (undoable 30s), records actual duration, and the field card offers starting the next queued match.
+- **Given** a live/paused match, **When** I tap "סיים", **Then** it finishes immediately, records actual duration, shows a confirmation toast without an undo action, and the field card offers starting the next queued match.
 
 ### US-044 — Auto finish
 - **Given** a live match reaching 00:00, **Then** within ≤5s the server finishes it automatically (`end_reason=auto`, logged as automatic), all devices update, and a subtle sound/vibration fires on devices with the session open.
@@ -153,7 +153,8 @@ State machine (single source of truth, technical-prd §7): `queued → live → 
 ## 8. Undo (F8)
 
 ### US-060 — Undo instead of confirm
-- **Given** any destructive action (remove from queue, manual finish, reorder), **Then** no confirmation dialog appears; a toast with "בטל" (Undo) shows for 5s (30s window server-side for finish).
+- **Given** remove-from-queue or reorder, **Then** no confirmation dialog appears; a toast with "בטל" (Undo) shows for 5s.
+- **Given** manual finish, **Then** no confirmation dialog appears; the completion toast is informational and offers no undo action.
 - **When** I tap undo, **Then** the server applies the inverse action, logs it, and all devices sync. If the state has moved on (e.g. the match was restarted), undo fails gracefully with an inline explanation.
 
 ---

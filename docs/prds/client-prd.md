@@ -100,7 +100,7 @@ Selected-captain chips show games-today inline so fairness is visible at the exa
 
 | Instead of… | We use… |
 |---|---|
-| Confirm dialogs | Undo toasts (5s; finish 30s) — Sonner, bottom, above quick-add |
+| Confirm dialogs | Undo toasts for queue actions (5s); informational toast without undo for finish — Sonner, bottom, above quick-add |
 | Error modals | Inline errors at the action origin (field card / queue row), auto-clearing |
 | Blocking states | Disabled buttons with visible reason text ("יש משחק פעיל במגרש") |
 | Success alerts | The state change itself + subtle haptic |

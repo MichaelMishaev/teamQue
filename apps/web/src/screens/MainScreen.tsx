@@ -5,15 +5,13 @@ import { FieldCard } from '@/components/FieldCard'
 import { QueueList } from '@/components/QueueList'
 import { QuickAddBar } from '@/components/QuickAddBar'
 import { SessionSetupDialog } from '@/components/SessionSetupDialog'
-import { showUndoToast } from '@/components/UndoToast'
+import { showStatusToast } from '@/components/UndoToast'
 import { t } from '@/i18n'
 import { matchCountdownInput, type RunningStatus } from '@/lib/time'
 import { useCountdown } from '@/hooks/useCountdown'
 import { useCurrentStaff } from '@/state/AuthContext'
 import { useSessionActions } from '@/state/SessionActions'
 import { useSnapshot } from '@/state/SnapshotContext'
-
-const FINISH_UNDO_WINDOW_MS = 30_000
 
 /**
  * Single responsibility: the app's hero screen (client-prd §3.1, design.md
@@ -71,8 +69,8 @@ export function MainScreen() {
 
   async function handleFinish(matchId: string): Promise<void> {
     try {
-      const { activityId } = await actions.finish(matchId)
-      showUndoToast('toast.matchFinished', () => void actions.undo(activityId), FINISH_UNDO_WINDOW_MS)
+      await actions.finish(matchId)
+      showStatusToast('toast.matchFinished')
     } catch {
       setError(t('queue.actions.error'))
     }
