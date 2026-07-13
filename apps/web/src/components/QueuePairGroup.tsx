@@ -8,7 +8,11 @@ import { cn } from '@/lib/cn'
  * docs/superpowers/specs/2026-07-13-queue-pairing-and-eta-design.md, which
  * documents why an earlier text-only version was rejected). The label sits
  * in normal flow above the card, never absolutely positioned over its
- * border, so it can never be clipped by the card's rounded corners.
+ * border, so it can never be clipped by the card's rounded corners. The
+ * card itself clips its children (`overflow-hidden`) because a grouped
+ * "next" row renders a flat, square-cornered background tint (QueueRow's
+ * `next && grouped` case) — without clipping, that background pokes past
+ * the card's own rounded corners.
  */
 export type QueuePairGroupVariant = 'next' | 'default' | 'solo'
 
@@ -26,7 +30,7 @@ export function QueuePairGroup({ label, variant, children }: QueuePairGroupProps
       </span>
       <div
         className={cn(
-          'flex flex-col rounded-xl border border-line bg-surface [&>*+*]:border-t [&>*+*]:border-line',
+          'flex flex-col overflow-hidden rounded-xl border border-line bg-surface [&>*+*]:border-t [&>*+*]:border-line',
           variant === 'next' && 'border-accent [&>*+*]:border-accent-dim',
           variant === 'solo' && 'border-dashed',
         )}
