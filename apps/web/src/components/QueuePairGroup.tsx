@@ -1,4 +1,4 @@
-import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { t } from '@/i18n'
 import { cn } from '@/lib/cn'
 
@@ -28,6 +28,8 @@ export interface QueuePairGroupProps {
   groupId?: string
   gripState?: PairGripState
   onGripPointerDown?: (event: ReactPointerEvent<HTMLButtonElement>) => void
+  /** Passed through to the root element — used by QueueList to apply a live-drag reflow transform. */
+  style?: CSSProperties
 }
 
 export function QueuePairGroup({
@@ -37,9 +39,10 @@ export function QueuePairGroup({
   groupId,
   gripState = 'idle',
   onGripPointerDown,
+  style,
 }: QueuePairGroupProps) {
   return (
-    <div className="flex flex-col gap-1.5" data-group-id={groupId}>
+    <div className="flex flex-col gap-1.5" data-group-id={groupId} style={style}>
       <div className="flex items-center gap-1">
         {variant !== 'solo' && (
           <button

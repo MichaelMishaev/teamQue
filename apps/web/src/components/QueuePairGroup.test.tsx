@@ -87,4 +87,13 @@ describe('QueuePairGroup', () => {
     )
     expect(container.querySelector('[data-group-id="e3"]')).not.toBeNull()
   })
+
+  it('applies a passed-through style to the root element', () => {
+    const { container } = render(
+      <QueuePairGroup label="זוג 2" variant="default" groupId="e3" style={{ transform: 'translateY(24px)' }}>
+        <div>Row</div>
+      </QueuePairGroup>,
+    )
+    expect((container.querySelector('[data-group-id="e3"]') as HTMLElement).style.transform).toBe('translateY(24px)')
+  })
 })
