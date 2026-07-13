@@ -15,7 +15,9 @@ import {
   DOUBLE_TAP_WINDOW_MS,
   HOLD_MS,
   indexForPointerY,
+  computeReflow,
   type PairGestureState,
+  type RectLike,
 } from '@/lib/pair-drag-gesture'
 import { buildPairGroups, reorderGroups } from '@/lib/queue-pairing'
 import { formatTimeOfDay } from '@/lib/time'
@@ -32,12 +34,11 @@ import { useSessionActions } from '@/state/SessionActions'
  *
  * Each pair group also carries a double-tap-and-hold-then-drag gesture on
  * its own grip handle, letting staff move the whole pair as a block
- * (docs/superpowers/specs/2026-07-13-queue-pair-move-design.md). The
- * dragged group's original slot shows a placeholder for the drag's
- * duration; the other cards don't live-reflow, only the final drop reorders
- * the list — a deliberate scope simplification made during implementation
- * planning (the design spec itself originally called for live reflow; the
- * spec has since been updated to match this shipped behavior).
+ * (docs/superpowers/specs/2026-07-13-queue-pair-move-design.md). While
+ * dragging, the other pair cards live-reflow (CSS transform, no DOM
+ * reordering) to open a gap at the current drop target
+ * (docs/superpowers/specs/2026-07-13-queue-pair-drag-live-reflow-design.md)
+ * — only the actual drop commits a new order.
  */
 export interface QueueListProps {
   queue: QueueEntryView[]
@@ -71,6 +72,10 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
   const [dragGroupId, setDragGroupId] = useState<string | null>(null)
   const dragGroupIdRef = useRef<string | null>(null)
   const dragOverIndexRef = useRef(0)
+  const [dragOverIndex, setDragOverIndex] = useState(0)
+  const dragFromIndexRef = useRef(0)
+  const dragRectsRef = useRef<RectLike[]>([])
+  const dragScrollStartRef = useRef(0)
   const dragStartRef = useRef<{ top: number; left: number; width: number; height: number; clientY: number } | null>(null)
 
   useEffect(() => {
@@ -175,21 +180,31 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
   }
 
   function startDrag(groupId: string, startClientY: number): void {
-    const groupEl = queueRef.current?.querySelector<HTMLElement>(`[data-group-id="${groupId}"]`)
+    const groupEls = [...(queueRef.current?.querySelectorAll<HTMLElement>('[data-group-id]') ?? [])]
     const fromIndex = pairGroups.findIndex((g) => groupIdOf(g) === groupId)
+    const groupEl = groupEls[fromIndex]
     if (!groupEl || fromIndex === -1) return
     const rect = groupEl.getBoundingClientRect()
     dragStartRef.current = { top: rect.top, left: rect.left, width: rect.width, height: rect.height, clientY: startClientY }
+    dragRectsRef.current = groupEls.map((el) => {
+      const r = el.getBoundingClientRect()
+      return { top: r.top, height: r.height }
+    })
+    dragFromIndexRef.current = fromIndex
+    dragScrollStartRef.current = window.scrollY
     dragGroupIdRef.current = groupId
     dragOverIndexRef.current = fromIndex
-    flushSync(() => setDragGroupId(groupId))
+    flushSync(() => {
+      setDragGroupId(groupId)
+      setDragOverIndex(fromIndex)
+    })
     window.addEventListener('pointermove', onDragMove)
     window.addEventListener('pointerup', onDragEnd)
   }
 
   function onDragMove(event: PointerEvent): void {
     const start = dragStartRef.current
-    if (!start || !floatingRef.current || !queueRef.current || !dragGroupIdRef.current) return
+    if (!start || !floatingRef.current || !dragGroupIdRef.current) return
     const delta = event.clientY - start.clientY
     floatingRef.current.style.transform = `translateY(${delta}px)`
 
@@ -203,10 +218,18 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
       window.scrollBy({ top: DRAG_SCROLL_STEP_PX })
     }
 
-    const siblingRects = [...queueRef.current.querySelectorAll<HTMLElement>('[data-group-id]')]
-      .filter((el) => el.dataset.groupId !== dragGroupIdRef.current)
-      .map((el) => el.getBoundingClientRect())
-    dragOverIndexRef.current = indexForPointerY(siblingRects, event.clientY)
+    // siblingRects come from the one measurement pass taken at drag-start (dragRectsRef),
+    // adjusted by however far the page has scrolled since — never re-queried live, so
+    // applying a reflow transform to a sibling can't feed back into this calculation.
+    const scrollDelta = window.scrollY - dragScrollStartRef.current
+    const siblingRects = dragRectsRef.current
+      .filter((_, i) => i !== dragFromIndexRef.current)
+      .map((r) => ({ top: r.top - scrollDelta, height: r.height }))
+    const newIndex = indexForPointerY(siblingRects, event.clientY)
+    if (newIndex !== dragOverIndexRef.current) {
+      dragOverIndexRef.current = newIndex
+      flushSync(() => setDragOverIndex(newIndex))
+    }
   }
 
   function onDragEnd(): void {
@@ -217,6 +240,7 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
     const toIndex = dragOverIndexRef.current
     dragGroupIdRef.current = null
     dragStartRef.current = null
+    dragRectsRef.current = []
     flushSync(() => setDragGroupId(null))
     if (!groupId) return
 
@@ -258,12 +282,14 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
     )
   }
 
+  const reflow = dragGroupId && dragRectsRef.current.length > 0 ? computeReflow(dragRectsRef.current, dragFromIndexRef.current, dragOverIndex) : null
+
   return (
     <>
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <SortableContext items={orderIds} strategy={verticalListSortingStrategy}>
           <div ref={queueRef} className="flex flex-col gap-4">
-            {pairGroups.map((group) => {
+            {pairGroups.map((group, groupIndex) => {
               const isNext = group.pairIndex === 0 && group.hasPartner
               const variant: QueuePairGroupVariant = isNext ? 'next' : group.hasPartner ? 'default' : 'solo'
               const label = isNext
@@ -279,8 +305,11 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
                   <div
                     key={groupId}
                     data-group-id={groupId}
-                    className="rounded-xl border-2 border-dashed border-accent-dim bg-accent-dim/5"
-                    style={{ height: dragStartRef.current.height }}
+                    className="rounded-xl border-2 border-dashed border-accent-dim bg-accent-dim/5 transition-transform duration-150 ease-out"
+                    style={{
+                      height: dragStartRef.current.height,
+                      transform: `translateY(${reflow?.placeholderOffset ?? 0}px)`,
+                    }}
                   />
                 )
               }
@@ -293,6 +322,9 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
                   variant={variant}
                   gripState={gripState}
                   onGripPointerDown={(event) => handleGripPointerDown(groupId, event)}
+                  {...(reflow
+                    ? { style: { transform: `translateY(${reflow.siblingOffsets[groupIndex] ?? 0}px)`, transition: 'transform 150ms ease-out' } }
+                    : {})}
                 >
                   {group.entryIds.map((id, iInGroup) => {
                     const entry = byId.get(id)

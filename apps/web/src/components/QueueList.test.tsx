@@ -299,5 +299,30 @@ describe('QueueList', () => {
       fireEvent.pointerUp(window, { clientY: 390 })
       scrollBySpy.mockRestore()
     })
+
+    it('slides the placeholder and the passed-over sibling toward the live drop target before the drop', () => {
+      const { container } = renderQueueList(sixEntryQueue())
+      const groupEls = [...container.querySelectorAll<HTMLElement>('[data-group-id]')]
+      mockRect(groupEls[0]!, { top: 0, height: 132 })
+      mockRect(groupEls[1]!, { top: 148, height: 132 })
+      mockRect(groupEls[2]!, { top: 296, height: 132 })
+
+      const grip1 = groupEls[0]!.querySelector('button') as HTMLElement
+      fireEvent.pointerDown(grip1, { clientY: 10 })
+      fireEvent.pointerDown(grip1, { clientY: 10 })
+      vi.advanceTimersByTime(400)
+      fireEvent.pointerMove(window, { clientY: 250 }) // past group2's midpoint (214), before group3's (362) -> toIndex 1
+
+      const placeholder = container.querySelector('[data-group-id="e1"]') as HTMLElement
+      expect(placeholder.style.transform).toBe('translateY(148px)')
+
+      const shiftedSibling = container.querySelector('[data-group-id="e3"]') as HTMLElement
+      expect(shiftedSibling.style.transform).toBe('translateY(-148px)')
+
+      const untouchedSibling = container.querySelector('[data-group-id="e5"]') as HTMLElement
+      expect(untouchedSibling.style.transform).toBe('translateY(0px)')
+
+      fireEvent.pointerUp(window, { clientY: 250 })
+    })
   })
 })
