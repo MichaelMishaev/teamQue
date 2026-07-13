@@ -55,11 +55,12 @@ describe('RematchConfirmDialog', () => {
     expect(actions.replay).not.toHaveBeenCalled()
   })
 
-  it('calls replay exactly once with the match id when confirm is tapped', () => {
-    const { actions } = renderDialog(true)
+  it('calls replay exactly once with the match id when confirm is tapped', async () => {
+    const { actions, onClose } = renderDialog(true)
     fireEvent.click(screen.getByText('אישור'))
     expect(actions.replay).toHaveBeenCalledTimes(1)
     expect(actions.replay).toHaveBeenCalledWith('m1')
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
   })
 
   it('disables confirm while the replay call is in flight, and calls onClose on success', async () => {

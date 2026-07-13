@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useLayoutEffect } from 'react'
 import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { t } from '@/i18n'
@@ -22,7 +22,7 @@ export function RematchConfirmDialog({ open, onClose, matchId, captainAName, cap
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (open) {
       setSubmitting(false)
       setError(null)

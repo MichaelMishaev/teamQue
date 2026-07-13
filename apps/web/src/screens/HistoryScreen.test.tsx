@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { CaptainView } from 'shared'
 import { HistoryScreen } from './HistoryScreen'
@@ -83,11 +83,12 @@ describe('HistoryScreen', () => {
     expect(screen.getByText('אין משחקים שהסתיימו עדיין')).toBeDefined()
   })
 
-  it('rematch shows a confirmation dialog, and only calls replay after confirming', () => {
+  it('rematch shows a confirmation dialog, and only calls replay after confirming', async () => {
     const { actions } = renderHistory([finishedMatch('m1', 'יוסי', 'רון')])
     fireEvent.click(screen.getByText('משחק חוזר'))
     expect(actions.replay).not.toHaveBeenCalled()
     fireEvent.click(screen.getByText('אישור'))
     expect(actions.replay).toHaveBeenCalledWith('m1')
+    await waitFor(() => expect(screen.queryByText('ליצור משחק חוזר?')).toBeNull())
   })
 })
