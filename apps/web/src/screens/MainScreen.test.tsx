@@ -146,6 +146,39 @@ describe('MainScreen — active session, field live', () => {
     expect(actions.undo).not.toHaveBeenCalled()
   })
 
+  it('at 00:00 with a waiting pair, "finish and start next" finishes then starts the next match', async () => {
+    const snapshot = activeSnapshot({
+      fields: [
+        {
+          id: 'f1',
+          name: 'מגרש ראשי',
+          position: 0,
+          liveMatch: {
+            id: 'm1',
+            captainA: team('ca', 'א'),
+            captainB: team('cb', 'ב'),
+            status: 'live',
+            plannedDurationSec: 360,
+            startedAt: new Date(Date.now() - 400_000).toISOString(),
+            pausedAt: null,
+            accumulatedPauseSec: 0,
+            endsAt: new Date(Date.now() - 1000).toISOString(),
+          },
+        },
+      ],
+      queue: [
+        { id: 'e1', position: 1, team: team('cc', 'יוסי') },
+        { id: 'e2', position: 2, team: team('cd', 'רון') },
+      ],
+    })
+    const actions = renderMain({ snapshot, connection: 'online', offsetMs: 0 }, 'staff')
+
+    fireEvent.click(screen.getByRole('button', { name: /סיים והתחל הבא/ }))
+
+    await waitFor(() => expect(actions.finish).toHaveBeenCalledWith('m1'))
+    await waitFor(() => expect(actions.startMatch).toHaveBeenCalled())
+  })
+
   it('shows the live FieldCard instead of the start prompt', () => {
     const snapshot = activeSnapshot({
       fields: [

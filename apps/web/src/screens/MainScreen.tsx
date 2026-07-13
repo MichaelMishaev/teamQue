@@ -84,6 +84,16 @@ export function MainScreen() {
     }
   }
 
+  async function handleFinishAndNext(matchId: string): Promise<void> {
+    try {
+      await actions.finish(matchId)
+      await actions.startMatch()
+      showStatusToast('toast.matchFinished')
+    } catch {
+      setError(t('queue.actions.error'))
+    }
+  }
+
   const frontTwo = snapshot.queue.slice(0, 2)
   const nextTwo = frontTwo.length === 2 ? { teamA: frontTwo[0]!.team.name, teamB: frontTwo[1]!.team.name } : undefined
 
@@ -104,10 +114,12 @@ export function MainScreen() {
             captainB={liveMatch.captainB.name}
             secondsLeft={secondsLeft}
             alerting={alerting}
+            {...(nextTwo ? { nextTwo } : {})}
             onPause={() => void withErrorHandling(() => actions.pause(liveMatch.id))}
             onResume={() => void withErrorHandling(() => actions.resume(liveMatch.id))}
             onExtend={() => void withErrorHandling(() => actions.extend(liveMatch.id))}
             onFinish={() => void handleFinish(liveMatch.id)}
+            onFinishAndNext={() => void handleFinishAndNext(liveMatch.id)}
           />
         ) : (
           <FieldCard

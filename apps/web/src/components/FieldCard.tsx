@@ -11,8 +11,10 @@ import { CountdownTimer } from '@/components/CountdownTimer'
  * - free: shows the front two teams of the line ("הבא במגרש") and a start
  *   button that pairs them at kickoff — disabled with a reason when the
  *   line has fewer than two teams.
- * - live/paused: active match + timer + controls, unchanged from the prior
- *   build. Presentational; server owns truth.
+ * - live/paused: active match + timer + controls.
+ * - finishing (live at 00:00): a "time's up" state — labels the match done and
+ *   offers a one-tap "finish + start next" when a pair is waiting (client-prd
+ *   §3.1). Presentational; server owns truth.
  */
 
 interface FreeProps {
@@ -30,9 +32,13 @@ interface ActiveProps {
   secondsLeft: number
   /** One-shot attention flash the moment the timer crosses to 00:00 (see useMatchEndAlert). */
   alerting?: boolean
+  /** Front-two of the line — previewed and startable in the finishing (00:00) state. */
+  nextTwo?: { teamA: string; teamB: string }
   onPause?: () => void
   onResume?: () => void
   onFinish?: () => void
+  /** Finish the current match and immediately kick off nextTwo (finishing state, one tap). */
+  onFinishAndNext?: () => void
   onExtend?: () => void
 }
 
@@ -93,15 +99,44 @@ export function FieldCard(props: FieldCardProps) {
         </p>
         <CountdownTimer secondsLeft={props.secondsLeft} state={state} />
       </div>
-      <div className="flex gap-2">
-        {props.status === 'paused' ? (
-          <Button variant="primary" className="flex-1" onClick={props.onResume}>▶ {t('action.resume')}</Button>
-        ) : (
-          <Button className="flex-1" onClick={props.onPause}>⏸ {t('action.pause')}</Button>
-        )}
-        <Button className="flex-1" onClick={props.onExtend}>{t('action.extendMinute')}</Button>
-        <Button variant="danger" className="flex-1" onClick={props.onFinish}>{t('action.finish')}</Button>
-      </div>
+      {state === 'finishing' ? (
+        <>
+          {props.nextTwo && (
+            <p className="mb-2 text-sm text-muted">
+              {t('field.nextOnField')}{' '}
+              <b className="font-semibold text-ink">
+                {props.nextTwo.teamA} {t('match.vs')} {props.nextTwo.teamB}
+              </b>
+            </p>
+          )}
+          {props.nextTwo ? (
+            <>
+              <Button variant="primary" size="big" className="mb-2 w-full" onClick={props.onFinishAndNext}>
+                ✓ {t('action.finishAndStartNext')}
+              </Button>
+              <div className="flex gap-2">
+                <Button className="flex-1" onClick={props.onExtend}>{t('action.extendMinute')}</Button>
+                <Button variant="danger" className="flex-1" onClick={props.onFinish}>{t('action.finishOnly')}</Button>
+              </div>
+            </>
+          ) : (
+            <div className="flex gap-2">
+              <Button className="flex-1" onClick={props.onExtend}>{t('action.extendMinute')}</Button>
+              <Button variant="danger" className="flex-1" onClick={props.onFinish}>{t('action.finish')}</Button>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="flex gap-2">
+          {props.status === 'paused' ? (
+            <Button variant="primary" className="flex-1" onClick={props.onResume}>▶ {t('action.resume')}</Button>
+          ) : (
+            <Button className="flex-1" onClick={props.onPause}>⏸ {t('action.pause')}</Button>
+          )}
+          <Button className="flex-1" onClick={props.onExtend}>{t('action.extendMinute')}</Button>
+          <Button variant="danger" className="flex-1" onClick={props.onFinish}>{t('action.finish')}</Button>
+        </div>
+      )}
     </section>
   )
 }

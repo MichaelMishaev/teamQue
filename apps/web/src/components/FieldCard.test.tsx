@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 import { FieldCard } from './FieldCard'
 
 describe('FieldCard', () => {
@@ -40,5 +40,70 @@ describe('FieldCard', () => {
       <FieldCard status="live" fieldName="מגרש" captainA="א" captainB="ב" secondsLeft={0} />,
     )
     expect(container.querySelector('section')?.style.animation).toBe('')
+  })
+
+  it('finished (00:00) with a waiting pair labels time up, previews the next pair, and offers finish-and-next', () => {
+    render(
+      <FieldCard
+        status="live"
+        fieldName="מגרש"
+        captainA="שחר"
+        captainB="טל"
+        secondsLeft={0}
+        nextTwo={{ teamA: 'יוסי', teamB: 'רון' }}
+      />,
+    )
+    expect(screen.getByText('נגמר הזמן')).toBeDefined()
+    expect(screen.getByText(/יוסי/)).toBeDefined()
+    expect(screen.getByRole('button', { name: /סיים והתחל הבא/ })).toBeDefined()
+    expect(screen.getByRole('button', { name: /סיים בלבד/ })).toBeDefined()
+    expect(screen.getByRole('button', { name: /דק/ })).toBeDefined()
+    expect(screen.queryByText(/השהה/)).toBeNull()
+  })
+
+  it('finished finish-and-next button calls onFinishAndNext', () => {
+    const onFinishAndNext = vi.fn()
+    render(
+      <FieldCard
+        status="live"
+        fieldName="מגרש"
+        captainA="שחר"
+        captainB="טל"
+        secondsLeft={0}
+        nextTwo={{ teamA: 'יוסי', teamB: 'רון' }}
+        onFinishAndNext={onFinishAndNext}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /סיים והתחל הבא/ }))
+    expect(onFinishAndNext).toHaveBeenCalledTimes(1)
+  })
+
+  it('finished "finish only" button calls onFinish', () => {
+    const onFinish = vi.fn()
+    render(
+      <FieldCard
+        status="live"
+        fieldName="מגרש"
+        captainA="שחר"
+        captainB="טל"
+        secondsLeft={0}
+        nextTwo={{ teamA: 'יוסי', teamB: 'רון' }}
+        onFinish={onFinish}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /סיים בלבד/ }))
+    expect(onFinish).toHaveBeenCalledTimes(1)
+  })
+
+  it('finished with fewer than two waiting collapses to a plain finish, no next-game affordance', () => {
+    const onFinish = vi.fn()
+    render(
+      <FieldCard status="live" fieldName="מגרש" captainA="שחר" captainB="טל" secondsLeft={0} onFinish={onFinish} />,
+    )
+    expect(screen.queryByRole('button', { name: /סיים והתחל הבא/ })).toBeNull()
+    expect(screen.queryByText('הבא במגרש:')).toBeNull()
+    const finish = screen.getByRole('button', { name: 'סיים' })
+    fireEvent.click(finish)
+    expect(onFinish).toHaveBeenCalledTimes(1)
   })
 })
