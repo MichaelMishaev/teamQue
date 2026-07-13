@@ -149,5 +149,19 @@ describe('QueueList', () => {
       vi.advanceTimersByTime(400)
       expect(grip.className).not.toContain('bg-accent-dim')
     })
+
+    it('does not let a stale listener from an abandoned hold cancel a fresh gesture on another grip', () => {
+      renderQueueList(fourEntryQueue())
+      const grip1 = screen.getByRole('button', { name: /^הזז את זוג 1/ })
+      const grip2 = screen.getByRole('button', { name: /^הזז את זוג 2/ })
+
+      fireEvent.pointerDown(grip1, { clientY: 10 })
+      fireEvent.pointerDown(grip1, { clientY: 10 }) // grip1 now holding
+      fireEvent.pointerDown(grip2, { clientY: 10 }) // switches to armed(grip2) before grip1's hold completes
+
+      fireEvent.pointerUp(window, { clientY: 10 }) // a stray release that must NOT touch grip2's fresh armed state
+
+      expect(grip2.className).toContain('bg-warn')
+    })
   })
 })

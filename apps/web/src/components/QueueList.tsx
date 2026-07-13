@@ -48,10 +48,23 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
   const [gripVisual, setGripVisual] = useState<{ groupId: string; phase: 'armed' | 'holding' } | null>(null)
   const doubleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const holdCleanupRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     setOrderIds(queue.map((e) => e.id))
   }, [queue])
+
+  function teardownActiveHold(): void {
+    holdCleanupRef.current?.()
+    holdCleanupRef.current = null
+  }
+
+  useEffect(() => {
+    return () => {
+      teardownActiveHold()
+      if (doubleTapTimerRef.current) clearTimeout(doubleTapTimerRef.current)
+    }
+  }, [])
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
 
@@ -93,6 +106,7 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
   function handleGripPointerDown(groupId: string, event: ReactPointerEvent<HTMLButtonElement>): void {
     event.preventDefault()
     if (doubleTapTimerRef.current) clearTimeout(doubleTapTimerRef.current)
+    if (gestureRef.current.phase === 'holding') teardownActiveHold()
     const next = applyGestureTransition({ type: 'GRIP_DOWN', groupId })
 
     if (next.phase === 'armed') {
@@ -108,6 +122,7 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
         window.removeEventListener('pointerup', cancelHold)
         window.removeEventListener('pointermove', moveDuringHold)
         if (holdTimerRef.current) clearTimeout(holdTimerRef.current)
+        holdCleanupRef.current = null
         flushSync(() => applyGestureTransition({ type: 'CANCEL' }))
       }
       const moveDuringHold = (moveEvent: PointerEvent): void => {
@@ -115,7 +130,13 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
       }
       window.addEventListener('pointerup', cancelHold)
       window.addEventListener('pointermove', moveDuringHold)
+      holdCleanupRef.current = () => {
+        window.removeEventListener('pointerup', cancelHold)
+        window.removeEventListener('pointermove', moveDuringHold)
+        if (holdTimerRef.current) clearTimeout(holdTimerRef.current)
+      }
       holdTimerRef.current = setTimeout(() => {
+        holdCleanupRef.current = null
         window.removeEventListener('pointerup', cancelHold)
         window.removeEventListener('pointermove', moveDuringHold)
         flushSync(() => applyGestureTransition({ type: 'HOLD_COMPLETE' }))
