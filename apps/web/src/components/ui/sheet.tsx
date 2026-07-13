@@ -1,4 +1,5 @@
-import { useRef, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
+import { toast } from 'sonner'
 import { useFocusTrap } from '@/hooks/useFocusTrap'
 
 /**
@@ -17,6 +18,13 @@ export interface SheetProps {
 export function Sheet({ open, onClose, title, children }: SheetProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   useFocusTrap(open, onClose, panelRef)
+
+  useEffect(() => {
+    // An undo/status toast (sonner, bottom-center, very high z-index) sits on
+    // the same screen edge this panel slides from — without dismissing it, it
+    // paints over the panel's bottom-most action row (gh#1).
+    if (open) toast.dismiss()
+  }, [open])
 
   if (!open) return null
 
