@@ -25,8 +25,13 @@ export function UndoToaster() {
   )
 }
 
-export function showUndoToast(messageKey: MessageKey, onUndo: () => void, durationMs: number = UNDO_WINDOW_MS): void {
-  toast(t(messageKey), {
+export function showUndoToast(
+  messageKey: MessageKey,
+  onUndo: () => void,
+  params?: Record<string, string | number>,
+  durationMs: number = UNDO_WINDOW_MS,
+): void {
+  toast(t(messageKey, params), {
     duration: durationMs,
     action: { label: t('action.undo'), onClick: onUndo },
   })

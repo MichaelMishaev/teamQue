@@ -62,6 +62,8 @@
   "banner.offline": "אין חיבור — מציג מצב אחרון",
   "banner.synced": "מסונכרן",
   "toast.removedFromQueue": "הקבוצה הוסרה מהתור",
+  "toast.pairMovedUp": "{names} הוזז/ה למעלה",
+  "toast.pairMovedDown": "{names} הוזז/ה למטה",
   "toast.matchFinished": "המשחק הסתיים",
   "toast.newVersion": "גרסה חדשה זמינה",
   "app.install": "התקן אפליקציה",

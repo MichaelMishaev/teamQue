@@ -4,6 +4,13 @@ import type { QueueEntryView } from 'shared'
 import { QueueList } from './QueueList'
 import { SessionActionsContext, type SessionActions } from '@/state/SessionActions'
 
+// jsdom has no PointerEvent constructor, so testing-library's fireEvent.pointer*
+// falls back to a bare Event that drops clientY. MouseEvent reads the same
+// MouseEventInit shape we rely on (clientY only), so alias it in.
+if (typeof window.PointerEvent === 'undefined') {
+  window.PointerEvent = MouseEvent as unknown as typeof PointerEvent
+}
+
 function entry(
   id: string,
   name: string,
@@ -33,12 +40,26 @@ function renderQueueList(queue: QueueEntryView[], opts: { matchDurationSec?: num
     updateDuration: vi.fn(),
     updateTeam: vi.fn(),
   }
-  render(
+  const result = render(
     <SessionActionsContext.Provider value={actions}>
       <QueueList queue={queue} matchDurationSec={opts.matchDurationSec ?? 480} baseSec={opts.baseSec ?? 0} />
     </SessionActionsContext.Provider>,
   )
-  return { actions }
+  return { actions, container: result.container }
+}
+
+function mockRect(el: HTMLElement, rect: { top: number; height: number }): void {
+  vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({
+    top: rect.top,
+    height: rect.height,
+    left: 0,
+    width: 300,
+    right: 300,
+    bottom: rect.top + rect.height,
+    x: 0,
+    y: rect.top,
+    toJSON: () => ({}),
+  } as DOMRect)
 }
 
 describe('QueueList', () => {
@@ -162,6 +183,69 @@ describe('QueueList', () => {
       fireEvent.pointerUp(window, { clientY: 10 }) // a stray release that must NOT touch grip2's fresh armed state
 
       expect(grip2.className).toContain('bg-warn')
+    })
+  })
+
+  describe('pair drag gesture — dragging', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    function sixEntryQueue(): QueueEntryView[] {
+      return [
+        entry('e1', 'א', 1),
+        entry('e2', 'ב', 2),
+        entry('e3', 'ג', 3),
+        entry('e4', 'ד', 4),
+        entry('e5', 'ה', 5),
+        entry('e6', 'ו', 6),
+      ]
+    }
+
+    it('cancels the drag if the pointer releases before the hold completes', () => {
+      const { actions } = renderQueueList(sixEntryQueue())
+      const grip = screen.getByRole('button', { name: /^הזז את זוג 2/ })
+      fireEvent.pointerDown(grip, { clientY: 10 })
+      fireEvent.pointerDown(grip, { clientY: 10 })
+      vi.advanceTimersByTime(200)
+      fireEvent.pointerUp(window, { clientY: 10 })
+      vi.advanceTimersByTime(400)
+      expect(actions.reorderLine).not.toHaveBeenCalled()
+    })
+
+    it('does not reorder when the pair is dropped back at its original position', () => {
+      const { actions, container } = renderQueueList(sixEntryQueue())
+      const groupEls = [...container.querySelectorAll<HTMLElement>('[data-group-id]')]
+      mockRect(groupEls[1]!, { top: 148, height: 132 })
+
+      const grip1 = groupEls[0]!.querySelector('button') as HTMLElement
+      fireEvent.pointerDown(grip1, { clientY: 10 })
+      fireEvent.pointerDown(grip1, { clientY: 10 })
+      vi.advanceTimersByTime(400)
+      fireEvent.pointerMove(window, { clientY: 10 })
+      fireEvent.pointerUp(window, { clientY: 10 })
+
+      expect(actions.reorderLine).not.toHaveBeenCalled()
+    })
+
+    it('drags the front pair past the middle pair and reorders on drop', () => {
+      const { actions, container } = renderQueueList(sixEntryQueue())
+      const groupEls = [...container.querySelectorAll<HTMLElement>('[data-group-id]')]
+      expect(groupEls).toHaveLength(3)
+      mockRect(groupEls[1]!, { top: 148, height: 132 })
+      mockRect(groupEls[2]!, { top: 296, height: 132 })
+
+      const grip1 = groupEls[0]!.querySelector('button') as HTMLElement
+      fireEvent.pointerDown(grip1, { clientY: 10 })
+      fireEvent.pointerDown(grip1, { clientY: 10 })
+      vi.advanceTimersByTime(400)
+      fireEvent.pointerMove(window, { clientY: 250 }) // past group2's midpoint (214), before group3's (362)
+      fireEvent.pointerUp(window, { clientY: 250 })
+
+      expect(actions.reorderLine).toHaveBeenCalledWith(['e3', 'e4', 'e1', 'e2', 'e5', 'e6'])
     })
   })
 })

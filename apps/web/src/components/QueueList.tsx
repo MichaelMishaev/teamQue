@@ -8,9 +8,16 @@ import type { QueueEntryView } from 'shared'
 import { QueuePairGroup, type QueuePairGroupVariant } from '@/components/QueuePairGroup'
 import { QueueRow } from '@/components/QueueRow'
 import { QueueActionsSheet } from '@/components/QueueActionsSheet'
+import { showUndoToast } from '@/components/UndoToast'
 import { t } from '@/i18n'
-import { pairGestureReducer, DOUBLE_TAP_WINDOW_MS, HOLD_MS, type PairGestureState } from '@/lib/pair-drag-gesture'
-import { buildPairGroups } from '@/lib/queue-pairing'
+import {
+  pairGestureReducer,
+  DOUBLE_TAP_WINDOW_MS,
+  HOLD_MS,
+  indexForPointerY,
+  type PairGestureState,
+} from '@/lib/pair-drag-gesture'
+import { buildPairGroups, reorderGroups } from '@/lib/queue-pairing'
 import { formatTimeOfDay } from '@/lib/time'
 import { useSessionActions } from '@/state/SessionActions'
 
@@ -25,8 +32,10 @@ import { useSessionActions } from '@/state/SessionActions'
  *
  * Each pair group also carries a double-tap-and-hold-then-drag gesture on
  * its own grip handle, letting staff move the whole pair as a block
- * (docs/superpowers/specs/2026-07-13-queue-pair-move-design.md). This owns
- * the gesture's timers; the DOM drag mechanics are added in a later change.
+ * (docs/superpowers/specs/2026-07-13-queue-pair-move-design.md). The
+ * dragged group's original slot shows a placeholder for the drag's
+ * duration; the other cards don't live-reflow, only the final drop reorders
+ * the list — a deliberate scope simplification noted in the design spec.
  */
 export interface QueueListProps {
   queue: QueueEntryView[]
@@ -49,6 +58,13 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
   const doubleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdCleanupRef = useRef<(() => void) | null>(null)
+
+  const queueRef = useRef<HTMLDivElement>(null)
+  const floatingRef = useRef<HTMLDivElement>(null)
+  const [dragGroupId, setDragGroupId] = useState<string | null>(null)
+  const dragGroupIdRef = useRef<string | null>(null)
+  const dragOverIndexRef = useRef(0)
+  const dragStartRef = useRef<{ top: number; left: number; width: number; height: number; clientY: number } | null>(null)
 
   useEffect(() => {
     setOrderIds(queue.map((e) => e.id))
@@ -139,16 +155,86 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
         holdCleanupRef.current = null
         window.removeEventListener('pointerup', cancelHold)
         window.removeEventListener('pointermove', moveDuringHold)
-        flushSync(() => applyGestureTransition({ type: 'HOLD_COMPLETE' }))
+        let dragging: PairGestureState = gestureRef.current
+        flushSync(() => {
+          dragging = applyGestureTransition({ type: 'HOLD_COMPLETE' })
+        })
+        if (dragging.phase === 'dragging') startDrag(groupId, startClientY)
       }, HOLD_MS)
     }
+  }
+
+  function startDrag(groupId: string, startClientY: number): void {
+    const groupEl = queueRef.current?.querySelector<HTMLElement>(`[data-group-id="${groupId}"]`)
+    const fromIndex = pairGroups.findIndex((g) => groupIdOf(g) === groupId)
+    if (!groupEl || fromIndex === -1) return
+    const rect = groupEl.getBoundingClientRect()
+    dragStartRef.current = { top: rect.top, left: rect.left, width: rect.width, height: rect.height, clientY: startClientY }
+    dragGroupIdRef.current = groupId
+    dragOverIndexRef.current = fromIndex
+    flushSync(() => setDragGroupId(groupId))
+    window.addEventListener('pointermove', onDragMove)
+    window.addEventListener('pointerup', onDragEnd)
+  }
+
+  function onDragMove(event: PointerEvent): void {
+    const start = dragStartRef.current
+    if (!start || !floatingRef.current || !queueRef.current || !dragGroupIdRef.current) return
+    const delta = event.clientY - start.clientY
+    floatingRef.current.style.transform = `translateY(${delta}px)`
+
+    const siblingRects = [...queueRef.current.querySelectorAll<HTMLElement>('[data-group-id]')]
+      .filter((el) => el.dataset.groupId !== dragGroupIdRef.current)
+      .map((el) => el.getBoundingClientRect())
+    dragOverIndexRef.current = indexForPointerY(siblingRects, event.clientY)
+  }
+
+  function onDragEnd(): void {
+    window.removeEventListener('pointermove', onDragMove)
+    window.removeEventListener('pointerup', onDragEnd)
+
+    const groupId = dragGroupIdRef.current
+    const toIndex = dragOverIndexRef.current
+    dragGroupIdRef.current = null
+    dragStartRef.current = null
+    flushSync(() => setDragGroupId(null))
+    if (!groupId) return
+
+    const fromIndex = pairGroups.findIndex((g) => groupIdOf(g) === groupId)
+    if (fromIndex === -1 || fromIndex === toIndex) return
+    const movedGroup = pairGroups[fromIndex]
+    if (!movedGroup) return
+
+    const nextOrder = reorderGroups(pairGroups, fromIndex, toIndex)
+    const previousOrder = orderIds
+    flushSync(() => setOrderIds(nextOrder))
+    actions.reorderLine(nextOrder).catch(() => {
+      setOrderIds(previousOrder)
+      onError?.(t('queue.actions.error'))
+    })
+
+    const names = movedGroup.entryIds
+      .map((id) => byId.get(id)?.team.name)
+      .filter((name): name is string => Boolean(name))
+      .join(' / ')
+    const messageKey = toIndex < fromIndex ? 'toast.pairMovedUp' : 'toast.pairMovedDown'
+    showUndoToast(
+      messageKey,
+      () => {
+        setOrderIds(previousOrder)
+        actions.reorderLine(previousOrder).catch(() => {
+          onError?.(t('queue.actions.error'))
+        })
+      },
+      { names },
+    )
   }
 
   return (
     <>
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <SortableContext items={orderIds} strategy={verticalListSortingStrategy}>
-          <div className="flex flex-col gap-4">
+          <div ref={queueRef} className="flex flex-col gap-4">
             {pairGroups.map((group) => {
               const isNext = group.pairIndex === 0 && group.hasPartner
               const variant: QueuePairGroupVariant = isNext ? 'next' : group.hasPartner ? 'default' : 'solo'
@@ -159,6 +245,18 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
                   : t('queue.pair.waiting')
               const groupId = groupIdOf(group)
               const gripState = gripVisual?.groupId === groupId ? gripVisual.phase : 'idle'
+
+              if (groupId === dragGroupId && dragStartRef.current) {
+                return (
+                  <div
+                    key={groupId}
+                    data-group-id={groupId}
+                    className="rounded-xl border-2 border-dashed border-accent-dim bg-accent-dim/5"
+                    style={{ height: dragStartRef.current.height }}
+                  />
+                )
+              }
+
               return (
                 <QueuePairGroup
                   key={groupId}
@@ -190,6 +288,34 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
           </div>
         </SortableContext>
       </DndContext>
+      {dragGroupId && dragStartRef.current && (
+        <div
+          ref={floatingRef}
+          className="pointer-events-none fixed z-30 scale-[1.02] rotate-[0.6deg]"
+          style={{ top: dragStartRef.current.top, left: dragStartRef.current.left, width: dragStartRef.current.width }}
+        >
+          <div className="flex flex-col overflow-hidden rounded-xl border border-accent bg-surface shadow-xl shadow-black/70 [&>*+*]:border-t [&>*+*]:border-accent-dim">
+            {pairGroups
+              .find((g) => groupIdOf(g) === dragGroupId)
+              ?.entryIds.map((id) => {
+                const draggedEntry = byId.get(id)
+                if (!draggedEntry) return null
+                return (
+                  <QueueRow
+                    key={draggedEntry.id}
+                    position={orderIds.indexOf(draggedEntry.id) + 1}
+                    teamName={draggedEntry.team.name}
+                    {...(draggedEntry.team.nickname ? { nickname: draggedEntry.team.nickname } : {})}
+                    gamesToday={draggedEntry.team.gamesToday}
+                    {...(draggedEntry.team.lastPlayedAt ? { lastPlayedAt: formatTimeOfDay(draggedEntry.team.lastPlayedAt) } : {})}
+                    grouped
+                    dragging
+                  />
+                )
+              })}
+          </div>
+        </div>
+      )}
       {menuEntry && <QueueActionsSheet open onClose={() => setMenuEntryId(null)} entry={menuEntry} {...(onError ? { onError } : {})} />}
     </>
   )
