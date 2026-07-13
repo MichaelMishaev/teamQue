@@ -46,6 +46,11 @@ export interface QueueListProps {
   onError?: (message: string) => void
 }
 
+/** Pointer distance from a viewport edge that triggers auto-scroll during a pair drag. */
+const DRAG_SCROLL_EDGE_PX = 80
+/** Scroll amount per pointermove while the pointer sits in the edge zone. */
+const DRAG_SCROLL_STEP_PX = 16
+
 function groupIdOf(group: { pairIndex: number; entryIds: string[] }): string {
   return group.entryIds[0] ?? `pair-${group.pairIndex}`
 }
@@ -187,6 +192,16 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
     if (!start || !floatingRef.current || !queueRef.current || !dragGroupIdRef.current) return
     const delta = event.clientY - start.clientY
     floatingRef.current.style.transform = `translateY(${delta}px)`
+
+    // Auto-scroll near the viewport edges — without this, a pair below the fold
+    // (e.g. swapping pair 2 with pair 4/5 in a longer queue) is unreachable, since
+    // this drag uses raw pointer tracking rather than native drag-and-drop, which
+    // browsers auto-scroll for free.
+    if (event.clientY < DRAG_SCROLL_EDGE_PX) {
+      window.scrollBy({ top: -DRAG_SCROLL_STEP_PX })
+    } else if (event.clientY > window.innerHeight - DRAG_SCROLL_EDGE_PX) {
+      window.scrollBy({ top: DRAG_SCROLL_STEP_PX })
+    }
 
     const siblingRects = [...queueRef.current.querySelectorAll<HTMLElement>('[data-group-id]')]
       .filter((el) => el.dataset.groupId !== dragGroupIdRef.current)

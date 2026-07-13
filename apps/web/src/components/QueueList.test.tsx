@@ -272,5 +272,32 @@ describe('QueueList', () => {
 
       expect(actions.reorderLine).toHaveBeenCalledWith(['e3', 'e4', 'e1', 'e2', 'e5', 'e6', 'e7'])
     })
+
+    it('auto-scrolls the page when dragging near the bottom edge of the viewport', () => {
+      // regression: see gh#2
+      Object.defineProperty(window, 'innerHeight', { value: 400, configurable: true })
+      const scrollBySpy = vi.spyOn(window, 'scrollBy').mockImplementation(() => {})
+
+      const { container } = renderQueueList(sixEntryQueue())
+      const groupEls = [...container.querySelectorAll<HTMLElement>('[data-group-id]')]
+      mockRect(groupEls[1]!, { top: 148, height: 132 })
+      mockRect(groupEls[2]!, { top: 296, height: 132 })
+
+      const grip1 = groupEls[0]!.querySelector('button') as HTMLElement
+      fireEvent.pointerDown(grip1, { clientY: 10 })
+      fireEvent.pointerDown(grip1, { clientY: 10 })
+      vi.advanceTimersByTime(400)
+
+      // Pointer sits near the bottom edge of a 400px-tall viewport — a pair several
+      // rows below (off-screen) can only ever be reached if this triggers a scroll.
+      fireEvent.pointerMove(window, { clientY: 390 })
+
+      expect(scrollBySpy).toHaveBeenCalled()
+      const [scrollArg] = scrollBySpy.mock.calls[0] as unknown as [{ top: number }]
+      expect(scrollArg.top).toBeGreaterThan(0)
+
+      fireEvent.pointerUp(window, { clientY: 390 })
+      scrollBySpy.mockRestore()
+    })
   })
 })
