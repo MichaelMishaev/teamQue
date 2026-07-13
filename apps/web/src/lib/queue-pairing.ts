@@ -44,3 +44,16 @@ export function buildPairGroups(entryIds: string[], baseSec: number, matchDurati
 export function computeBaseSec(isLive: boolean, liveRemainingSec: number): number {
   return isLive ? liveRemainingSec + MATCH_GAP_SEC : 0
 }
+
+/**
+ * Moves the group at fromIndex to toIndex within the pair-group list, then
+ * flattens the result back into a flat queue order — the reorderLine payload
+ * after a pair-level drag-and-drop (docs/superpowers/specs/2026-07-13-queue-
+ * pair-move-design.md).
+ */
+export function reorderGroups(groups: PairGroup[], fromIndex: number, toIndex: number): string[] {
+  const reordered = [...groups]
+  const [moved] = reordered.splice(fromIndex, 1)
+  if (moved) reordered.splice(toIndex, 0, moved)
+  return reordered.flatMap((g) => g.entryIds)
+}

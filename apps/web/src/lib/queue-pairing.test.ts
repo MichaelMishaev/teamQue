@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MATCH_GAP_SEC, buildPairGroups, computeBaseSec } from './queue-pairing'
+import { MATCH_GAP_SEC, buildPairGroups, computeBaseSec, reorderGroups } from './queue-pairing'
 
 describe('buildPairGroups', () => {
   it('returns no groups for an empty queue', () => {
@@ -39,5 +39,27 @@ describe('computeBaseSec', () => {
 
   it('is the live match remaining time plus the gap when a match is running', () => {
     expect(computeBaseSec(true, 140)).toBe(140 + MATCH_GAP_SEC)
+  })
+})
+
+describe('reorderGroups', () => {
+  it('moves a pair from a later index to the front', () => {
+    const groups = buildPairGroups(['a', 'b', 'c', 'd', 'e', 'f'], 0, 480)
+    expect(reorderGroups(groups, 2, 0)).toEqual(['e', 'f', 'a', 'b', 'c', 'd'])
+  })
+
+  it('moves a pair from the front to a later index', () => {
+    const groups = buildPairGroups(['a', 'b', 'c', 'd', 'e', 'f'], 0, 480)
+    expect(reorderGroups(groups, 0, 2)).toEqual(['c', 'd', 'e', 'f', 'a', 'b'])
+  })
+
+  it('moves a pair down past a trailing solo entry', () => {
+    const groups = buildPairGroups(['a', 'b', 'c', 'd', 'e'], 0, 480)
+    expect(reorderGroups(groups, 1, 2)).toEqual(['a', 'b', 'e', 'c', 'd'])
+  })
+
+  it('is a no-op when fromIndex and toIndex are the same', () => {
+    const groups = buildPairGroups(['a', 'b', 'c', 'd'], 0, 480)
+    expect(reorderGroups(groups, 1, 1)).toEqual(['a', 'b', 'c', 'd'])
   })
 })
