@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { indexForPointerY, pairGestureReducer, type PairGestureState } from './pair-drag-gesture'
+import { computeReflow, indexForPointerY, pairGestureReducer, type PairGestureState } from './pair-drag-gesture'
+import { buildPairGroups, reorderGroups, type PairGroup } from './queue-pairing'
 
 const idle: PairGestureState = { phase: 'idle' }
 
@@ -65,5 +66,68 @@ describe('indexForPointerY', () => {
 
   it('returns 0 for an empty list', () => {
     expect(indexForPointerY([], 50)).toBe(0)
+  })
+})
+
+describe('computeReflow', () => {
+  const rects = [
+    { top: 0, height: 132 },
+    { top: 148, height: 132 },
+    { top: 296, height: 66 },
+    { top: 378, height: 132 },
+  ]
+
+  it('shifts the passed-over siblings up and moves the placeholder down when dragging down', () => {
+    expect(computeReflow(rects, 0, 2)).toEqual({
+      placeholderOffset: 230,
+      siblingOffsets: [0, -148, -148, 0],
+    })
+  })
+
+  it('shifts the passed-over siblings down and moves the placeholder up when dragging up', () => {
+    expect(computeReflow(rects, 3, 0)).toEqual({
+      placeholderOffset: -378,
+      siblingOffsets: [148, 148, 148, 0],
+    })
+  })
+
+  it('is a no-op when toIndex equals fromIndex', () => {
+    expect(computeReflow(rects, 1, 1)).toEqual({
+      placeholderOffset: 0,
+      siblingOffsets: [0, 0, 0, 0],
+    })
+  })
+})
+
+describe('computeReflow matches reorderGroups (the live preview must never disagree with the drop outcome)', () => {
+  const groups: PairGroup[] = buildPairGroups(['a', 'b', 'c', 'd', 'e', 'f'], 0, 480)
+  const groupRects = [
+    { top: 0, height: 132 },
+    { top: 148, height: 132 },
+    { top: 296, height: 132 },
+  ]
+
+  function visualEntryOrder(fromIndex: number, toIndex: number): string[] {
+    const { placeholderOffset, siblingOffsets } = computeReflow(groupRects, fromIndex, toIndex)
+    return groups
+      .map((group, i) => {
+        const rect = groupRects[i]
+        const top = rect ? rect.top + (i === fromIndex ? placeholderOffset : (siblingOffsets[i] ?? 0)) : 0
+        return { group, top }
+      })
+      .sort((a, b) => a.top - b.top)
+      .flatMap((x) => x.group.entryIds)
+  }
+
+  it.each([
+    [0, 1],
+    [0, 2],
+    [1, 0],
+    [2, 0],
+    [1, 2],
+    [2, 1],
+    [0, 0],
+  ])('drag from %i to %i previews the same order reorderGroups commits', (fromIndex, toIndex) => {
+    expect(visualEntryOrder(fromIndex, toIndex)).toEqual(reorderGroups(groups, fromIndex, toIndex))
   })
 })

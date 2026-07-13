@@ -55,3 +55,48 @@ export function indexForPointerY(rects: RectLike[], pointerY: number): number {
   }
   return rects.length
 }
+
+export interface ReflowResult {
+  /** Pixels the dragged group's placeholder must translate to reach the current drop target. */
+  placeholderOffset: number
+  /** Pixels each group (indexed by its original position) must translate to open/close the
+   *  gap; 0 for unaffected groups and for the dragged group's own index. */
+  siblingOffsets: number[]
+}
+
+/**
+ * Given every group's natural (pre-drag) rect in original order, computes how far the dragged
+ * group's placeholder and each unaffected sibling must translate to visually reflect dropping
+ * at `toIndex`. Derived from a single measurement pass (rects captured once at drag-start) so
+ * it never re-reads — and never fights — live transformed layout.
+ */
+export function computeReflow(rects: RectLike[], fromIndex: number, toIndex: number): ReflowResult {
+  const dragged = rects[fromIndex]
+  const first = rects[0]
+  const second = rects[1]
+  const gap = first && second ? second.top - (first.top + first.height) : 0
+  const shiftUnit = dragged ? dragged.height + gap : 0
+
+  const siblingOffsets = rects.map((_, originalIndex) => {
+    if (originalIndex === fromIndex) return 0
+    const trimmedIndex = originalIndex < fromIndex ? originalIndex : originalIndex - 1
+    if (originalIndex < fromIndex && trimmedIndex >= toIndex) return shiftUnit
+    if (originalIndex > fromIndex && trimmedIndex < toIndex) return -shiftUnit
+    return 0
+  })
+
+  let placeholderOffset = 0
+  if (toIndex > fromIndex) {
+    for (let i = fromIndex + 1; i <= toIndex; i++) {
+      const r = rects[i]
+      if (r) placeholderOffset += r.height + gap
+    }
+  } else if (toIndex < fromIndex) {
+    for (let i = toIndex; i <= fromIndex - 1; i++) {
+      const r = rects[i]
+      if (r) placeholderOffset -= r.height + gap
+    }
+  }
+
+  return { placeholderOffset, siblingOffsets }
+}
