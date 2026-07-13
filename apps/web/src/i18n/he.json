@@ -37,7 +37,7 @@
   "queue.pair.etaSuffixMinutes": "דק׳",
   "queue.pair.etaApprox": "(משוער)",
   "queue.pair.gripLabel": "הזז את {label} — הקישו פעמיים והחזיקו כדי לגרור",
-  "quickAdd.searchPlaceholder": "חיפוש קפטן…",
+  "quickAdd.searchPlaceholder": "הוסף קבוצה לפי שם האחראי…",
   "captain.gamesToday": "משחקים היום: {count}",
   "captain.lastPlayed": "שיחק לאחרונה",
   "captain.neverPlayedToday": "עוד לא שיחק היום",

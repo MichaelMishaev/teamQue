@@ -43,13 +43,13 @@ describe('QuickAddBar', () => {
     const addToLine = vi.fn().mockResolvedValue(undefined)
     renderBar({ searchTeams, addToLine })
 
-    fireEvent.change(screen.getByPlaceholderText('חיפוש קפטן…'), { target: { value: 'דנ' } })
+    fireEvent.change(screen.getByPlaceholderText('הוסף קבוצה לפי שם האחראי…'), { target: { value: 'דנ' } })
     await screen.findByText('דניאל', {}, { timeout: 1000 })
     fireEvent.click(screen.getByText('בחר'))
 
     await waitFor(() => expect(addToLine).toHaveBeenCalledWith({ id: 'c1' }))
     // resets: search box empty, results gone
-    await waitFor(() => expect((screen.getByPlaceholderText('חיפוש קפטן…') as HTMLInputElement).value).toBe(''))
+    await waitFor(() => expect((screen.getByPlaceholderText('הוסף קבוצה לפי שם האחראי…') as HTMLInputElement).value).toBe(''))
   })
 
   it('create-and-add calls addToLine with a newName ref when there is no match', async () => {
@@ -57,7 +57,7 @@ describe('QuickAddBar', () => {
     const addToLine = vi.fn().mockResolvedValue(undefined)
     renderBar({ searchTeams, addToLine })
 
-    fireEvent.change(screen.getByPlaceholderText('חיפוש קפטן…'), { target: { value: 'שחקן חדש' } })
+    fireEvent.change(screen.getByPlaceholderText('הוסף קבוצה לפי שם האחראי…'), { target: { value: 'שחקן חדש' } })
     const createRow = await screen.findByText(/צור את/)
     fireEvent.click(createRow)
 
@@ -68,7 +68,7 @@ describe('QuickAddBar', () => {
     const searchTeams = vi.fn().mockResolvedValue([team('c1', 'דניאל')])
     renderBar({ searchTeams })
 
-    fireEvent.change(screen.getByPlaceholderText('חיפוש קפטן…'), { target: { value: 'דניאל' } })
+    fireEvent.change(screen.getByPlaceholderText('הוסף קבוצה לפי שם האחראי…'), { target: { value: 'דניאל' } })
     await screen.findByText('דניאל', {}, { timeout: 1000 })
     expect(await screen.findByText(/קיים דניאל נוסף/)).toBeDefined()
   })
