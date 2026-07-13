@@ -35,7 +35,9 @@ import { useSessionActions } from '@/state/SessionActions'
  * (docs/superpowers/specs/2026-07-13-queue-pair-move-design.md). The
  * dragged group's original slot shows a placeholder for the drag's
  * duration; the other cards don't live-reflow, only the final drop reorders
- * the list — a deliberate scope simplification noted in the design spec.
+ * the list — a deliberate scope simplification made during implementation
+ * planning (the design spec itself originally called for live reflow; the
+ * spec has since been updated to match this shipped behavior).
  */
 export interface QueueListProps {
   queue: QueueEntryView[]

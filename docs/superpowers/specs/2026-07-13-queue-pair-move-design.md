@@ -32,7 +32,7 @@ dragging --(pointerup)--> idle (+ commits new order)
 - `DOUBLE_TAP_WINDOW_MS = 350`, `HOLD_MS = 380` — named constants, tunable without touching the state machine.
 - **armed**: grip icon shows an amber pulsing ring — "tap again and hold."
 - **holding**: grip icon fills with an accent-green ring over the hold duration — releasing early (pointerup) or moving >8px before the ring completes cancels back to idle with no move.
-- **dragging**: the pair's card lifts (scale 1.02, slight rotate, accent border + shadow — the same visual language `QueueRow` already uses for `dragging` on a single row) and tracks the pointer vertically. Other pair cards reflow live as the dragged card crosses their midpoint. Releasing commits the new position; releasing over no valid target is a no-op (card returns to its last valid slot).
+- **dragging**: the pair's card lifts (scale 1.02, slight rotate, accent border + shadow — the same visual language `QueueRow` already uses for `dragging` on a single row) and tracks the pointer vertically. **Revised during implementation planning** (see the plan's Task 6): other pair cards do not reflow live — the dragged card's original slot shows a static dashed placeholder for the duration of the drag, and the drop target is still computed continuously from the pointer position, but staff only see the reorder happen on release, not a live preview of where it'll land. Releasing commits the new position; releasing over no valid target is a no-op (card returns to its last valid slot).
 - Tapping a **different** pair's grip mid-sequence discards the in-progress attempt and restarts armed on the new target.
 
 ### Scope: pairs only, not the solo leftover
@@ -63,7 +63,7 @@ Every completed pair move shows the existing 5-second undo toast (`apps/web/src/
 
 - `apps/web/src/components/QueuePairGroup.tsx`: gains the grip handle for `hasPartner` groups only, plus `armed`/`holding` visual states as props (stays presentational — pointer/gesture logic lives in the parent per component conventions).
 - New pure, unit-testable gesture state machine (exact file TBD in plan — likely colocated with `QueueList.tsx` or its own `apps/web/src/lib/pair-drag-gesture.ts`): transitions (`idle → armed → holding → dragging → idle`), timing constants, decoupled from DOM manipulation so the state transitions are testable per the repo's TDD hard rule without simulating real pointer geometry.
-- `apps/web/src/components/QueueList.tsx`: owns the drag DOM manipulation (lifted-card positioning, sibling reflow, drop-target detection), flattens the reordered groups back into an `entryIds` array, calls `reorderLine`, and triggers the undo toast on success.
+- `apps/web/src/components/QueueList.tsx`: owns the drag DOM manipulation (lifted-card positioning, placeholder-slot rendering, drop-target detection), flattens the reordered groups back into an `entryIds` array, calls `reorderLine`, and triggers the undo toast on success.
 - `apps/web/src/i18n/he.json`: new keys for the grip's `aria-label`, the undo-toast move message (games/team-name interpolated, singular vs. plural not needed here since it's names not counts), consistent with the zero-hardcoded-Hebrew hard rule.
 
 ## Edge cases
