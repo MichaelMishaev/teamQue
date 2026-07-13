@@ -32,7 +32,7 @@ dragging --(pointerup)--> idle (+ commits new order)
 - `DOUBLE_TAP_WINDOW_MS = 350`, `HOLD_MS = 380` — named constants, tunable without touching the state machine.
 - **armed**: grip icon shows an amber pulsing ring — "tap again and hold."
 - **holding**: grip icon fills with an accent-green ring over the hold duration — releasing early (pointerup) or moving >8px before the ring completes cancels back to idle with no move.
-- **dragging**: the pair's card lifts (scale 1.02, slight rotate, accent border + shadow — the same visual language `QueueRow` already uses for `dragging` on a single row) and tracks the pointer vertically. **Revised during implementation planning** (see the plan's Task 6): other pair cards do not reflow live — the dragged card's original slot shows a static dashed placeholder for the duration of the drag, and the drop target is still computed continuously from the pointer position, but staff only see the reorder happen on release, not a live preview of where it'll land. Releasing commits the new position; releasing over no valid target is a no-op (card returns to its last valid slot).
+- **dragging**: the pair's card lifts (scale 1.02, slight rotate, accent border + shadow — the same visual language `QueueRow` already uses for `dragging` on a single row) and tracks the pointer vertically. Other pair cards live-reflow to open a gap at the current drop target as the pointer moves — see `docs/superpowers/specs/2026-07-13-queue-pair-drag-live-reflow-design.md` for the mechanism (this was initially shipped as a static placeholder with no live preview, then upgraded after staff reported the static version was hard to drop accurately). Releasing commits the new position; releasing over no valid target is a no-op (card returns to its last valid slot).
 - Tapping a **different** pair's grip mid-sequence discards the in-progress attempt and restarts armed on the new target.
 
 ### Scope: pairs only, not the solo leftover
@@ -57,6 +57,7 @@ Every completed pair move shows the existing 5-second undo toast (`apps/web/src/
 
 - **Touch/pointer-only.** There is no keyboard equivalent for "swap this pair with its neighbor" — keyboard or assistive-tech users fall back to the existing per-entry `moveTop`/`moveBottom` actions in the `⋯` sheet, which are coarser (jump to front/back, not swap-with-neighbor) but already accessible today. Not gating this design; worth revisiting if it becomes a real usage pattern.
 - **Second, independent drag system.** The pair-level gesture and dnd-kit's per-row drag are two separate implementations coexisting on the same screen. They don't share code today. If a third drag-like interaction is ever needed, unifying onto one system should be reconsidered rather than adding a third parallel implementation.
+- ~~No live reflow of other cards during drag~~ — resolved, see `docs/superpowers/specs/2026-07-13-queue-pair-drag-live-reflow-design.md`.
 - **Concurrent snapshot updates mid-drag.** If a realtime snapshot arrives while a pair-drag is in progress, the same pre-existing behavior as today's per-row drag applies: local order state is independent of the `queue` prop until the next snapshot resets it. This feature does not change or fix that pre-existing edge case.
 
 ## Components affected (for the follow-up plan)
