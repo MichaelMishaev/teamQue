@@ -36,3 +36,22 @@ export function pairGestureReducer(state: PairGestureState, event: PairGestureEv
       return { phase: 'idle' }
   }
 }
+
+export interface RectLike {
+  top: number
+  height: number
+}
+
+/**
+ * Given the vertical rects of the groups NOT being dragged (in current visual
+ * order), returns the index the dragged group should land at for a given
+ * pointer Y position — the pointer crossing a rect's vertical midpoint is
+ * what flips the target index, matching the approved mockup's behavior.
+ */
+export function indexForPointerY(rects: RectLike[], pointerY: number): number {
+  for (let i = 0; i < rects.length; i++) {
+    const rect = rects[i]
+    if (rect && pointerY < rect.top + rect.height / 2) return i
+  }
+  return rects.length
+}

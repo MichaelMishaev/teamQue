@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pairGestureReducer, type PairGestureState } from './pair-drag-gesture'
+import { indexForPointerY, pairGestureReducer, type PairGestureState } from './pair-drag-gesture'
 
 const idle: PairGestureState = { phase: 'idle' }
 
@@ -41,5 +41,29 @@ describe('pairGestureReducer', () => {
     expect(pairGestureReducer({ phase: 'armed', groupId: 'g1' }, { type: 'CANCEL' })).toEqual({ phase: 'idle' })
     expect(pairGestureReducer({ phase: 'holding', groupId: 'g1' }, { type: 'CANCEL' })).toEqual({ phase: 'idle' })
     expect(pairGestureReducer({ phase: 'dragging', groupId: 'g1' }, { type: 'CANCEL' })).toEqual({ phase: 'idle' })
+  })
+})
+
+describe('indexForPointerY', () => {
+  const rects = [
+    { top: 0, height: 100 },
+    { top: 100, height: 100 },
+    { top: 200, height: 100 },
+  ]
+
+  it('returns 0 when the pointer is above the first midpoint', () => {
+    expect(indexForPointerY(rects, 10)).toBe(0)
+  })
+
+  it('returns the middle index when the pointer is past the first midpoint but before the second', () => {
+    expect(indexForPointerY(rects, 120)).toBe(1)
+  })
+
+  it('returns the list length when the pointer is past every midpoint', () => {
+    expect(indexForPointerY(rects, 999)).toBe(3)
+  })
+
+  it('returns 0 for an empty list', () => {
+    expect(indexForPointerY([], 50)).toBe(0)
   })
 })
