@@ -70,9 +70,10 @@ export function QueuePairGroup({
           {label}
         </span>
       </div>
+      {/* overflow-hidden clips the QueueRow's flat bg-accent-dim/20 "next" background so it doesn't leak past our rounded corners */}
       <div
         className={cn(
-          'flex flex-col rounded-xl border border-line bg-surface [&>*+*]:border-t [&>*+*]:border-line',
+          'flex flex-col overflow-hidden rounded-xl border border-line bg-surface [&>*+*]:border-t [&>*+*]:border-line',
           variant === 'next' && 'border-accent [&>*+*]:border-accent-dim',
           variant === 'solo' && 'border-dashed',
         )}
