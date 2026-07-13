@@ -87,5 +87,13 @@ describe('QueueList', () => {
       // (200 + 480 + 60) / 60 = 12.33 -> rounds to 12 (both entries in the pair share the same eta)
       expect(screen.getAllByText('12')).toHaveLength(2)
     })
+
+    it('shows waiting-for-pair (not a "0 games ahead" line) for a lone entry with no partner yet', () => {
+      const queue = [entry('e1', 'א', 1)]
+      renderQueueList(queue, { matchDurationSec: 480, baseSec: 0 })
+      expect(screen.getByText('ממתין/ה לזוג')).toBeDefined()
+      expect(screen.queryByText('הבא')).toBeNull()
+      expect(screen.queryByText(/לפניך/)).toBeNull()
+    })
   })
 })

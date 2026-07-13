@@ -80,6 +80,9 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
                   {group.entryIds.map((id, iInGroup) => {
                     const entry = byId.get(id)
                     if (!entry) return null
+                    // Gated on pairIndex, not isNext: a lone front-of-queue entry (pairIndex 0, no
+                    // partner) must never show "0 games ahead" — it gets the "waiting for pair"
+                    // label instead, same as any other unpaired entry.
                     return (
                       <SortableQueueRow
                         key={entry.id}
@@ -87,7 +90,7 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
                         index={group.pairIndex * 2 + iInGroup}
                         isNext={isNext}
                         grouped
-                        {...(!isNext ? { gamesAhead: group.gamesAhead, etaSec: group.etaSec } : {})}
+                        {...(group.pairIndex !== 0 ? { gamesAhead: group.gamesAhead, etaSec: group.etaSec } : {})}
                         {...(!group.hasPartner ? { etaApprox: true } : {})}
                         onMenu={() => setMenuEntryId(entry.id)}
                       />
