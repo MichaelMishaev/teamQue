@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { t } from '@/i18n'
@@ -21,6 +21,13 @@ export function RematchConfirmDialog({ open, onClose, matchId, captainAName, cap
   const actions = useSessionActions()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (open) {
+      setSubmitting(false)
+      setError(null)
+    }
+  }, [open])
 
   async function handleConfirm(): Promise<void> {
     setSubmitting(true)

@@ -91,4 +91,36 @@ describe('RematchConfirmDialog', () => {
     expect(actions.replay).not.toHaveBeenCalled()
     expect(onClose).toHaveBeenCalledTimes(1)
   })
+
+  it('clears error state when dialog is closed and reopened', async () => {
+    const replay = vi.fn().mockRejectedValue(new Error('network error'))
+    const actions = actionsStub({ replay })
+    const onClose = vi.fn()
+
+    const { rerender } = render(
+      <SessionActionsContext.Provider value={actions}>
+        <RematchConfirmDialog open={true} onClose={onClose} matchId="m1" captainAName="יוסי" captainBName="רון" />
+      </SessionActionsContext.Provider>,
+    )
+
+    // Trigger error by clicking confirm
+    fireEvent.click(screen.getByText('אישור'))
+    await waitFor(() => expect(screen.getByRole('alert')).toBeDefined())
+
+    // Close and reopen the dialog
+    rerender(
+      <SessionActionsContext.Provider value={actions}>
+        <RematchConfirmDialog open={false} onClose={onClose} matchId="m1" captainAName="יוסי" captainBName="רון" />
+      </SessionActionsContext.Provider>,
+    )
+
+    rerender(
+      <SessionActionsContext.Provider value={actions}>
+        <RematchConfirmDialog open={true} onClose={onClose} matchId="m1" captainAName="יוסי" captainBName="רון" />
+      </SessionActionsContext.Provider>,
+    )
+
+    // Error should be cleared
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
 })
