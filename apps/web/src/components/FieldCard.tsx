@@ -28,6 +28,8 @@ interface ActiveProps {
   captainA: string
   captainB: string
   secondsLeft: number
+  /** One-shot attention flash the moment the timer crosses to 00:00 (see useMatchEndAlert). */
+  alerting?: boolean
   onPause?: () => void
   onResume?: () => void
   onFinish?: () => void
@@ -77,7 +79,10 @@ export function FieldCard(props: FieldCardProps) {
   const state = timerState(props.status, props.secondsLeft)
   // Compact by design: the line below is the hero surface, this is a status header.
   return (
-    <section className={cn('rounded-[var(--fieldcard-radius)] border-[1.5px] bg-surface p-3', borderByState[state])}>
+    <section
+      className={cn('rounded-[var(--fieldcard-radius)] border-[1.5px] bg-surface p-3', borderByState[state])}
+      style={props.alerting ? { animation: 'end-flash 500ms ease-in-out 3' } : undefined}
+    >
       <header className="mb-1.5 flex items-center gap-2 text-[12.5px] text-muted">
         <Badge state={badgeByState[state]}>{t(`field.state.${state}`)}</Badge>
         {props.fieldName}

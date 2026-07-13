@@ -98,6 +98,12 @@ body {
   100% { opacity: 0; }
 }
 
+/* One-shot "time's up" flash on the field card at 00:00 (see FieldCard/useMatchEndAlert) */
+@keyframes end-flash {
+  0%, 100% { background-color: var(--color-surface); }
+  50% { background-color: color-mix(in srgb, var(--color-danger) 28%, var(--color-surface)); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

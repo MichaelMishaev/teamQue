@@ -27,4 +27,18 @@ describe('FieldCard', () => {
     expect(screen.getByText(/המשך/)).toBeDefined()
     expect(screen.queryByText(/השהה/)).toBeNull()
   })
+
+  it('plays the end-flash animation when alerting', () => {
+    const { container } = render(
+      <FieldCard status="live" fieldName="מגרש" captainA="א" captainB="ב" secondsLeft={0} alerting />,
+    )
+    expect(container.querySelector('section')?.style.animation).toContain('end-flash')
+  })
+
+  it('does not flash when not alerting', () => {
+    const { container } = render(
+      <FieldCard status="live" fieldName="מגרש" captainA="א" captainB="ב" secondsLeft={0} />,
+    )
+    expect(container.querySelector('section')?.style.animation).toBe('')
+  })
 })

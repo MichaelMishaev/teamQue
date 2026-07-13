@@ -10,6 +10,7 @@ import { t } from '@/i18n'
 import { computeBaseSec } from '@/lib/queue-pairing'
 import { matchCountdownInput, type RunningStatus } from '@/lib/time'
 import { useCountdown } from '@/hooks/useCountdown'
+import { useMatchEndAlert } from '@/hooks/useMatchEndAlert'
 import { useCurrentStaff } from '@/state/AuthContext'
 import { useSessionActions } from '@/state/SessionActions'
 import { useSnapshot } from '@/state/SnapshotContext'
@@ -37,6 +38,11 @@ export function MainScreen() {
   const countdownInput = isRunning && liveMatch ? matchCountdownInput(liveMatch) : { endsAtMs: null, pausedRemainingSec: null }
   const secondsLeft = useCountdown({ ...countdownInput, offsetMs })
   const baseSec = computeBaseSec(isRunning, secondsLeft)
+  const alerting = useMatchEndAlert({
+    matchId: isRunning && liveMatch ? liveMatch.id : null,
+    status: liveMatch?.status ?? 'finished',
+    secondsLeft,
+  })
 
   if (!snapshot) {
     const isManager = currentStaff?.role === 'manager'
@@ -97,6 +103,7 @@ export function MainScreen() {
             captainA={liveMatch.captainA.name}
             captainB={liveMatch.captainB.name}
             secondsLeft={secondsLeft}
+            alerting={alerting}
             onPause={() => void withErrorHandling(() => actions.pause(liveMatch.id))}
             onResume={() => void withErrorHandling(() => actions.resume(liveMatch.id))}
             onExtend={() => void withErrorHandling(() => actions.extend(liveMatch.id))}
