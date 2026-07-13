@@ -3,12 +3,12 @@ import type { FinishedMatchView } from '@/state/HistoryContext'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/EmptyState'
+import { RematchConfirmDialog } from '@/components/RematchConfirmDialog'
 import { SessionSummaryCard } from '@/components/SessionSummaryCard'
 import { t } from '@/i18n'
 import { cn } from '@/lib/cn'
 import { formatClock, formatTimeOfDay } from '@/lib/time'
 import { useHistory } from '@/state/HistoryContext'
-import { useSessionActions } from '@/state/SessionActions'
 
 /**
  * Single responsibility: read-only session history (client-prd §3.3,
@@ -50,7 +50,7 @@ export function HistoryScreen() {
 }
 
 function HistoryRow({ match }: { match: FinishedMatchView }) {
-  const actions = useSessionActions()
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const delta = match.actualDurationSec !== match.plannedDurationSec
 
   return (
@@ -63,9 +63,16 @@ function HistoryRow({ match }: { match: FinishedMatchView }) {
           {match.endReason === 'auto' ? t('history.autoFinish') : t('history.manualFinish')}
         </Badge>
       </div>
-      <Button className="self-start" onClick={() => void actions.replay(match.id)}>
+      <Button className="self-start" onClick={() => setConfirmOpen(true)}>
         {t('queue.actions.replay')}
       </Button>
+      <RematchConfirmDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        matchId={match.id}
+        captainAName={match.captainA.name}
+        captainBName={match.captainB.name}
+      />
       <div className="text-[12.5px] text-muted">
         {match.fieldName} ·{' '}
         <bdi className="tabular" dir="ltr">

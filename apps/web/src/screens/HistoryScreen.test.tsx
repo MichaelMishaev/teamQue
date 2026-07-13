@@ -83,9 +83,11 @@ describe('HistoryScreen', () => {
     expect(screen.getByText('אין משחקים שהסתיימו עדיין')).toBeDefined()
   })
 
-  it('replay calls the replay action with that match id', () => {
+  it('rematch shows a confirmation dialog, and only calls replay after confirming', () => {
     const { actions } = renderHistory([finishedMatch('m1', 'יוסי', 'רון')])
     fireEvent.click(screen.getByText('משחק חוזר'))
+    expect(actions.replay).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText('אישור'))
     expect(actions.replay).toHaveBeenCalledWith('m1')
   })
 })
