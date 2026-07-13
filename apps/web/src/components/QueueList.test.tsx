@@ -45,7 +45,7 @@ function renderQueueList(queue: QueueEntryView[], opts: { matchDurationSec?: num
       <QueueList queue={queue} matchDurationSec={opts.matchDurationSec ?? 480} baseSec={opts.baseSec ?? 0} />
     </SessionActionsContext.Provider>,
   )
-  return { actions, container: result.container }
+  return { actions, container: result.container, rerender: result.rerender }
 }
 
 function mockRect(el: HTMLElement, rect: { top: number; height: number }): void {
@@ -246,6 +246,31 @@ describe('QueueList', () => {
       fireEvent.pointerUp(window, { clientY: 250 })
 
       expect(actions.reorderLine).toHaveBeenCalledWith(['e3', 'e4', 'e1', 'e2', 'e5', 'e6'])
+    })
+
+    it('uses the latest queue state at drop time, not the stale state from when the drag started', () => {
+      const { actions, container, rerender } = renderQueueList(sixEntryQueue())
+      const groupEls = [...container.querySelectorAll<HTMLElement>('[data-group-id]')]
+      mockRect(groupEls[1]!, { top: 148, height: 132 })
+      mockRect(groupEls[2]!, { top: 296, height: 132 })
+
+      const grip1 = groupEls[0]!.querySelector('button') as HTMLElement
+      fireEvent.pointerDown(grip1, { clientY: 10 })
+      fireEvent.pointerDown(grip1, { clientY: 10 })
+      vi.advanceTimersByTime(400)
+
+      // Simulate a realtime snapshot update landing mid-drag: a new entry is added to the queue.
+      const updatedQueue = [...sixEntryQueue(), entry('e7', 'ז', 7)]
+      rerender(
+        <SessionActionsContext.Provider value={actions}>
+          <QueueList queue={updatedQueue} matchDurationSec={480} baseSec={0} />
+        </SessionActionsContext.Provider>,
+      )
+
+      fireEvent.pointerMove(window, { clientY: 250 })
+      fireEvent.pointerUp(window, { clientY: 250 })
+
+      expect(actions.reorderLine).toHaveBeenCalledWith(['e3', 'e4', 'e1', 'e2', 'e5', 'e6', 'e7'])
     })
   })
 })

@@ -108,6 +108,9 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
     matchDurationSec,
   )
 
+  const latestRef = useRef({ pairGroups, orderIds, byId, actions, onError })
+  latestRef.current = { pairGroups, orderIds, byId, actions, onError }
+
   function applyGestureTransition(event: Parameters<typeof pairGestureReducer>[1]): PairGestureState {
     const next = pairGestureReducer(gestureRef.current, event)
     gestureRef.current = next
@@ -200,21 +203,29 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
     flushSync(() => setDragGroupId(null))
     if (!groupId) return
 
-    const fromIndex = pairGroups.findIndex((g) => groupIdOf(g) === groupId)
+    const {
+      pairGroups: currentPairGroups,
+      orderIds: currentOrderIds,
+      byId: currentById,
+      actions: currentActions,
+      onError: currentOnError,
+    } = latestRef.current
+
+    const fromIndex = currentPairGroups.findIndex((g) => groupIdOf(g) === groupId)
     if (fromIndex === -1 || fromIndex === toIndex) return
-    const movedGroup = pairGroups[fromIndex]
+    const movedGroup = currentPairGroups[fromIndex]
     if (!movedGroup) return
 
-    const nextOrder = reorderGroups(pairGroups, fromIndex, toIndex)
-    const previousOrder = orderIds
+    const nextOrder = reorderGroups(currentPairGroups, fromIndex, toIndex)
+    const previousOrder = currentOrderIds
     flushSync(() => setOrderIds(nextOrder))
-    actions.reorderLine(nextOrder).catch(() => {
+    currentActions.reorderLine(nextOrder).catch(() => {
       setOrderIds(previousOrder)
-      onError?.(t('queue.actions.error'))
+      currentOnError?.(t('queue.actions.error'))
     })
 
     const names = movedGroup.entryIds
-      .map((id) => byId.get(id)?.team.name)
+      .map((id) => currentById.get(id)?.team.name)
       .filter((name): name is string => Boolean(name))
       .join(' / ')
     const messageKey = toIndex < fromIndex ? 'toast.pairMovedUp' : 'toast.pairMovedDown'
@@ -222,8 +233,8 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
       messageKey,
       () => {
         setOrderIds(previousOrder)
-        actions.reorderLine(previousOrder).catch(() => {
-          onError?.(t('queue.actions.error'))
+        currentActions.reorderLine(previousOrder).catch(() => {
+          currentOnError?.(t('queue.actions.error'))
         })
       },
       { names },
