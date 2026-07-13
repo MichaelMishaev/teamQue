@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import type { QueueEntryView } from 'shared'
 import { QueueList } from './QueueList'
 import { SessionActionsContext, type SessionActions } from '@/state/SessionActions'
@@ -62,7 +62,7 @@ describe('QueueList', () => {
     const queue = [entry('e1', 'א', 1), entry('e2', 'ב', 2)]
     renderQueueList(queue)
     const menuButtons = screen.getAllByRole('button')
-    fireEvent.click(menuButtons[1]!) // second row's ⋯
+    fireEvent.click(menuButtons[2]!) // second row's ⋯ (index 0 is the pair's grip handle, index 1 is the first row's ⋯)
     expect(screen.getByRole('heading', { name: 'ב' })).toBeDefined() // sheet title uses the picked entry's team name
   })
 
@@ -94,6 +94,60 @@ describe('QueueList', () => {
       expect(screen.getByText('ממתין/ה לזוג')).toBeDefined()
       expect(screen.queryByText('הבא')).toBeNull()
       expect(screen.queryByText(/לפניך/)).toBeNull()
+    })
+  })
+
+  describe('pair drag gesture — arming', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    function fourEntryQueue(): QueueEntryView[] {
+      return [entry('e1', 'א', 1), entry('e2', 'ב', 2), entry('e3', 'ג', 3), entry('e4', 'ד', 4)]
+    }
+
+    it('arms the grip on the first tap', () => {
+      renderQueueList(fourEntryQueue())
+      const grip = screen.getByRole('button', { name: /^הזז את זוג 2/ })
+      fireEvent.pointerDown(grip, { clientY: 10 })
+      expect(grip.className).toContain('bg-warn')
+    })
+
+    it('returns to idle when the double-tap window elapses without a second tap', () => {
+      renderQueueList(fourEntryQueue())
+      const grip = screen.getByRole('button', { name: /^הזז את זוג 2/ })
+      fireEvent.pointerDown(grip, { clientY: 10 })
+      vi.advanceTimersByTime(400)
+      expect(grip.className).not.toContain('bg-warn')
+    })
+
+    it('moves to holding on a second tap of the same grip within the window', () => {
+      renderQueueList(fourEntryQueue())
+      const grip = screen.getByRole('button', { name: /^הזז את זוג 2/ })
+      fireEvent.pointerDown(grip, { clientY: 10 })
+      fireEvent.pointerDown(grip, { clientY: 10 })
+      expect(grip.className).toContain('bg-accent-dim')
+    })
+
+    it('cancels back to idle if the pointer is released before the hold completes', () => {
+      renderQueueList(fourEntryQueue())
+      const grip = screen.getByRole('button', { name: /^הזז את זוג 2/ })
+      fireEvent.pointerDown(grip, { clientY: 10 })
+      fireEvent.pointerDown(grip, { clientY: 10 })
+      fireEvent.pointerUp(window, { clientY: 10 })
+      expect(grip.className).not.toContain('bg-accent-dim')
+    })
+
+    it('clears the holding highlight once the hold duration completes', () => {
+      renderQueueList(fourEntryQueue())
+      const grip = screen.getByRole('button', { name: /^הזז את זוג 2/ })
+      fireEvent.pointerDown(grip, { clientY: 10 })
+      fireEvent.pointerDown(grip, { clientY: 10 })
+      vi.advanceTimersByTime(400)
+      expect(grip.className).not.toContain('bg-accent-dim')
     })
   })
 })
