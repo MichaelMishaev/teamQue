@@ -11,16 +11,30 @@ import { useSessionActions } from '@/state/SessionActions'
  * item 5) — rename, move top/bottom, remove (undo toast, no confirm dialog).
  * "Change captains" is dropped (single-team rows have nothing to swap) and
  * replay lives on finished matches in HistoryScreen, not here. Screen-level
- * composition: talks to SessionActions directly (design.md §5).
+ * composition: talks to SessionActions directly (design.md §5) for rename
+ * and remove. Move-to-top/bottom are requested via onRequestMoveTop/
+ * onRequestMoveBottom instead — QueueList owns the confirmation dialog and
+ * the real moveTop/moveBottom call, since it already has the queue order
+ * this sheet doesn't (docs/superpowers/specs/2026-07-15-move-end-confirm-
+ * design.md).
  */
 export interface QueueActionsSheetProps {
   open: boolean
   onClose: () => void
   entry: QueueEntryView
+  onRequestMoveTop: () => void
+  onRequestMoveBottom: () => void
   onError?: (message: string) => void
 }
 
-export function QueueActionsSheet({ open, onClose, entry, onError }: QueueActionsSheetProps) {
+export function QueueActionsSheet({
+  open,
+  onClose,
+  entry,
+  onRequestMoveTop,
+  onRequestMoveBottom,
+  onError,
+}: QueueActionsSheetProps) {
   const actions = useSessionActions()
   const [renaming, setRenaming] = useState(false)
   const [name, setName] = useState(entry.team.name)
@@ -44,22 +58,14 @@ export function QueueActionsSheet({ open, onClose, entry, onError }: QueueAction
     }
   }
 
-  async function handleMoveTop(): Promise<void> {
-    try {
-      await actions.moveTop(entry.id)
-      onClose()
-    } catch {
-      reportError()
-    }
+  function handleMoveTop(): void {
+    onClose()
+    onRequestMoveTop()
   }
 
-  async function handleMoveBottom(): Promise<void> {
-    try {
-      await actions.moveBottom(entry.id)
-      onClose()
-    } catch {
-      reportError()
-    }
+  function handleMoveBottom(): void {
+    onClose()
+    onRequestMoveBottom()
   }
 
   async function handleRemove(): Promise<void> {
@@ -89,8 +95,8 @@ export function QueueActionsSheet({ open, onClose, entry, onError }: QueueAction
         ) : (
           <>
             <SheetAction label={t('queue.actions.rename')} onClick={() => setRenaming(true)} />
-            <SheetAction label={t('queue.actions.moveTop')} onClick={() => void handleMoveTop()} />
-            <SheetAction label={t('queue.actions.moveBottom')} onClick={() => void handleMoveBottom()} />
+            <SheetAction label={t('queue.actions.moveTop')} onClick={handleMoveTop} />
+            <SheetAction label={t('queue.actions.moveBottom')} onClick={handleMoveBottom} />
             <SheetAction label={t('queue.remove')} danger onClick={() => void handleRemove()} />
           </>
         )}

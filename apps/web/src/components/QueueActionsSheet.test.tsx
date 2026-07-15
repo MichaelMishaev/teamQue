@@ -30,28 +30,45 @@ function noop(): SessionActions {
   }
 }
 
-function renderSheet(target: QueueEntryView, actionsOverrides: Partial<SessionActions> = {}) {
+function renderSheet(
+  target: QueueEntryView,
+  actionsOverrides: Partial<SessionActions> = {},
+  onRequestMoveTop: () => void = vi.fn(),
+  onRequestMoveBottom: () => void = vi.fn(),
+) {
   const actions = { ...noop(), ...actionsOverrides }
   const onClose = vi.fn()
   render(
     <SessionActionsContext.Provider value={actions}>
-      <QueueActionsSheet open onClose={onClose} entry={target} />
+      <QueueActionsSheet
+        open
+        onClose={onClose}
+        entry={target}
+        onRequestMoveTop={onRequestMoveTop}
+        onRequestMoveBottom={onRequestMoveBottom}
+      />
     </SessionActionsContext.Provider>,
   )
   return { actions, onClose }
 }
 
 describe('QueueActionsSheet', () => {
-  it('move to top calls moveTop with this entry id', async () => {
-    const { actions } = renderSheet(entry('e2', 'ג', 2))
+  it('move to top calls onRequestMoveTop and closes the sheet, without calling moveTop directly', () => {
+    const onRequestMoveTop = vi.fn()
+    const { actions, onClose } = renderSheet(entry('e2', 'ג', 2), {}, onRequestMoveTop)
     fireEvent.click(screen.getByText('לראש התור'))
-    await waitFor(() => expect(actions.moveTop).toHaveBeenCalledWith('e2'))
+    expect(onRequestMoveTop).toHaveBeenCalledTimes(1)
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(actions.moveTop).not.toHaveBeenCalled()
   })
 
-  it('move to bottom calls moveBottom with this entry id', async () => {
-    const { actions } = renderSheet(entry('e2', 'ג', 2))
+  it('move to bottom calls onRequestMoveBottom and closes the sheet, without calling moveBottom directly', () => {
+    const onRequestMoveBottom = vi.fn()
+    const { actions, onClose } = renderSheet(entry('e2', 'ג', 2), {}, vi.fn(), onRequestMoveBottom)
     fireEvent.click(screen.getByText('לסוף התור'))
-    await waitFor(() => expect(actions.moveBottom).toHaveBeenCalledWith('e2'))
+    expect(onRequestMoveBottom).toHaveBeenCalledTimes(1)
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(actions.moveBottom).not.toHaveBeenCalled()
   })
 
   it('remove calls removeFromLine and closes the sheet', async () => {
@@ -82,7 +99,7 @@ describe('QueueActionsSheet', () => {
     const actions = noop()
     const { rerender } = render(
       <SessionActionsContext.Provider value={actions}>
-        <QueueActionsSheet open onClose={() => {}} entry={target} />
+        <QueueActionsSheet open onClose={() => {}} entry={target} onRequestMoveTop={vi.fn()} onRequestMoveBottom={vi.fn()} />
       </SessionActionsContext.Provider>,
     )
     fireEvent.click(screen.getByText('שנה שם'))
@@ -93,7 +110,7 @@ describe('QueueActionsSheet', () => {
     // The sheet's focus trap must not steal focus back and collapse the input.
     rerender(
       <SessionActionsContext.Provider value={actions}>
-        <QueueActionsSheet open onClose={() => {}} entry={target} />
+        <QueueActionsSheet open onClose={() => {}} entry={target} onRequestMoveTop={vi.fn()} onRequestMoveBottom={vi.fn()} />
       </SessionActionsContext.Provider>,
     )
 
