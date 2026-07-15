@@ -78,27 +78,21 @@ interface PendingSwitch {
   groupId: string
   toIndex: number
   groupANames: string[]
-  direction: 'up' | 'down'
-  occupantNames: string[] | null
-  shiftCount: number
+  occupantNames: string[]
 }
 
 interface PendingRowSwitch {
   previousOrder: string[]
   nextOrder: string[]
   movedId: string
-  direction: 'up' | 'down'
-  occupantId: string | null
-  shiftCount: number
+  occupantId: string
 }
 
 interface PendingMoveEnd {
   entryId: string
   end: 'top' | 'bottom'
-  direction: 'up' | 'down'
   groupANames: string[]
-  occupantNames: string[] | null
-  shiftCount: number
+  occupantNames: string[]
 }
 
 export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueListProps) {
@@ -161,9 +155,7 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
       previousOrder,
       nextOrder,
       movedId: plan.movedId,
-      direction: plan.direction,
       occupantId: plan.occupantId,
-      shiftCount: plan.shiftCount,
     })
   }
 
@@ -312,23 +304,22 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
       return
     }
 
-    // Dragging a pair by N slots always displaces exactly N other pairs by one slot
-    // each — magnitude 1 is a genuine two-way swap (name both pairs); anything more
-    // shifts several pairs, so the dialog states a count instead of misleadingly
-    // naming only the pair at the exact drop slot (docs/superpowers/specs/2026-07-15-
-    // pair-switch-confirm-design.md).
-    const remaining = currentPairGroups.filter((_, i) => i !== fromIndex)
-    const magnitude = Math.abs(toIndex - fromIndex)
-    const occupantIndex = toIndex > fromIndex ? toIndex - 1 : toIndex
-    const occupantGroup = magnitude === 1 ? remaining[occupantIndex] : undefined
+    // Whichever group lands in the dragged group's exact original slot is
+    // always the original array's immediate neighbor in the direction of the
+    // move — true for any drag distance, not just an adjacent one
+    // (docs/superpowers/specs/2026-07-15-swap-partner-naming-design.md).
+    const direction: 'up' | 'down' = toIndex < fromIndex ? 'up' : 'down'
+    const occupantGroup = direction === 'down' ? currentPairGroups[fromIndex + 1] : currentPairGroups[fromIndex - 1]
+    if (!occupantGroup) {
+      flushSync(() => clearDragState())
+      return
+    }
 
     setPendingSwitch({
       groupId,
       toIndex,
       groupANames: namesOf(movedGroup, currentById),
-      direction: toIndex < fromIndex ? 'up' : 'down',
-      occupantNames: occupantGroup ? namesOf(occupantGroup, currentById) : null,
-      shiftCount: magnitude,
+      occupantNames: namesOf(occupantGroup, currentById),
     })
     // Drag refs/state are deliberately left as-is here (not cleared) — the floating
     // card and the live-reflow placeholder gap stay frozen at the drop target while
@@ -389,10 +380,8 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
     setPendingMoveEnd({
       entryId,
       end,
-      direction: plan.direction,
       groupANames: namesOf({ entryIds: [plan.movedId] }, byId),
-      occupantNames: plan.occupantId ? namesOf({ entryIds: [plan.occupantId] }, byId) : null,
-      shiftCount: plan.shiftCount,
+      occupantNames: namesOf({ entryIds: [plan.occupantId] }, byId),
     })
   }
 
@@ -510,22 +499,16 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
           onConfirm={handleConfirmSwitch}
           onCancel={handleCancelSwitch}
           groupANames={pendingSwitch.groupANames}
-          direction={pendingSwitch.direction}
           occupantNames={pendingSwitch.occupantNames}
-          shiftCount={pendingSwitch.shiftCount}
-          unit="pair"
         />
       )}
       {pendingRowSwitch && (
         <PairSwitchConfirmDialog
           open
-          unit="team"
           onConfirm={handleConfirmRowSwitch}
           onCancel={handleCancelRowSwitch}
           groupANames={namesOf({ entryIds: [pendingRowSwitch.movedId] }, byId)}
-          direction={pendingRowSwitch.direction}
-          occupantNames={pendingRowSwitch.occupantId ? namesOf({ entryIds: [pendingRowSwitch.occupantId] }, byId) : null}
-          shiftCount={pendingRowSwitch.shiftCount}
+          occupantNames={namesOf({ entryIds: [pendingRowSwitch.occupantId] }, byId)}
         />
       )}
       {menuEntry && (
@@ -541,13 +524,10 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
       {pendingMoveEnd && (
         <PairSwitchConfirmDialog
           open
-          unit="team"
           onConfirm={handleConfirmMoveEnd}
           onCancel={handleCancelMoveEnd}
           groupANames={pendingMoveEnd.groupANames}
-          direction={pendingMoveEnd.direction}
           occupantNames={pendingMoveEnd.occupantNames}
-          shiftCount={pendingMoveEnd.shiftCount}
         />
       )}
     </>
