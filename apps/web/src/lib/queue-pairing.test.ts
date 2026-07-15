@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MATCH_GAP_SEC, buildPairGroups, computeBaseSec, planRowSwitch, reorderGroups } from './queue-pairing'
+import { MATCH_GAP_SEC, buildPairGroups, computeBaseSec, displacedGroups, planRowSwitch, reorderGroups } from './queue-pairing'
 
 describe('buildPairGroups', () => {
   it('returns no groups for an empty queue', () => {
@@ -69,39 +69,43 @@ describe('planRowSwitch', () => {
     expect(planRowSwitch(['a', 'b', 'c'], 1, 1)).toBeNull()
   })
 
-  it('names the immediate neighbor for an adjacent (1-slot) move down', () => {
+  it('names both entries for an adjacent (1-slot) move down', () => {
     expect(planRowSwitch(['a', 'b', 'c', 'd'], 0, 1)).toEqual({
       fromIndex: 0,
       toIndex: 1,
       movedId: 'a',
-      occupantId: 'b',
+      direction: 'down',
+      displacedIds: ['b'],
     })
   })
 
-  it('names the immediate neighbor for an adjacent (1-slot) move up', () => {
+  it('names both entries for an adjacent (1-slot) move up', () => {
     expect(planRowSwitch(['a', 'b', 'c', 'd'], 3, 2)).toEqual({
       fromIndex: 3,
       toIndex: 2,
       movedId: 'd',
-      occupantId: 'c',
+      direction: 'up',
+      displacedIds: ['c'],
     })
   })
 
-  it('still names just the immediate neighbor for a multi-slot move down, not whoever ends up at toIndex', () => {
+  it('lists every displaced entry, in original queue order, for a multi-slot move down', () => {
     expect(planRowSwitch(['a', 'b', 'c', 'd', 'e'], 0, 3)).toEqual({
       fromIndex: 0,
       toIndex: 3,
       movedId: 'a',
-      occupantId: 'b',
+      direction: 'down',
+      displacedIds: ['b', 'c', 'd'],
     })
   })
 
-  it('still names just the immediate neighbor for a multi-slot move up, not whoever ends up at toIndex', () => {
+  it('lists every displaced entry, in original queue order, for a multi-slot move up', () => {
     expect(planRowSwitch(['a', 'b', 'c', 'd', 'e'], 4, 1)).toEqual({
       fromIndex: 4,
       toIndex: 1,
       movedId: 'e',
-      occupantId: 'd',
+      direction: 'up',
+      displacedIds: ['b', 'c', 'd'],
     })
   })
 
@@ -109,7 +113,31 @@ describe('planRowSwitch', () => {
     expect(planRowSwitch(['a', 'b', 'c'], 5, 1)).toBeNull()
   })
 
-  it('returns null if the computed occupant index would be out of range', () => {
+  it('returns null when newIndex is out of range', () => {
     expect(planRowSwitch(['a', 'b', 'c'], 0, -1)).toBeNull()
+    expect(planRowSwitch(['a', 'b', 'c'], 0, 3)).toBeNull()
+  })
+})
+
+describe('displacedGroups', () => {
+  it('lists every group between fromIndex and toIndex (inclusive of toIndex) for a move down', () => {
+    const groups = buildPairGroups(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'], 0, 480)
+    expect(displacedGroups(groups, 0, 2).map((g) => g.entryIds)).toEqual([
+      ['c', 'd'],
+      ['e', 'f'],
+    ])
+  })
+
+  it('lists every group between toIndex and fromIndex (inclusive of toIndex) for a move up', () => {
+    const groups = buildPairGroups(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'], 0, 480)
+    expect(displacedGroups(groups, 3, 1).map((g) => g.entryIds)).toEqual([
+      ['c', 'd'],
+      ['e', 'f'],
+    ])
+  })
+
+  it('lists just the one adjacent group for a 1-slot move', () => {
+    const groups = buildPairGroups(['a', 'b', 'c', 'd'], 0, 480)
+    expect(displacedGroups(groups, 0, 1).map((g) => g.entryIds)).toEqual([['c', 'd']])
   })
 })

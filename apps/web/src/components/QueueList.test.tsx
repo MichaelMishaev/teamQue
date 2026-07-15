@@ -235,7 +235,7 @@ describe('QueueList', () => {
       expect(actions.reorderLine).not.toHaveBeenCalled()
     })
 
-    it('opens a confirmation naming the mover and whoever lands in its old slot, and only reorders after confirming', () => {
+    it('opens a two-way switch confirmation on drop, and only reorders after confirming', () => {
       const { actions, container } = renderQueueList(sixEntryQueue())
       const groupEls = [...container.querySelectorAll<HTMLElement>('[data-group-id]')]
       expect(groupEls).toHaveLength(3)
@@ -256,7 +256,7 @@ describe('QueueList', () => {
       expect(actions.reorderLine).toHaveBeenCalledWith(['e3', 'e4', 'e1', 'e2', 'e5', 'e6'])
     })
 
-    it('still names just the immediate neighbor (not every displaced pair) for a multi-slot drag, but reorders everyone correctly on confirm', () => {
+    it('names every displaced pair instead of a bare count when dragging across more than one slot', () => {
       const { actions, container } = renderQueueList(eightEntryQueue())
       const groupEls = [...container.querySelectorAll<HTMLElement>('[data-group-id]')]
       expect(groupEls).toHaveLength(4)
@@ -271,10 +271,7 @@ describe('QueueList', () => {
       fireEvent.pointerMove(window, { clientY: 400 }) // past group2 (214) and group3 (362) midpoints, before group4's (510) -> toIndex 2
       fireEvent.pointerUp(window, { clientY: 400 })
 
-      // Same title as the adjacent case above — the occupant depends only on
-      // fromIndex, not on how far the drag traveled. Group3 ("ה"/"ו") also
-      // shifts on confirm even though it's never named in the dialog.
-      expect(screen.getByText('להחליף בין א / ב ⇄ ג / ד?')).toBeDefined()
+      expect(screen.getByText('להזיז את א / ב למטה? (ג / ד, ה / ו יזוזו מקום)')).toBeDefined()
       expect(actions.reorderLine).not.toHaveBeenCalled()
 
       fireEvent.click(screen.getByText('אישור'))
@@ -401,13 +398,13 @@ describe('QueueList', () => {
       expect(actions.moveTop).toHaveBeenCalledWith('e2')
     })
 
-    it('still names the immediate neighbor (not a count) for a multi-slot move to bottom, and only calls moveBottom after confirming', () => {
+    it('names every displaced entry for a multi-slot move to bottom, not a bare count, and only calls moveBottom after confirming', () => {
       const queue = [entry('e1', 'א', 1), entry('e2', 'ב', 2), entry('e3', 'ג', 3), entry('e4', 'ד', 4)]
       const { actions } = renderQueueList(queue)
       openMenuFor('א')
       fireEvent.click(screen.getByText('לסוף התור'))
 
-      expect(screen.getByText('להחליף בין א ⇄ ב?')).toBeDefined()
+      expect(screen.getByText('להזיז את א למטה? (ב, ג, ד יזוזו מקום)')).toBeDefined()
       expect(actions.moveBottom).not.toHaveBeenCalled()
 
       fireEvent.click(screen.getByText('אישור'))

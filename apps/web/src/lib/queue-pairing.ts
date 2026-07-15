@@ -62,8 +62,9 @@ export interface RowSwitchPlan {
   fromIndex: number
   toIndex: number
   movedId: string
-  /** Whoever now sits in movedId's exact original slot — always present, any move distance. */
-  occupantId: string
+  direction: 'up' | 'down'
+  /** Every entry between fromIndex and toIndex (inclusive of toIndex), in original queue order — always at least one. */
+  displacedIds: string[]
 }
 
 /**
@@ -71,16 +72,25 @@ export interface RowSwitchPlan {
  * (docs/superpowers/specs/2026-07-15-row-switch-confirm-design.md) behind
  * confirmation — no DOM, no dnd-kit, so it's fully unit-testable even
  * though the drag mechanism that calls it (QueueList's handleDragEnd) is
- * not. The occupant is always the original array's immediate neighbor in
- * the direction of the move — true for any distance, not just an adjacent
- * one (docs/superpowers/specs/2026-07-15-swap-partner-naming-design.md).
+ * not. Moving an entry by N slots always displaces exactly N others by one
+ * slot each — every one of them is named in the confirmation, not just a
+ * count (docs/superpowers/specs/2026-07-15-swap-partner-naming-design.md).
  */
 export function planRowSwitch(orderIds: string[], oldIndex: number, newIndex: number): RowSwitchPlan | null {
   if (oldIndex === newIndex) return null
+  if (newIndex < 0 || newIndex >= orderIds.length) return null
   const movedId = orderIds[oldIndex]
   if (movedId === undefined) return null
   const direction: 'up' | 'down' = newIndex < oldIndex ? 'up' : 'down'
-  const occupantId = direction === 'down' ? orderIds[oldIndex + 1] : orderIds[oldIndex - 1]
-  if (occupantId === undefined) return null
-  return { fromIndex: oldIndex, toIndex: newIndex, movedId, occupantId }
+  const displacedIds = direction === 'down' ? orderIds.slice(oldIndex + 1, newIndex + 1) : orderIds.slice(newIndex, oldIndex)
+  return { fromIndex: oldIndex, toIndex: newIndex, movedId, direction, displacedIds }
+}
+
+/**
+ * Every group between fromIndex and toIndex (inclusive of toIndex), in
+ * original order — the pair-group analogue of planRowSwitch's displacedIds,
+ * used by the pair-grip drag's confirmation (QueueList's onDragEnd).
+ */
+export function displacedGroups(groups: PairGroup[], fromIndex: number, toIndex: number): PairGroup[] {
+  return toIndex > fromIndex ? groups.slice(fromIndex + 1, toIndex + 1) : groups.slice(toIndex, fromIndex)
 }

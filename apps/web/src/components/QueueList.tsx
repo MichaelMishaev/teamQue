@@ -19,7 +19,7 @@ import {
   type PairGestureState,
   type RectLike,
 } from '@/lib/pair-drag-gesture'
-import { buildPairGroups, planRowSwitch, reorderGroups } from '@/lib/queue-pairing'
+import { buildPairGroups, displacedGroups, planRowSwitch, reorderGroups } from '@/lib/queue-pairing'
 import { formatTimeOfDay } from '@/lib/time'
 import { useSessionActions } from '@/state/SessionActions'
 
@@ -78,21 +78,24 @@ interface PendingSwitch {
   groupId: string
   toIndex: number
   groupANames: string[]
-  occupantNames: string[]
+  direction: 'up' | 'down'
+  displaced: string[][]
 }
 
 interface PendingRowSwitch {
   previousOrder: string[]
   nextOrder: string[]
   movedId: string
-  occupantId: string
+  direction: 'up' | 'down'
+  displacedIds: string[]
 }
 
 interface PendingMoveEnd {
   entryId: string
   end: 'top' | 'bottom'
+  direction: 'up' | 'down'
   groupANames: string[]
-  occupantNames: string[]
+  displaced: string[][]
 }
 
 export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueListProps) {
@@ -155,7 +158,8 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
       previousOrder,
       nextOrder,
       movedId: plan.movedId,
-      occupantId: plan.occupantId,
+      direction: plan.direction,
+      displacedIds: plan.displacedIds,
     })
   }
 
@@ -304,22 +308,12 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
       return
     }
 
-    // Whichever group lands in the dragged group's exact original slot is
-    // always the original array's immediate neighbor in the direction of the
-    // move — true for any drag distance, not just an adjacent one
-    // (docs/superpowers/specs/2026-07-15-swap-partner-naming-design.md).
-    const direction: 'up' | 'down' = toIndex < fromIndex ? 'up' : 'down'
-    const occupantGroup = direction === 'down' ? currentPairGroups[fromIndex + 1] : currentPairGroups[fromIndex - 1]
-    if (!occupantGroup) {
-      flushSync(() => clearDragState())
-      return
-    }
-
     setPendingSwitch({
       groupId,
       toIndex,
       groupANames: namesOf(movedGroup, currentById),
-      occupantNames: namesOf(occupantGroup, currentById),
+      direction: toIndex < fromIndex ? 'up' : 'down',
+      displaced: displacedGroups(currentPairGroups, fromIndex, toIndex).map((g) => namesOf(g, currentById)),
     })
     // Drag refs/state are deliberately left as-is here (not cleared) — the floating
     // card and the live-reflow placeholder gap stay frozen at the drop target while
@@ -380,8 +374,9 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
     setPendingMoveEnd({
       entryId,
       end,
+      direction: plan.direction,
       groupANames: namesOf({ entryIds: [plan.movedId] }, byId),
-      occupantNames: namesOf({ entryIds: [plan.occupantId] }, byId),
+      displaced: plan.displacedIds.map((id) => namesOf({ entryIds: [id] }, byId)),
     })
   }
 
@@ -499,7 +494,8 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
           onConfirm={handleConfirmSwitch}
           onCancel={handleCancelSwitch}
           groupANames={pendingSwitch.groupANames}
-          occupantNames={pendingSwitch.occupantNames}
+          direction={pendingSwitch.direction}
+          displaced={pendingSwitch.displaced}
         />
       )}
       {pendingRowSwitch && (
@@ -508,7 +504,8 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
           onConfirm={handleConfirmRowSwitch}
           onCancel={handleCancelRowSwitch}
           groupANames={namesOf({ entryIds: [pendingRowSwitch.movedId] }, byId)}
-          occupantNames={namesOf({ entryIds: [pendingRowSwitch.occupantId] }, byId)}
+          direction={pendingRowSwitch.direction}
+          displaced={pendingRowSwitch.displacedIds.map((id) => namesOf({ entryIds: [id] }, byId))}
         />
       )}
       {menuEntry && (
@@ -527,7 +524,8 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
           onConfirm={handleConfirmMoveEnd}
           onCancel={handleCancelMoveEnd}
           groupANames={pendingMoveEnd.groupANames}
-          occupantNames={pendingMoveEnd.occupantNames}
+          direction={pendingMoveEnd.direction}
+          displaced={pendingMoveEnd.displaced}
         />
       )}
     </>
