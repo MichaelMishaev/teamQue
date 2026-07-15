@@ -46,6 +46,11 @@ import { useSessionActions } from '@/state/SessionActions'
  * though with no drag-visual-freeze step — dnd-kit already animates the
  * drop via the same orderIds state this defers committing to the server
  * (docs/superpowers/specs/2026-07-15-row-switch-confirm-design.md).
+ * QueueActionsSheet's ⋯-menu move-to-top/bottom actions get the same
+ * confirmation too (pendingMoveEnd), with no local optimism at all —
+ * unlike both drags, those actions never applied anything locally to begin
+ * with, so Confirm just calls the server action directly
+ * (docs/superpowers/specs/2026-07-15-move-end-confirm-design.md).
  */
 export interface QueueListProps {
   queue: QueueEntryView[]

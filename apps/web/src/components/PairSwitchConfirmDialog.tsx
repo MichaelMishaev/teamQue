@@ -6,15 +6,17 @@ import { t, type MessageKey } from '@/i18n'
  * Single responsibility: the one exception (besides RematchConfirmDialog) to
  * the no-popup policy (design.md §4) — requires explicit confirmation before
  * a queue reorder commits, since staff running the line are non-technical
- * and a drag can shift several other entries' positions at once. Serves two
- * flows sharing the same freeze-then-confirm shape but different nouns in
- * their copy: the pair-grip drag (`unit="pair"`,
- * docs/superpowers/specs/2026-07-15-pair-switch-confirm-design.md) and the
+ * and a reorder can shift several other entries' positions at once. Three
+ * callers share this dialog: the pair-grip drag (`unit="pair"`,
+ * docs/superpowers/specs/2026-07-15-pair-switch-confirm-design.md), the
  * single-row ☰ drag (`unit="team"`,
- * docs/superpowers/specs/2026-07-15-row-switch-confirm-design.md). Unlike
- * RematchConfirmDialog, there's no submitting/error state here — QueueList
- * already applies every reorder optimistically and reverts on failure, so
- * Confirm just closes this dialog and lets that existing path run.
+ * docs/superpowers/specs/2026-07-15-row-switch-confirm-design.md), and the
+ * ⋯-menu move-to-top/bottom (`unit="team"`, since it moves one entry like
+ * the row drag does, docs/superpowers/specs/2026-07-15-move-end-confirm-
+ * design.md). There's no submitting/error state here, unlike
+ * RematchConfirmDialog — each caller owns applying its own action (with or
+ * without local optimism) and reverting on failure; Confirm just closes
+ * this dialog and lets the caller's own path run.
  */
 export interface PairSwitchConfirmDialogProps {
   open: boolean
