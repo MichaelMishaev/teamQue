@@ -69,51 +69,47 @@ describe('planRowSwitch', () => {
     expect(planRowSwitch(['a', 'b', 'c'], 1, 1)).toBeNull()
   })
 
-  it('names both entries for an adjacent (1-slot) move down', () => {
+  it('names the immediate neighbor for an adjacent (1-slot) move down', () => {
     expect(planRowSwitch(['a', 'b', 'c', 'd'], 0, 1)).toEqual({
       fromIndex: 0,
       toIndex: 1,
       movedId: 'a',
-      direction: 'down',
       occupantId: 'b',
-      shiftCount: 1,
     })
   })
 
-  it('names both entries for an adjacent (1-slot) move up', () => {
+  it('names the immediate neighbor for an adjacent (1-slot) move up', () => {
     expect(planRowSwitch(['a', 'b', 'c', 'd'], 3, 2)).toEqual({
       fromIndex: 3,
       toIndex: 2,
       movedId: 'd',
-      direction: 'up',
       occupantId: 'c',
-      shiftCount: 1,
     })
   })
 
-  it('has no occupant and carries a count for a multi-slot move down', () => {
+  it('still names just the immediate neighbor for a multi-slot move down, not whoever ends up at toIndex', () => {
     expect(planRowSwitch(['a', 'b', 'c', 'd', 'e'], 0, 3)).toEqual({
       fromIndex: 0,
       toIndex: 3,
       movedId: 'a',
-      direction: 'down',
-      occupantId: null,
-      shiftCount: 3,
+      occupantId: 'b',
     })
   })
 
-  it('has no occupant and carries a count for a multi-slot move up', () => {
+  it('still names just the immediate neighbor for a multi-slot move up, not whoever ends up at toIndex', () => {
     expect(planRowSwitch(['a', 'b', 'c', 'd', 'e'], 4, 1)).toEqual({
       fromIndex: 4,
       toIndex: 1,
       movedId: 'e',
-      direction: 'up',
-      occupantId: null,
-      shiftCount: 3,
+      occupantId: 'd',
     })
   })
 
   it('returns null when oldIndex is out of range', () => {
     expect(planRowSwitch(['a', 'b', 'c'], 5, 1)).toBeNull()
+  })
+
+  it('returns null if the computed occupant index would be out of range', () => {
+    expect(planRowSwitch(['a', 'b', 'c'], 0, -1)).toBeNull()
   })
 })

@@ -62,9 +62,8 @@ export interface RowSwitchPlan {
   fromIndex: number
   toIndex: number
   movedId: string
-  direction: 'up' | 'down'
-  occupantId: string | null
-  shiftCount: number
+  /** Whoever now sits in movedId's exact original slot — always present, any move distance. */
+  occupantId: string
 }
 
 /**
@@ -72,23 +71,16 @@ export interface RowSwitchPlan {
  * (docs/superpowers/specs/2026-07-15-row-switch-confirm-design.md) behind
  * confirmation — no DOM, no dnd-kit, so it's fully unit-testable even
  * though the drag mechanism that calls it (QueueList's handleDragEnd) is
- * not. Mirrors the pair-drag's magnitude/occupant math: moving an entry by
- * N slots always displaces exactly N others by one slot each — magnitude 1
- * is a genuine two-way swap (name both), anything more sets occupantId to
- * null and carries a count instead.
+ * not. The occupant is always the original array's immediate neighbor in
+ * the direction of the move — true for any distance, not just an adjacent
+ * one (docs/superpowers/specs/2026-07-15-swap-partner-naming-design.md).
  */
 export function planRowSwitch(orderIds: string[], oldIndex: number, newIndex: number): RowSwitchPlan | null {
   if (oldIndex === newIndex) return null
   const movedId = orderIds[oldIndex]
   if (movedId === undefined) return null
-  const magnitude = Math.abs(newIndex - oldIndex)
-  const occupantId = magnitude === 1 ? (orderIds[newIndex] ?? null) : null
-  return {
-    fromIndex: oldIndex,
-    toIndex: newIndex,
-    movedId,
-    direction: newIndex < oldIndex ? 'up' : 'down',
-    occupantId,
-    shiftCount: magnitude,
-  }
+  const direction: 'up' | 'down' = newIndex < oldIndex ? 'up' : 'down'
+  const occupantId = direction === 'down' ? orderIds[oldIndex + 1] : orderIds[oldIndex - 1]
+  if (occupantId === undefined) return null
+  return { fromIndex: oldIndex, toIndex: newIndex, movedId, occupantId }
 }
