@@ -19,7 +19,7 @@ import {
   type PairGestureState,
   type RectLike,
 } from '@/lib/pair-drag-gesture'
-import { buildPairGroups, reorderGroups } from '@/lib/queue-pairing'
+import { buildPairGroups, planRowSwitch, reorderGroups } from '@/lib/queue-pairing'
 import { formatTimeOfDay } from '@/lib/time'
 import { useSessionActions } from '@/state/SessionActions'
 
@@ -42,6 +42,10 @@ import { useSessionActions } from '@/state/SessionActions'
  * PairSwitchConfirmDialog rather than committing immediately — staff must
  * explicitly confirm before the reorder is applied
  * (docs/superpowers/specs/2026-07-15-pair-switch-confirm-design.md).
+ * The single-row ☰ drag (dnd-kit, handleDragEnd) is gated the same way,
+ * though with no drag-visual-freeze step — dnd-kit already animates the
+ * drop via the same orderIds state this defers committing to the server
+ * (docs/superpowers/specs/2026-07-15-row-switch-confirm-design.md).
  */
 export interface QueueListProps {
   queue: QueueEntryView[]
@@ -74,6 +78,15 @@ interface PendingSwitch {
   shiftCount: number
 }
 
+interface PendingRowSwitch {
+  previousOrder: string[]
+  nextOrder: string[]
+  movedId: string
+  direction: 'up' | 'down'
+  occupantId: string | null
+  shiftCount: number
+}
+
 export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueListProps) {
   const actions = useSessionActions()
   const [orderIds, setOrderIds] = useState<string[]>(() => queue.map((e) => e.id))
@@ -97,6 +110,7 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
   const dragScrollStartRef = useRef(0)
   const dragStartRef = useRef<{ top: number; left: number; width: number; height: number; clientY: number } | null>(null)
   const [pendingSwitch, setPendingSwitch] = useState<PendingSwitch | null>(null)
+  const [pendingRowSwitch, setPendingRowSwitch] = useState<PendingRowSwitch | null>(null)
 
   useEffect(() => {
     setOrderIds(queue.map((e) => e.id))
@@ -123,12 +137,18 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
     const oldIndex = orderIds.indexOf(String(active.id))
     const newIndex = orderIds.indexOf(String(over.id))
     if (oldIndex === -1 || newIndex === -1) return
-    const previous = orderIds
-    const next = arrayMove(orderIds, oldIndex, newIndex)
-    setOrderIds(next)
-    actions.reorderLine(next).catch(() => {
-      setOrderIds(previous)
-      onError?.(t('queue.actions.error'))
+    const plan = planRowSwitch(orderIds, oldIndex, newIndex)
+    if (!plan) return
+    const previousOrder = orderIds
+    const nextOrder = arrayMove(orderIds, oldIndex, newIndex)
+    setOrderIds(nextOrder)
+    setPendingRowSwitch({
+      previousOrder,
+      nextOrder,
+      movedId: plan.movedId,
+      direction: plan.direction,
+      occupantId: plan.occupantId,
+      shiftCount: plan.shiftCount,
     })
   }
 
@@ -329,6 +349,23 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
     cancelTimerRef.current = setTimeout(clearDragState, CANCEL_ANIMATION_MS)
   }
 
+  function handleConfirmRowSwitch(): void {
+    const pending = pendingRowSwitch
+    if (!pending) return
+    setPendingRowSwitch(null)
+    actions.reorderLine(pending.nextOrder).catch(() => {
+      setOrderIds(pending.previousOrder)
+      onError?.(t('queue.actions.error'))
+    })
+  }
+
+  function handleCancelRowSwitch(): void {
+    const pending = pendingRowSwitch
+    if (!pending) return
+    setOrderIds(pending.previousOrder)
+    setPendingRowSwitch(null)
+  }
+
   const reflow = dragGroupId && dragRectsRef.current.length > 0 ? computeReflow(dragRectsRef.current, dragFromIndexRef.current, dragOverIndex) : null
 
   return (
@@ -433,6 +470,18 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
           occupantNames={pendingSwitch.occupantNames}
           shiftCount={pendingSwitch.shiftCount}
           unit="pair"
+        />
+      )}
+      {pendingRowSwitch && (
+        <PairSwitchConfirmDialog
+          open
+          unit="team"
+          onConfirm={handleConfirmRowSwitch}
+          onCancel={handleCancelRowSwitch}
+          groupANames={namesOf({ entryIds: [pendingRowSwitch.movedId] }, byId)}
+          direction={pendingRowSwitch.direction}
+          occupantNames={pendingRowSwitch.occupantId ? namesOf({ entryIds: [pendingRowSwitch.occupantId] }, byId) : null}
+          shiftCount={pendingRowSwitch.shiftCount}
         />
       )}
       {menuEntry && <QueueActionsSheet open onClose={() => setMenuEntryId(null)} entry={menuEntry} {...(onError ? { onError } : {})} />}
