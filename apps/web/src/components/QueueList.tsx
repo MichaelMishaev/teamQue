@@ -5,10 +5,10 @@ import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } f
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { QueueEntryView } from 'shared'
+import { PairSwitchConfirmDialog } from '@/components/PairSwitchConfirmDialog'
 import { QueuePairGroup, type QueuePairGroupVariant } from '@/components/QueuePairGroup'
 import { QueueRow } from '@/components/QueueRow'
 import { QueueActionsSheet } from '@/components/QueueActionsSheet'
-import { showUndoToast } from '@/components/UndoToast'
 import { t } from '@/i18n'
 import {
   pairGestureReducer,
@@ -37,8 +37,11 @@ import { useSessionActions } from '@/state/SessionActions'
  * (docs/superpowers/specs/2026-07-13-queue-pair-move-design.md). While
  * dragging, the other pair cards live-reflow (CSS transform, no DOM
  * reordering) to open a gap at the current drop target
- * (docs/superpowers/specs/2026-07-13-queue-pair-drag-live-reflow-design.md)
- * — only the actual drop commits a new order.
+ * (docs/superpowers/specs/2026-07-13-queue-pair-drag-live-reflow-design.md).
+ * Releasing the pointer freezes that visual and opens
+ * PairSwitchConfirmDialog rather than committing immediately — staff must
+ * explicitly confirm before the reorder is applied
+ * (docs/superpowers/specs/2026-07-15-pair-switch-confirm-design.md).
  */
 export interface QueueListProps {
   queue: QueueEntryView[]
@@ -51,9 +54,24 @@ export interface QueueListProps {
 const DRAG_SCROLL_EDGE_PX = 80
 /** Scroll amount per pointermove while the pointer sits in the edge zone. */
 const DRAG_SCROLL_STEP_PX = 16
+/** Cancel snap-back duration — matches the reflow's own CSS transition. */
+const CANCEL_ANIMATION_MS = 150
 
 function groupIdOf(group: { pairIndex: number; entryIds: string[] }): string {
   return group.entryIds[0] ?? `pair-${group.pairIndex}`
+}
+
+function namesOf(group: { entryIds: string[] }, byId: Map<string, QueueEntryView>): string[] {
+  return group.entryIds.map((id) => byId.get(id)?.team.name).filter((name): name is string => Boolean(name))
+}
+
+interface PendingSwitch {
+  groupId: string
+  toIndex: number
+  groupANames: string[]
+  direction: 'up' | 'down'
+  occupantNames: string[] | null
+  shiftCount: number
 }
 
 export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueListProps) {
@@ -66,6 +84,7 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
   const doubleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdCleanupRef = useRef<(() => void) | null>(null)
+  const cancelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const queueRef = useRef<HTMLDivElement>(null)
   const floatingRef = useRef<HTMLDivElement>(null)
@@ -77,6 +96,7 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
   const dragRectsRef = useRef<RectLike[]>([])
   const dragScrollStartRef = useRef(0)
   const dragStartRef = useRef<{ top: number; left: number; width: number; height: number; clientY: number } | null>(null)
+  const [pendingSwitch, setPendingSwitch] = useState<PendingSwitch | null>(null)
 
   useEffect(() => {
     setOrderIds(queue.map((e) => e.id))
@@ -91,6 +111,7 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
     return () => {
       teardownActiveHold()
       if (doubleTapTimerRef.current) clearTimeout(doubleTapTimerRef.current)
+      if (cancelTimerRef.current) clearTimeout(cancelTimerRef.current)
     }
   }, [])
 
@@ -232,54 +253,80 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
     }
   }
 
+  function clearDragState(): void {
+    dragGroupIdRef.current = null
+    dragStartRef.current = null
+    dragRectsRef.current = []
+    setDragGroupId(null)
+  }
+
   function onDragEnd(): void {
     window.removeEventListener('pointermove', onDragMove)
     window.removeEventListener('pointerup', onDragEnd)
 
     const groupId = dragGroupIdRef.current
     const toIndex = dragOverIndexRef.current
-    dragGroupIdRef.current = null
-    dragStartRef.current = null
-    dragRectsRef.current = []
-    flushSync(() => setDragGroupId(null))
     if (!groupId) return
 
-    const {
-      pairGroups: currentPairGroups,
-      orderIds: currentOrderIds,
-      byId: currentById,
-      actions: currentActions,
-      onError: currentOnError,
-    } = latestRef.current
-
+    const { pairGroups: currentPairGroups, byId: currentById } = latestRef.current
     const fromIndex = currentPairGroups.findIndex((g) => groupIdOf(g) === groupId)
-    if (fromIndex === -1 || fromIndex === toIndex) return
-    const movedGroup = currentPairGroups[fromIndex]
-    if (!movedGroup) return
+    const movedGroup = fromIndex === -1 ? undefined : currentPairGroups[fromIndex]
 
-    const nextOrder = reorderGroups(currentPairGroups, fromIndex, toIndex)
+    if (fromIndex === -1 || fromIndex === toIndex || !movedGroup) {
+      flushSync(() => clearDragState())
+      return
+    }
+
+    // Dragging a pair by N slots always displaces exactly N other pairs by one slot
+    // each — magnitude 1 is a genuine two-way swap (name both pairs); anything more
+    // shifts several pairs, so the dialog states a count instead of misleadingly
+    // naming only the pair at the exact drop slot (docs/superpowers/specs/2026-07-15-
+    // pair-switch-confirm-design.md).
+    const remaining = currentPairGroups.filter((_, i) => i !== fromIndex)
+    const magnitude = Math.abs(toIndex - fromIndex)
+    const occupantIndex = toIndex > fromIndex ? toIndex - 1 : toIndex
+    const occupantGroup = magnitude === 1 ? remaining[occupantIndex] : undefined
+
+    setPendingSwitch({
+      groupId,
+      toIndex,
+      groupANames: namesOf(movedGroup, currentById),
+      direction: toIndex < fromIndex ? 'up' : 'down',
+      occupantNames: occupantGroup ? namesOf(occupantGroup, currentById) : null,
+      shiftCount: magnitude,
+    })
+    // Drag refs/state are deliberately left as-is here (not cleared) — the floating
+    // card and the live-reflow placeholder gap stay frozen at the drop target while
+    // the confirmation dialog is open.
+  }
+
+  function handleConfirmSwitch(): void {
+    const pending = pendingSwitch
+    if (!pending) return
+    const { pairGroups: currentPairGroups, orderIds: currentOrderIds, actions: currentActions, onError: currentOnError } = latestRef.current
+
+    setPendingSwitch(null)
+    clearDragState()
+
+    const fromIndex = currentPairGroups.findIndex((g) => groupIdOf(g) === pending.groupId)
+    if (fromIndex === -1) return
+    const nextOrder = reorderGroups(currentPairGroups, fromIndex, pending.toIndex)
     const previousOrder = currentOrderIds
-    flushSync(() => setOrderIds(nextOrder))
+    setOrderIds(nextOrder)
     currentActions.reorderLine(nextOrder).catch(() => {
       setOrderIds(previousOrder)
       currentOnError?.(t('queue.actions.error'))
     })
+  }
 
-    const names = movedGroup.entryIds
-      .map((id) => currentById.get(id)?.team.name)
-      .filter((name): name is string => Boolean(name))
-      .join(' / ')
-    const messageKey = toIndex < fromIndex ? 'toast.pairMovedUp' : 'toast.pairMovedDown'
-    showUndoToast(
-      messageKey,
-      () => {
-        setOrderIds(previousOrder)
-        currentActions.reorderLine(previousOrder).catch(() => {
-          currentOnError?.(t('queue.actions.error'))
-        })
-      },
-      { names },
-    )
+  function handleCancelSwitch(): void {
+    setPendingSwitch(null)
+    setDragOverIndex(dragFromIndexRef.current)
+    if (floatingRef.current) {
+      floatingRef.current.style.transition = `transform ${CANCEL_ANIMATION_MS}ms ease-out`
+      floatingRef.current.style.transform = 'translateY(0px)'
+    }
+    cancelTimerRef.current = setTimeout(clearDragState, CANCEL_ANIMATION_MS)
   }
 
   const reflow = dragGroupId && dragRectsRef.current.length > 0 ? computeReflow(dragRectsRef.current, dragFromIndexRef.current, dragOverIndex) : null
@@ -375,6 +422,17 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
               })}
           </div>
         </div>
+      )}
+      {pendingSwitch && (
+        <PairSwitchConfirmDialog
+          open
+          onConfirm={handleConfirmSwitch}
+          onCancel={handleCancelSwitch}
+          groupANames={pendingSwitch.groupANames}
+          direction={pendingSwitch.direction}
+          occupantNames={pendingSwitch.occupantNames}
+          shiftCount={pendingSwitch.shiftCount}
+        />
       )}
       {menuEntry && <QueueActionsSheet open onClose={() => setMenuEntryId(null)} entry={menuEntry} {...(onError ? { onError } : {})} />}
     </>

@@ -205,6 +205,10 @@ describe('QueueList', () => {
       ]
     }
 
+    function eightEntryQueue(): QueueEntryView[] {
+      return [...sixEntryQueue(), entry('e7', 'ז', 7), entry('e8', 'ח', 8)]
+    }
+
     it('cancels the drag if the pointer releases before the hold completes', () => {
       const { actions } = renderQueueList(sixEntryQueue())
       const grip = screen.getByRole('button', { name: /^הזז את זוג 2/ })
@@ -231,7 +235,7 @@ describe('QueueList', () => {
       expect(actions.reorderLine).not.toHaveBeenCalled()
     })
 
-    it('drags the front pair past the middle pair and reorders on drop', () => {
+    it('opens a two-way switch confirmation on drop, and only reorders after confirming', () => {
       const { actions, container } = renderQueueList(sixEntryQueue())
       const groupEls = [...container.querySelectorAll<HTMLElement>('[data-group-id]')]
       expect(groupEls).toHaveLength(3)
@@ -245,10 +249,56 @@ describe('QueueList', () => {
       fireEvent.pointerMove(window, { clientY: 250 }) // past group2's midpoint (214), before group3's (362)
       fireEvent.pointerUp(window, { clientY: 250 })
 
+      expect(screen.getByText('להחליף בין א / ב ⇄ ג / ד?')).toBeDefined()
+      expect(actions.reorderLine).not.toHaveBeenCalled()
+
+      fireEvent.click(screen.getByText('אישור'))
       expect(actions.reorderLine).toHaveBeenCalledWith(['e3', 'e4', 'e1', 'e2', 'e5', 'e6'])
     })
 
-    it('uses the latest queue state at drop time, not the stale state from when the drag started', () => {
+    it('shows a multi-pair-shift count instead of a two-way switch when dragging across more than one slot', () => {
+      const { actions, container } = renderQueueList(eightEntryQueue())
+      const groupEls = [...container.querySelectorAll<HTMLElement>('[data-group-id]')]
+      expect(groupEls).toHaveLength(4)
+      mockRect(groupEls[1]!, { top: 148, height: 132 })
+      mockRect(groupEls[2]!, { top: 296, height: 132 })
+      mockRect(groupEls[3]!, { top: 444, height: 132 })
+
+      const grip1 = groupEls[0]!.querySelector('button') as HTMLElement
+      fireEvent.pointerDown(grip1, { clientY: 10 })
+      fireEvent.pointerDown(grip1, { clientY: 10 })
+      vi.advanceTimersByTime(400)
+      fireEvent.pointerMove(window, { clientY: 400 }) // past group2 (214) and group3 (362) midpoints, before group4's (510) -> toIndex 2
+      fireEvent.pointerUp(window, { clientY: 400 })
+
+      expect(screen.getByText('להזיז את א / ב למטה? (עוד 2 זוגות יזוזו מקום)')).toBeDefined()
+      expect(actions.reorderLine).not.toHaveBeenCalled()
+
+      fireEvent.click(screen.getByText('אישור'))
+      expect(actions.reorderLine).toHaveBeenCalledWith(['e3', 'e4', 'e5', 'e6', 'e1', 'e2', 'e7', 'e8'])
+    })
+
+    it('cancel restores the original order, never calls reorderLine, and closes the dialog', () => {
+      const { actions, container } = renderQueueList(sixEntryQueue())
+      const groupEls = [...container.querySelectorAll<HTMLElement>('[data-group-id]')]
+      mockRect(groupEls[1]!, { top: 148, height: 132 })
+      mockRect(groupEls[2]!, { top: 296, height: 132 })
+
+      const grip1 = groupEls[0]!.querySelector('button') as HTMLElement
+      fireEvent.pointerDown(grip1, { clientY: 10 })
+      fireEvent.pointerDown(grip1, { clientY: 10 })
+      vi.advanceTimersByTime(400)
+      fireEvent.pointerMove(window, { clientY: 250 })
+      fireEvent.pointerUp(window, { clientY: 250 })
+
+      fireEvent.click(screen.getByText('ביטול'))
+      vi.advanceTimersByTime(150)
+
+      expect(actions.reorderLine).not.toHaveBeenCalled()
+      expect(screen.queryByText('להחליף בין א / ב ⇄ ג / ד?')).toBeNull()
+    })
+
+    it('uses the latest queue state at confirm time, not the stale state from when the drag started', () => {
       const { actions, container, rerender } = renderQueueList(sixEntryQueue())
       const groupEls = [...container.querySelectorAll<HTMLElement>('[data-group-id]')]
       mockRect(groupEls[1]!, { top: 148, height: 132 })
@@ -269,6 +319,7 @@ describe('QueueList', () => {
 
       fireEvent.pointerMove(window, { clientY: 250 })
       fireEvent.pointerUp(window, { clientY: 250 })
+      fireEvent.click(screen.getByText('אישור'))
 
       expect(actions.reorderLine).toHaveBeenCalledWith(['e3', 'e4', 'e1', 'e2', 'e5', 'e6', 'e7'])
     })
