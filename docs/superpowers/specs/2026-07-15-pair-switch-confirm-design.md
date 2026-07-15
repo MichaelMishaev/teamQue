@@ -55,13 +55,17 @@ logic.
 
 ### 2. `PairSwitchConfirmDialog` component
 
-New component, same shape as `RematchConfirmDialog` (`Dialog`/`Button` primitives, `submitting`/
-`error` state, calls `onConfirm` only after the user taps Confirm):
+New component, same `Dialog`/`Button` primitives as `RematchConfirmDialog` but **without** its
+`submitting`/inline-error state: rematch needs that because confirming is the *first* thing that
+happens (no optimistic preview exists yet). Here, `QueueList` already applies every reorder
+optimistically and reverts-with-`onError` on failure (its plain single-row drag does this today
+with no dialog involved at all) — so Confirm just closes the dialog immediately and lets that
+existing background apply/revert path run, same as it does for every other reorder in this file.
 
 ```ts
 interface PairSwitchConfirmDialogProps {
   open: boolean
-  onConfirm: () => Promise<void>
+  onConfirm: () => void
   onCancel: () => void
   groupANames: string[]           // dragged pair's team names, e.g. ["יוסי", "רון"]
   direction: 'up' | 'down'
@@ -92,11 +96,13 @@ Replaces the current `onDragEnd`'s "apply immediately + `showUndoToast`" behavio
   while the dialog is open. Compute `fromIndex`/`toIndex`/magnitude/occupant from those frozen
   refs into a new `pendingSwitch` state and render `PairSwitchConfirmDialog open={pendingSwitch !==
   null}` with the derived props.
-- **Confirm:** `setOrderIds(nextOrder)`, call `actions.reorderLine(nextOrder)` — on rejection,
-  revert `orderIds` and call `onError` exactly as today, just with no undo toast (the confirm
-  already gated the action) — then clear all drag/`pendingSwitch` state. The frozen visual already
-  matches `nextOrder`, so nothing needs to animate on success; clearing state just hands rendering
-  back to the (now-reordered) list, which looks identical to the frozen overlay.
+- **Confirm:** clear all drag/`pendingSwitch` state immediately (closing the dialog synchronously —
+  no submitting spinner), then `setOrderIds(nextOrder)` and call `actions.reorderLine(nextOrder)` in
+  the background — on rejection, revert `orderIds` and call `onError`, exactly the same
+  apply-then-revert-on-failure pattern this file already uses for its plain single-row drag, just
+  with no undo toast (the confirm already gated the action). The frozen visual already matches
+  `nextOrder`, so nothing needs to animate on success; clearing state just hands rendering back to
+  the (now-reordered) list, which looks identical to the frozen overlay.
 - **Cancel:** clear `pendingSwitch`, then animate back to the original layout — set `dragOverIndex`
   back to `dragFromIndex` (reuses the existing reflow CSS transition already used during live drag)
   and give the floating card's transform a transition before resetting it to `translateY(0)`; clear
@@ -123,10 +129,9 @@ Replaces the current `onDragEnd`'s "apply immediately + `showUndoToast`" behavio
 
 ## Testing
 
-- `PairSwitchConfirmDialog.test.tsx`: mirrors `RematchConfirmDialog.test.tsx` — closed renders
-  nothing; adjacent-move title text; multi-move (up and down) title text with count; confirm calls
-  `onConfirm` once and not before tapped; confirm disables the button and stays open on rejection
-  with an inline error; cancel calls `onCancel` without ever calling `onConfirm`.
+- `PairSwitchConfirmDialog.test.tsx`: closed renders nothing; adjacent-move title text; multi-move
+  (up and down) title text with count; confirm calls `onConfirm` once and not before tapped; cancel
+  calls `onCancel` without ever calling `onConfirm`.
 - `QueueList.test.tsx`: replace the existing "drags the front pair past the middle pair and
   reorders on drop" assertions (currently asserting `reorderLine` is called immediately) with:
   dropping opens the dialog instead of calling `reorderLine`; `reorderLine` is called only after
