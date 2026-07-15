@@ -77,6 +77,29 @@ describe('QueueActionsSheet', () => {
     await waitFor(() => expect(actions.updateTeam).toHaveBeenCalledWith('e1-cap', { name: 'ב' }))
   })
 
+  it('keeps the rename input open when the parent re-renders with a fresh onClose (1s clock tick)', () => {
+    const target = entry('e1', 'א', 1)
+    const actions = noop()
+    const { rerender } = render(
+      <SessionActionsContext.Provider value={actions}>
+        <QueueActionsSheet open onClose={() => {}} entry={target} />
+      </SessionActionsContext.Provider>,
+    )
+    fireEvent.click(screen.getByText('שנה שם'))
+    expect(screen.getByDisplayValue('א')).toBeTruthy()
+
+    // App.tsx ticks a wall clock every second, re-rendering the whole tree and
+    // handing QueueActionsSheet a brand-new inline onClose closure each time.
+    // The sheet's focus trap must not steal focus back and collapse the input.
+    rerender(
+      <SessionActionsContext.Provider value={actions}>
+        <QueueActionsSheet open onClose={() => {}} entry={target} />
+      </SessionActionsContext.Provider>,
+    )
+
+    expect(screen.getByDisplayValue('א')).toBeTruthy()
+  })
+
   it('rename does not save when blurred unchanged or emptied', async () => {
     const updateTeam = vi.fn().mockResolvedValue(undefined)
     renderSheet(entry('e1', 'א', 1), { updateTeam })
