@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MATCH_GAP_SEC, buildPairGroups, computeBaseSec, reorderGroups } from './queue-pairing'
+import { MATCH_GAP_SEC, buildPairGroups, computeBaseSec, planRowSwitch, reorderGroups } from './queue-pairing'
 
 describe('buildPairGroups', () => {
   it('returns no groups for an empty queue', () => {
@@ -61,5 +61,59 @@ describe('reorderGroups', () => {
   it('is a no-op when fromIndex and toIndex are the same', () => {
     const groups = buildPairGroups(['a', 'b', 'c', 'd'], 0, 480)
     expect(reorderGroups(groups, 1, 1)).toEqual(['a', 'b', 'c', 'd'])
+  })
+})
+
+describe('planRowSwitch', () => {
+  it('returns null when dropped at the same position', () => {
+    expect(planRowSwitch(['a', 'b', 'c'], 1, 1)).toBeNull()
+  })
+
+  it('names both entries for an adjacent (1-slot) move down', () => {
+    expect(planRowSwitch(['a', 'b', 'c', 'd'], 0, 1)).toEqual({
+      fromIndex: 0,
+      toIndex: 1,
+      movedId: 'a',
+      direction: 'down',
+      occupantId: 'b',
+      shiftCount: 1,
+    })
+  })
+
+  it('names both entries for an adjacent (1-slot) move up', () => {
+    expect(planRowSwitch(['a', 'b', 'c', 'd'], 3, 2)).toEqual({
+      fromIndex: 3,
+      toIndex: 2,
+      movedId: 'd',
+      direction: 'up',
+      occupantId: 'c',
+      shiftCount: 1,
+    })
+  })
+
+  it('has no occupant and carries a count for a multi-slot move down', () => {
+    expect(planRowSwitch(['a', 'b', 'c', 'd', 'e'], 0, 3)).toEqual({
+      fromIndex: 0,
+      toIndex: 3,
+      movedId: 'a',
+      direction: 'down',
+      occupantId: null,
+      shiftCount: 3,
+    })
+  })
+
+  it('has no occupant and carries a count for a multi-slot move up', () => {
+    expect(planRowSwitch(['a', 'b', 'c', 'd', 'e'], 4, 1)).toEqual({
+      fromIndex: 4,
+      toIndex: 1,
+      movedId: 'e',
+      direction: 'up',
+      occupantId: null,
+      shiftCount: 3,
+    })
+  })
+
+  it('returns null when oldIndex is out of range', () => {
+    expect(planRowSwitch(['a', 'b', 'c'], 5, 1)).toBeNull()
   })
 })
