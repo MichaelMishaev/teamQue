@@ -25,8 +25,8 @@ function renderQueueList(queue: QueueEntryView[], opts: { matchDurationSec?: num
     addToLine: vi.fn(),
     searchTeams: vi.fn().mockResolvedValue([]),
     reorderLine: vi.fn().mockResolvedValue(undefined),
-    moveTop: vi.fn(),
-    moveBottom: vi.fn(),
+    moveTop: vi.fn().mockResolvedValue(undefined),
+    moveBottom: vi.fn().mockResolvedValue(undefined),
     removeFromLine: vi.fn(),
     startMatch: vi.fn(),
     pause: vi.fn(),
@@ -374,6 +374,63 @@ describe('QueueList', () => {
       expect(untouchedSibling.style.transform).toBe('translateY(0px)')
 
       fireEvent.pointerUp(window, { clientY: 250 })
+    })
+  })
+
+  describe('move-to-top/bottom confirmation', () => {
+    // QueueRow's ⋯ button has aria-label={teamName} (QueueRow.tsx) — an exact,
+    // unambiguous selector, since every test queue below uses distinct single-
+    // letter team names.
+    function openMenuFor(teamName: string): void {
+      fireEvent.click(screen.getByRole('button', { name: teamName }))
+    }
+
+    it('opens a confirmation naming both entries for an adjacent move, and only calls moveTop after confirming', () => {
+      const queue = [entry('e1', 'א', 1), entry('e2', 'ב', 2), entry('e3', 'ג', 3), entry('e4', 'ד', 4)]
+      const { actions } = renderQueueList(queue)
+      openMenuFor('ב')
+      fireEvent.click(screen.getByText('לראש התור'))
+
+      expect(screen.getByText('להחליף בין ב ⇄ א?')).toBeDefined()
+      expect(actions.moveTop).not.toHaveBeenCalled()
+
+      fireEvent.click(screen.getByText('אישור'))
+      expect(actions.moveTop).toHaveBeenCalledWith('e2')
+    })
+
+    it('shows a team-count title for a multi-slot move to bottom, and only calls moveBottom after confirming', () => {
+      const queue = [entry('e1', 'א', 1), entry('e2', 'ב', 2), entry('e3', 'ג', 3), entry('e4', 'ד', 4)]
+      const { actions } = renderQueueList(queue)
+      openMenuFor('א')
+      fireEvent.click(screen.getByText('לסוף התור'))
+
+      expect(screen.getByText('להזיז את א למטה? (עוד 3 קבוצות יזוזו מקום)')).toBeDefined()
+      expect(actions.moveBottom).not.toHaveBeenCalled()
+
+      fireEvent.click(screen.getByText('אישור'))
+      expect(actions.moveBottom).toHaveBeenCalledWith('e1')
+    })
+
+    it('cancel closes the dialog and never calls moveTop/moveBottom', () => {
+      const queue = [entry('e1', 'א', 1), entry('e2', 'ב', 2), entry('e3', 'ג', 3), entry('e4', 'ד', 4)]
+      const { actions } = renderQueueList(queue)
+      openMenuFor('ד')
+      fireEvent.click(screen.getByText('לראש התור'))
+
+      fireEvent.click(screen.getByText('ביטול'))
+      expect(actions.moveTop).not.toHaveBeenCalled()
+      expect(actions.moveBottom).not.toHaveBeenCalled()
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('requesting a move when the entry is already at that extreme opens no dialog and calls nothing', () => {
+      const queue = [entry('e1', 'א', 1), entry('e2', 'ב', 2), entry('e3', 'ג', 3), entry('e4', 'ד', 4)]
+      const { actions } = renderQueueList(queue)
+      openMenuFor('א')
+      fireEvent.click(screen.getByText('לראש התור'))
+
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(actions.moveTop).not.toHaveBeenCalled()
     })
   })
 })

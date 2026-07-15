@@ -87,6 +87,15 @@ interface PendingRowSwitch {
   shiftCount: number
 }
 
+interface PendingMoveEnd {
+  entryId: string
+  end: 'top' | 'bottom'
+  direction: 'up' | 'down'
+  groupANames: string[]
+  occupantNames: string[] | null
+  shiftCount: number
+}
+
 export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueListProps) {
   const actions = useSessionActions()
   const [orderIds, setOrderIds] = useState<string[]>(() => queue.map((e) => e.id))
@@ -111,6 +120,7 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
   const dragStartRef = useRef<{ top: number; left: number; width: number; height: number; clientY: number } | null>(null)
   const [pendingSwitch, setPendingSwitch] = useState<PendingSwitch | null>(null)
   const [pendingRowSwitch, setPendingRowSwitch] = useState<PendingRowSwitch | null>(null)
+  const [pendingMoveEnd, setPendingMoveEnd] = useState<PendingMoveEnd | null>(null)
 
   useEffect(() => {
     setOrderIds(queue.map((e) => e.id))
@@ -366,6 +376,35 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
     setPendingRowSwitch(null)
   }
 
+  function handleRequestMoveEnd(entryId: string, end: 'top' | 'bottom'): void {
+    const oldIndex = orderIds.indexOf(entryId)
+    const newIndex = end === 'top' ? 0 : orderIds.length - 1
+    const plan = planRowSwitch(orderIds, oldIndex, newIndex)
+    if (!plan) return
+    setPendingMoveEnd({
+      entryId,
+      end,
+      direction: plan.direction,
+      groupANames: namesOf({ entryIds: [plan.movedId] }, byId),
+      occupantNames: plan.occupantId ? namesOf({ entryIds: [plan.occupantId] }, byId) : null,
+      shiftCount: plan.shiftCount,
+    })
+  }
+
+  function handleConfirmMoveEnd(): void {
+    const pending = pendingMoveEnd
+    if (!pending) return
+    setPendingMoveEnd(null)
+    const move = pending.end === 'top' ? actions.moveTop : actions.moveBottom
+    move(pending.entryId).catch(() => {
+      onError?.(t('queue.actions.error'))
+    })
+  }
+
+  function handleCancelMoveEnd(): void {
+    setPendingMoveEnd(null)
+  }
+
   const reflow = dragGroupId && dragRectsRef.current.length > 0 ? computeReflow(dragRectsRef.current, dragFromIndexRef.current, dragOverIndex) : null
 
   return (
@@ -484,7 +523,28 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
           shiftCount={pendingRowSwitch.shiftCount}
         />
       )}
-      {menuEntry && <QueueActionsSheet open onClose={() => setMenuEntryId(null)} entry={menuEntry} {...(onError ? { onError } : {})} />}
+      {menuEntry && (
+        <QueueActionsSheet
+          open
+          onClose={() => setMenuEntryId(null)}
+          entry={menuEntry}
+          onRequestMoveTop={() => handleRequestMoveEnd(menuEntry.id, 'top')}
+          onRequestMoveBottom={() => handleRequestMoveEnd(menuEntry.id, 'bottom')}
+          {...(onError ? { onError } : {})}
+        />
+      )}
+      {pendingMoveEnd && (
+        <PairSwitchConfirmDialog
+          open
+          unit="team"
+          onConfirm={handleConfirmMoveEnd}
+          onCancel={handleCancelMoveEnd}
+          groupANames={pendingMoveEnd.groupANames}
+          direction={pendingMoveEnd.direction}
+          occupantNames={pendingMoveEnd.occupantNames}
+          shiftCount={pendingMoveEnd.shiftCount}
+        />
+      )}
     </>
   )
 }
