@@ -13,6 +13,7 @@ describe('PairSwitchConfirmDialog', () => {
         direction="down"
         occupantNames={['דני', 'עומר']}
         shiftCount={1}
+        unit="pair"
       />,
     )
     expect(screen.queryByText(/יוסי/)).toBeNull()
@@ -28,6 +29,7 @@ describe('PairSwitchConfirmDialog', () => {
         direction="down"
         occupantNames={['דני', 'עומר']}
         shiftCount={1}
+        unit="pair"
       />,
     )
     expect(screen.getByText('להחליף בין יוסי / רון ⇄ דני / עומר?')).toBeDefined()
@@ -43,6 +45,7 @@ describe('PairSwitchConfirmDialog', () => {
         direction="down"
         occupantNames={null}
         shiftCount={3}
+        unit="pair"
       />,
     )
     expect(screen.getByText('להזיז את יוסי / רון למטה? (עוד 3 זוגות יזוזו מקום)')).toBeDefined()
@@ -58,6 +61,7 @@ describe('PairSwitchConfirmDialog', () => {
         direction="up"
         occupantNames={null}
         shiftCount={2}
+        unit="pair"
       />,
     )
     expect(screen.getByText('להזיז את יוסי / רון למעלה? (עוד 2 זוגות יזוזו מקום)')).toBeDefined()
@@ -74,6 +78,7 @@ describe('PairSwitchConfirmDialog', () => {
         direction="down"
         occupantNames={['ג', 'ד']}
         shiftCount={1}
+        unit="pair"
       />,
     )
     expect(onConfirm).not.toHaveBeenCalled()
@@ -90,6 +95,7 @@ describe('PairSwitchConfirmDialog', () => {
         direction="down"
         occupantNames={['ג', 'ד']}
         shiftCount={1}
+        unit="pair"
       />,
     )
     fireEvent.click(screen.getByText('אישור'))
@@ -108,10 +114,43 @@ describe('PairSwitchConfirmDialog', () => {
         direction="down"
         occupantNames={['ג', 'ד']}
         shiftCount={1}
+        unit="pair"
       />,
     )
     fireEvent.click(screen.getByText('ביטול'))
     expect(onConfirm).not.toHaveBeenCalled()
     expect(onCancel).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows a move-down-with-team-count title when unit is "team"', () => {
+    render(
+      <PairSwitchConfirmDialog
+        open
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+        groupANames={['יוסי']}
+        direction="down"
+        occupantNames={null}
+        shiftCount={3}
+        unit="team"
+      />,
+    )
+    expect(screen.getByText('להזיז את יוסי למטה? (עוד 3 קבוצות יזוזו מקום)')).toBeDefined()
+  })
+
+  it('shows a move-up-with-team-count title when unit is "team"', () => {
+    render(
+      <PairSwitchConfirmDialog
+        open
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+        groupANames={['יוסי']}
+        direction="up"
+        occupantNames={null}
+        shiftCount={2}
+        unit="team"
+      />,
+    )
+    expect(screen.getByText('להזיז את יוסי למעלה? (עוד 2 קבוצות יזוזו מקום)')).toBeDefined()
   })
 })

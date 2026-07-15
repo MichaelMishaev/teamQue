@@ -44,6 +44,8 @@
   "queue.pairSwitch.confirmMultiUp": "להזיז את {groupA} למעלה? (עוד {count} זוגות יזוזו מקום)",
   "queue.pairSwitch.confirm": "אישור",
   "queue.pairSwitch.cancel": "ביטול",
+  "queue.rowSwitch.confirmMultiDown": "להזיז את {groupA} למטה? (עוד {count} קבוצות יזוזו מקום)",
+  "queue.rowSwitch.confirmMultiUp": "להזיז את {groupA} למעלה? (עוד {count} קבוצות יזוזו מקום)",
   "quickAdd.searchPlaceholder": "הוסף קבוצה לפי שם האחראי…",
   "captain.gamesToday": "משחקים היום: {count}",
   "captain.lastPlayed": "שיחק לאחרונה",

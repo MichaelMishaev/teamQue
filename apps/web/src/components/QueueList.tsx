@@ -432,6 +432,7 @@ export function QueueList({ queue, matchDurationSec, baseSec, onError }: QueueLi
           direction={pendingSwitch.direction}
           occupantNames={pendingSwitch.occupantNames}
           shiftCount={pendingSwitch.shiftCount}
+          unit="pair"
         />
       )}
       {menuEntry && <QueueActionsSheet open onClose={() => setMenuEntryId(null)} entry={menuEntry} {...(onError ? { onError } : {})} />}
