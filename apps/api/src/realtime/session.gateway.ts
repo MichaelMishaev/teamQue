@@ -72,11 +72,12 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection {
 
     client.emit(HELLO_EVENT, { serverNow: new Date().toISOString() })
 
-    const activeSessionId = await this.findActiveSessionId(centerId)
-    if (!activeSessionId) return
+    const requestedSlug = firstQueryValue(client.handshake.query['slug'])
+    const sessionId = requestedSlug ? await this.findSessionIdBySlug(requestedSlug) : await this.findActiveSessionId(centerId)
+    if (!sessionId) return
 
-    await client.join(sessionRoom(activeSessionId))
-    const snapshot = await this.snapshotService.buildSnapshotBySessionId(activeSessionId)
+    await client.join(sessionRoom(sessionId))
+    const snapshot = await this.snapshotService.buildSnapshotBySessionId(sessionId)
     client.emit(SOCKET_EVENTS.snapshot, snapshot)
   }
 
@@ -106,4 +107,14 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection {
       .limit(1)
     return row?.id ?? null
   }
+
+  private async findSessionIdBySlug(slug: string): Promise<string | null> {
+    const [row] = await this.db.select({ id: sessions.id }).from(sessions).where(eq(sessions.slug, slug)).limit(1)
+    return row?.id ?? null
+  }
+}
+
+function firstQueryValue(value: string | string[] | undefined): string | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  return value ?? null
 }

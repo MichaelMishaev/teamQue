@@ -231,4 +231,33 @@ describe('realtime gateway (integration)', () => {
       expect(snapshotB.queue).toHaveLength(1)
     })
   })
+
+  describe('slug-based room join', () => {
+    it('a client with a slug query joins THAT field room, not the first active session', async () => {
+      const fixture = await seedCenterWithActiveSession()
+      const a = await request(app.getHttpServer())
+        .post('/fields')
+        .set('Cookie', fixture.staffCookies)
+        .send({ name: 'א', matchDurationSec: 300 })
+        .expect(201)
+      const b = await request(app.getHttpServer())
+        .post('/fields')
+        .set('Cookie', fixture.staffCookies)
+        .send({ name: 'ב', matchDurationSec: 300 })
+        .expect(201)
+
+      const socket = io(`${baseUrl}/session`, {
+        query: { slug: b.body.slug },
+        extraHeaders: { Cookie: '' },
+        transports: ['websocket'],
+        forceNew: true,
+        reconnection: false,
+      })
+      openSockets.push(socket)
+
+      const snapshot = await waitForEvent<SessionSnapshot>(socket, SOCKET_EVENTS.snapshot)
+      expect(snapshot.session.id).toBe(b.body.snapshot.session.id)
+      expect(snapshot.session.id).not.toBe(a.body.snapshot.session.id)
+    })
+  })
 })
