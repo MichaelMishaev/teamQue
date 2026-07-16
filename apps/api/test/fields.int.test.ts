@@ -11,9 +11,10 @@ import { Test } from '@nestjs/testing'
 import { hash } from '@node-rs/argon2'
 import cookieParser from 'cookie-parser'
 import request from 'supertest'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { AppModule } from '../src/app.module'
 import { centers, staff } from '../src/db/schema'
+import * as slugModule from '../src/fields/slug'
 import { startTestPg, type TestPg } from './helpers/pg'
 
 const SESSION_SECRET = 'e'.repeat(32)
@@ -56,6 +57,18 @@ describe('fields (integration)', () => {
     await pg.stop()
   })
 
+  // Fresh Nest app per test below (mirrors auth.int.test.ts's POST /auth/center
+  // throttler test): ThrottlerStorage is a fresh in-memory Map per compiled
+  // module, so each test gets its own untouched 5/hour bucket instead of
+  // inheriting hits from the shared `app`'s POST /fields calls above.
+  async function buildApp(): Promise<INestApplication> {
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile()
+    const freshApp = moduleRef.createNestApplication()
+    freshApp.use(cookieParser())
+    await freshApp.init()
+    return freshApp
+  }
+
   it('POST /fields creates a field: snapshot has the slug, the named field, empty queue', async () => {
     const res = await request(app.getHttpServer()).post('/fields').send({ name: 'מגרש בית ספר', matchDurationSec: 360 }).expect(201)
     expect(res.body.slug).toMatch(/^[a-z2-9]{6}$/)
@@ -93,5 +106,54 @@ describe('fields (integration)', () => {
     expect(list.body.map((row: { slug: string }) => row.slug)).not.toContain(created.body.slug)
     const snap = await request(app.getHttpServer()).get(`/fields/${created.body.slug}`).expect(200)
     expect(snap.body.session.status).toBe('closed')
+  })
+
+  it('POST /fields retries a real slug collision against sessions_slug_unique and succeeds with a different slug (N-9)', async () => {
+    const collidingApp = await buildApp()
+    try {
+      const first = await request(collidingApp.getHttpServer())
+        .post('/fields')
+        .send({ name: 'התנגשות א', matchDurationSec: 300 })
+        .expect(201)
+      const collidingSlug: string = first.body.slug
+
+      // Force generateSlug()'s NEXT call to hand back the slug that's already
+      // taken, so the second POST /fields genuinely collides against the real
+      // DB constraint on attempt 1, then succeeds on retry with a fresh slug.
+      // mockReturnValueOnce only intercepts one call; every subsequent call
+      // (the retry) falls through to the real generateSlug() implementation.
+      const spy = vi.spyOn(slugModule, 'generateSlug').mockReturnValueOnce(collidingSlug)
+      try {
+        const second = await request(collidingApp.getHttpServer())
+          .post('/fields')
+          .send({ name: 'התנגשות ב', matchDurationSec: 300 })
+          .expect(201)
+        expect(second.body.slug).toMatch(/^[a-z2-9]{6}$/)
+        expect(second.body.slug).not.toBe(collidingSlug)
+      } finally {
+        spy.mockRestore()
+      }
+    } finally {
+      await collidingApp.close()
+    }
+  })
+
+  it('6th POST /fields within the window -> 429 (throttler)', async () => {
+    const throttledApp = await buildApp()
+    try {
+      for (let i = 0; i < 5; i++) {
+        const res = await request(throttledApp.getHttpServer())
+          .post('/fields')
+          .send({ name: `שדה ${i}`, matchDurationSec: 300 })
+        expect(res.status).toBe(201)
+      }
+
+      const sixth = await request(throttledApp.getHttpServer())
+        .post('/fields')
+        .send({ name: 'שדה שישי', matchDurationSec: 300 })
+      expect(sixth.status).toBe(429)
+    } finally {
+      await throttledApp.close()
+    }
   })
 })
