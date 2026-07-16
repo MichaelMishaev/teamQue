@@ -68,3 +68,16 @@ export type CreateCaptainBody = z.infer<typeof createCaptainSchema>
 
 export const updateCaptainSchema = createCaptainSchema.partial()
 export type UpdateCaptainBody = z.infer<typeof updateCaptainSchema>
+
+/** Open-fields pivot: anyone creates a field (backed 1:1 by a session). */
+export const createFieldSchema = z.object({
+  name: z.string().min(1).max(40),
+  matchDurationSec: z.number().int().min(60).max(3600),
+})
+export type CreateFieldBody = z.infer<typeof createFieldSchema>
+
+/** First-mutation identity: a visitor picks a nickname, gets a cookie. */
+export const visitorHelloSchema = z.object({
+  nickname: z.string().min(1).max(30),
+})
+export type VisitorHelloBody = z.infer<typeof visitorHelloSchema>

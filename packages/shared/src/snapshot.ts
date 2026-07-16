@@ -10,6 +10,7 @@ import { fieldViewSchema, queueEntryViewSchema } from './views.js'
 export const sessionSnapshotSchema = z.object({
   session: z.object({
     id: sessionIdSchema,
+    slug: z.string().min(1),
     date: z.iso.date(),
     location: z.string().max(120).nullable(),
     matchDurationSec: z.number().int().positive(),

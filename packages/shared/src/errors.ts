@@ -13,6 +13,7 @@ export const errorCodeSchema = z.enum([
   'SESSION_CLOSED',
   'SESSION_ALREADY_ACTIVE',
   'SESSION_HAS_LIVE_MATCH',
+  'FIELD_CLOSED',
   'PIN_LOCKED',
   'VALIDATION_FAILED',
   'UNAUTHORIZED',

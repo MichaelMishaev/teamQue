@@ -10,10 +10,12 @@ import {
   centerIdSchema,
   centerUnlockSchema,
   createCaptainSchema,
+  createFieldSchema,
   endReasonSchema,
   errorCodeSchema,
   extendMatchSchema,
   fieldIdSchema,
+  fieldListItemSchema,
   fieldViewSchema,
   finishMatchResultSchema,
   historyEntrySchema,
@@ -38,6 +40,7 @@ import {
   undoResultSchema,
   updateCaptainSchema,
   updateSessionSchema,
+  visitorHelloSchema,
 } from './index.js'
 
 const uuid1 = '3fa85f64-5717-4562-b3fc-2c963f66afa6'
@@ -172,6 +175,7 @@ describe('snapshot', () => {
   const validSnapshot = {
     session: {
       id: uuid1,
+      slug: 'abc234',
       date: isoDate,
       location: 'Center Court',
       matchDurationSec: 360,
@@ -340,5 +344,65 @@ describe('results', () => {
   it('undoResultSchema accepts {ok:true}, rejects {ok:false}', () => {
     expect(undoResultSchema.safeParse({ ok: true }).success).toBe(true)
     expect(undoResultSchema.safeParse({ ok: false }).success).toBe(false)
+  })
+})
+
+const validSnapshotFixture = () => ({
+  session: {
+    id: uuid1,
+    slug: 'abc234',
+    date: isoDate,
+    location: 'Center Court',
+    matchDurationSec: 360,
+    status: 'active',
+  },
+  fields: [validFieldView],
+  queue: [validQueueEntry],
+  emittedAt: isoDateTime,
+  serverNow: isoDateTime,
+})
+
+describe('open-fields contracts', () => {
+  it('staff role accepts visitor', () => {
+    expect(staffRoleSchema.parse('visitor')).toBe('visitor')
+  })
+
+  it('error codes accept FIELD_CLOSED', () => {
+    expect(errorCodeSchema.parse('FIELD_CLOSED')).toBe('FIELD_CLOSED')
+  })
+
+  it('createFieldSchema: valid body parses, bad duration rejected', () => {
+    // Import will be added; test will fail initially
+    expect(createFieldSchema.parse({ name: 'מגרש בית ספר', matchDurationSec: 360 })).toEqual({
+      name: 'מגרש בית ספר',
+      matchDurationSec: 360,
+    })
+    expect(createFieldSchema.safeParse({ name: '', matchDurationSec: 360 }).success).toBe(false)
+    expect(createFieldSchema.safeParse({ name: 'x', matchDurationSec: 30 }).success).toBe(false)
+  })
+
+  it('visitorHelloSchema: 1..30 chars', () => {
+    expect(visitorHelloSchema.parse({ nickname: 'אורח 42' })).toEqual({ nickname: 'אורח 42' })
+    expect(visitorHelloSchema.safeParse({ nickname: '' }).success).toBe(false)
+    expect(visitorHelloSchema.safeParse({ nickname: 'x'.repeat(31) }).success).toBe(false)
+  })
+
+  it('fieldListItemSchema parses a list row', () => {
+    expect(
+      fieldListItemSchema.parse({
+        slug: 'abc234',
+        name: 'מגרש',
+        createdAt: '2026-07-16T10:00:00.000Z',
+        queueLength: 3,
+        hasLiveMatch: true,
+      }).slug,
+    ).toBe('abc234')
+  })
+
+  it('snapshot session requires slug', () => {
+    const base = validSnapshotFixture()
+    expect(sessionSnapshotSchema.parse(base).session.slug).toBe('abc234')
+    const { slug: _omitted, ...withoutSlug } = base.session
+    expect(sessionSnapshotSchema.safeParse({ ...base, session: withoutSlug }).success).toBe(false)
   })
 })

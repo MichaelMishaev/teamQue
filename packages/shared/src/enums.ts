@@ -9,7 +9,7 @@ export type MatchStatus = z.infer<typeof matchStatusSchema>
 export const endReasonSchema = z.enum(['auto', 'manual', 'cancelled'])
 export type EndReason = z.infer<typeof endReasonSchema>
 
-export const staffRoleSchema = z.enum(['manager', 'staff'])
+export const staffRoleSchema = z.enum(['manager', 'staff', 'visitor'])
 export type StaffRole = z.infer<typeof staffRoleSchema>
 
 export const sessionStatusSchema = z.enum(['active', 'closed'])

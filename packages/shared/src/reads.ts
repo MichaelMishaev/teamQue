@@ -49,3 +49,13 @@ export const sessionListItemSchema = z.object({
   matchCount: z.number().int().min(0),
 })
 export type SessionListItem = z.infer<typeof sessionListItemSchema>
+
+/** GET /fields row shape — one active public field. */
+export const fieldListItemSchema = z.object({
+  slug: z.string().min(1),
+  name: z.string().min(1).max(40),
+  createdAt: z.iso.datetime(),
+  queueLength: z.number().int().min(0),
+  hasLiveMatch: z.boolean(),
+})
+export type FieldListItem = z.infer<typeof fieldListItemSchema>
