@@ -109,8 +109,10 @@ export class FieldsService {
   }
 
   /** Close regardless of live matches. Idempotent: already-closed → no-op.
-   * Also the expiry sweep's workhorse (expiry.service.ts). */
-  async forceClose(sessionId: string, staffId: string): Promise<void> {
+   * Also the expiry sweep's workhorse (expiry.service.ts), which passes
+   * action='field.expired' so the activity row is distinguishable from a
+   * manual close. */
+  async forceClose(sessionId: string, staffId: string, action: 'field.closed' | 'field.expired' = 'field.closed'): Promise<void> {
     const didClose = await this.db.transaction(async (tx) => {
       await lockSessionLine(tx, sessionId)
 
@@ -152,7 +154,7 @@ export class FieldsService {
         centerId: session.centerId,
         sessionId,
         staffId,
-        action: 'field.closed',
+        action,
         entityType: 'session',
         entityId: sessionId,
       })

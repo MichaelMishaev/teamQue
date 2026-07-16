@@ -9,10 +9,15 @@
  */
 import { SOCKET_EVENTS, type SessionSnapshot } from 'shared'
 import { describe, expect, it, vi } from 'vitest'
+import type { Database } from '../db/db.module'
 import type { SnapshotService } from '../sessions/snapshot.service'
 import { SessionEventsService } from './session-events.service'
 
 const sessionId = '22222222-2222-4222-8222-222222222222'
+
+function fakeDb(): Database {
+  return { execute: vi.fn().mockResolvedValue(undefined) } as unknown as Database
+}
 
 function fakeSnapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
   return {
@@ -30,7 +35,7 @@ describe('SessionEventsService', () => {
     const snapshot = fakeSnapshot()
     const buildSnapshotBySessionId = vi.fn().mockResolvedValue(snapshot)
     const snapshotService = { buildSnapshotBySessionId } as unknown as SnapshotService
-    const service = new SessionEventsService(snapshotService)
+    const service = new SessionEventsService(snapshotService, fakeDb())
 
     const emit = vi.fn()
     const to = vi.fn().mockReturnValue({ emit })
@@ -45,14 +50,14 @@ describe('SessionEventsService', () => {
 
   it('broadcast() with no server attached does not throw (best-effort side effect)', async () => {
     const snapshotService = { buildSnapshotBySessionId: vi.fn().mockResolvedValue(fakeSnapshot()) } as unknown as SnapshotService
-    const service = new SessionEventsService(snapshotService)
+    const service = new SessionEventsService(snapshotService, fakeDb())
 
     await expect(service.broadcast(sessionId)).resolves.toBeUndefined()
   })
 
   it('emitTo() emits a given snapshot directly without rebuilding it', () => {
     const snapshotService = { buildSnapshotBySessionId: vi.fn() } as unknown as SnapshotService
-    const service = new SessionEventsService(snapshotService)
+    const service = new SessionEventsService(snapshotService, fakeDb())
 
     const emit = vi.fn()
     const to = vi.fn().mockReturnValue({ emit })

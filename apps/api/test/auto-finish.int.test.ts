@@ -35,7 +35,7 @@ describe('AutoFinishService (integration)', () => {
     // the real snapshot service (no server attached — emit is a no-op; we
     // only assert broadcast() was invoked with the right session id).
     const snapshotService = new SnapshotService(pg.db)
-    const sessionEvents = new SessionEventsService(snapshotService)
+    const sessionEvents = new SessionEventsService(snapshotService, pg.db)
     const activity = new ActivityWriter()
     service = new AutoFinishService(pg.db, activity, sessionEvents)
     broadcastCalls = []
