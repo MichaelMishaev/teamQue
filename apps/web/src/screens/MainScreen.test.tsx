@@ -49,7 +49,7 @@ const NO_SESSION: SnapshotState = { snapshot: null, connection: 'online', offset
 
 function activeSnapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
   return {
-    session: { id: 's1', date: '2026-07-10', location: null, matchDurationSec: 360, status: 'active' },
+    session: { id: 's1', slug: 'abc234', date: '2026-07-10', location: null, matchDurationSec: 360, status: 'active' },
     fields: [{ id: 'f1', name: 'מגרש ראשי', position: 0, liveMatch: null }],
     queue: [],
     emittedAt: '2026-07-10T18:00:00.000Z',

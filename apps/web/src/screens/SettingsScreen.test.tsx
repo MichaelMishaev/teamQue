@@ -32,7 +32,7 @@ function actionsStub(overrides: Partial<SessionActions> = {}): SessionActions {
 
 function activeSnapshot(hasLiveMatch: boolean): SessionSnapshot {
   return {
-    session: { id: 's1', date: '2026-07-10', location: null, matchDurationSec: 360, status: 'active' },
+    session: { id: 's1', slug: 'abc234', date: '2026-07-10', location: null, matchDurationSec: 360, status: 'active' },
     fields: [
       {
         id: 'f1',

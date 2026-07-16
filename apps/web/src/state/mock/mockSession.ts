@@ -77,6 +77,7 @@ interface LogEntry extends ActivityEntry {
 
 interface InternalSession {
   id: string
+  slug: string
   date: string
   location: string | null
   matchDurationSec: number
@@ -295,6 +296,7 @@ export function createMockSession(opts: CreateMockSessionOptions = {}): MockSess
 
     session = {
       id: newId('session'),
+      slug: newId('slug'),
       date: new Date().toISOString().slice(0, 10),
       location: null,
       matchDurationSec: DEFAULT_DURATION_SEC,
@@ -364,7 +366,7 @@ export function createMockSession(opts: CreateMockSessionOptions = {}): MockSess
     if (!session) return { snapshot: null, connection: 'online', offsetMs: 0 }
     const emittedAt = nowIso()
     const snapshot: SessionSnapshot = {
-      session: { id: session.id, date: session.date, location: session.location, matchDurationSec: session.matchDurationSec, status: session.status },
+      session: { id: session.id, slug: session.slug, date: session.date, location: session.location, matchDurationSec: session.matchDurationSec, status: session.status },
       fields: [{ id: FIELD_ID, name: FIELD_NAME, position: 0, liveMatch: liveMatchId ? toMatchView(matches.get(liveMatchId)!) : null }],
       queue: lineOrder.map((entryId, i) => toQueueEntryView(entryId, i + 1)),
       emittedAt,
@@ -614,6 +616,7 @@ export function createMockSession(opts: CreateMockSessionOptions = {}): MockSess
       if (session) throw new Error('one active session per center')
       session = {
         id: newId('session'),
+        slug: newId('slug'),
         date: new Date().toISOString().slice(0, 10),
         location: cfg.location ?? null,
         matchDurationSec: cfg.matchDurationSec,

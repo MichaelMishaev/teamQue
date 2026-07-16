@@ -18,7 +18,7 @@ vi.mock('@/lib/socket', () => ({
 
 function snapshot(sessionId: string): SessionSnapshot {
   return {
-    session: { id: sessionId, date: '2026-07-10', location: null, matchDurationSec: 360, status: 'active' },
+    session: { id: sessionId, slug: 'abc234', date: '2026-07-10', location: null, matchDurationSec: 360, status: 'active' },
     fields: [],
     queue: [],
     emittedAt: '2026-07-10T18:00:00.000Z',

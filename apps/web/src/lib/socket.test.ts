@@ -9,6 +9,7 @@ import { createSessionSocket } from './socket'
 const validSnapshot: SessionSnapshot = {
   session: {
     id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    slug: 'abc234',
     date: '2026-07-10',
     location: 'Center Court',
     matchDurationSec: 360,

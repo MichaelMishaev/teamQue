@@ -79,6 +79,10 @@ describe('permission matrix (integration)', () => {
   let matrixDeleteEntryId: string
   let matrixMatchId: string
   let matrixUndoActivityId: string
+  // Task 5: a standalone field (own session+field row, not matrixSessionId)
+  // so GET /fields/:slug and POST /fields/:slug/close have a fixed target
+  // independent of the session-domain rows above.
+  let matrixFieldSlug: string
   let jwtService: ReturnType<typeof makeTestJwtService>
   let cookiesByPersona: Record<Persona, string[]>
 
@@ -200,6 +204,15 @@ describe('permission matrix (integration)', () => {
       .returning()
     if (!activityRow) throw new Error('activity insert returned no row')
     matrixUndoActivityId = activityRow.id
+
+    matrixFieldSlug = generateSlug()
+    const [matrixFieldSession] = await pg.db
+      .insert(sessions)
+      .values({ centerId, date: '2026-07-10', slug: matrixFieldSlug, matchDurationSec: 300, status: 'active', createdBy: managerId })
+      .returning()
+    if (!matrixFieldSession) throw new Error('session insert returned no row')
+    const [matrixField] = await pg.db.insert(fields).values({ sessionId: matrixFieldSession.id, centerId, name: 'Matrix Field', position: 0 }).returning()
+    if (!matrixField) throw new Error('field insert returned no row')
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile()
     app = moduleRef.createNestApplication()
@@ -558,6 +571,48 @@ describe('permission matrix (integration)', () => {
       path: '/visitors/me',
       bodyFor: {},
       expected: { anonymous: 404, centerOnly: 404, staff: 404, manager: 404 },
+    },
+    // --- Task 5: fields (open-fields public surface, StaffSessionGuard +
+    // ThrottlerGuard, no @Roles gate) — POST /fields creates a fresh
+    // session+field row every call (no shared state to collide on), same
+    // shape as POST /captains above, and stays well under its 5/hour/IP
+    // throttle bucket (one call per persona = 4 total). GET /fields and
+    // GET /fields/:slug are reads against matrixFieldSlug (seeded in
+    // beforeAll). POST /fields/:slug/close is explicitly idempotent (spec)
+    // so, unlike POST /sessions/:id/close above, every persona's repeat
+    // call still returns 200 rather than degrading to a business 409.
+    {
+      route: 'POST /fields',
+      method: 'post',
+      path: '/fields',
+      bodyFor: {
+        anonymous: () => ({ name: 'Matrix Field Anon', matchDurationSec: 300 }),
+        centerOnly: () => ({ name: 'Matrix Field Center', matchDurationSec: 300 }),
+        staff: () => ({ name: 'Matrix Field Staff', matchDurationSec: 300 }),
+        manager: () => ({ name: 'Matrix Field Manager', matchDurationSec: 300 }),
+      },
+      expected: { anonymous: 201, centerOnly: 201, staff: 201, manager: 201 },
+    },
+    {
+      route: 'GET /fields',
+      method: 'get',
+      path: '/fields',
+      bodyFor: {},
+      expected: { anonymous: 200, centerOnly: 200, staff: 200, manager: 200 },
+    },
+    {
+      route: 'GET /fields/:slug',
+      method: 'get',
+      path: () => `/fields/${matrixFieldSlug}`,
+      bodyFor: {},
+      expected: { anonymous: 200, centerOnly: 200, staff: 200, manager: 200 },
+    },
+    {
+      route: 'POST /fields/:slug/close',
+      method: 'post',
+      path: () => `/fields/${matrixFieldSlug}/close`,
+      bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
+      expected: { anonymous: 200, centerOnly: 200, staff: 200, manager: 200 },
     },
   ]
 

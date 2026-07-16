@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module'
 import { CaptainsModule } from './captains/captains.module'
 import { HttpExceptionFilter } from './common/http-exception.filter'
 import { DbModule } from './db/db.module'
+import { FieldsModule } from './fields/fields.module'
 import { HealthController } from './health/health.controller'
 import { MatchesModule } from './matches/matches.module'
 import { QueueModule } from './queue/queue.module'
@@ -38,6 +39,7 @@ import { VisitorsModule } from './visitors/visitors.module'
         '/actions/{*path}',
         '/activity/{*path}',
         '/visitors/{*path}',
+        '/fields/{*path}',
         '/health',
         '/socket.io/{*path}',
       ],
@@ -53,6 +55,7 @@ import { VisitorsModule } from './visitors/visitors.module'
     ReadsModule,
     RealtimeModule,
     VisitorsModule,
+    FieldsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_FILTER, useClass: HttpExceptionFilter }],
