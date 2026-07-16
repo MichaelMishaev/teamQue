@@ -97,13 +97,13 @@ export class FieldsService {
     }))
   }
 
-  async resolve(slug: string): Promise<SessionSnapshot> {
-    const sessionId = await this.sessionIdBySlug(slug)
+  async resolve(slug: string, centerId: string): Promise<SessionSnapshot> {
+    const sessionId = await this.sessionIdBySlug(slug, centerId)
     return this.snapshotService.buildSnapshotBySessionId(sessionId)
   }
 
-  async closeBySlug(slug: string, staffId: string): Promise<{ slug: string; status: 'closed' }> {
-    const sessionId = await this.sessionIdBySlug(slug)
+  async closeBySlug(slug: string, centerId: string, staffId: string): Promise<{ slug: string; status: 'closed' }> {
+    const sessionId = await this.sessionIdBySlug(slug, centerId)
     await this.forceClose(sessionId, staffId)
     return { slug, status: 'closed' }
   }
@@ -164,8 +164,12 @@ export class FieldsService {
     if (didClose) await this.sessionEvents.broadcast(sessionId)
   }
 
-  private async sessionIdBySlug(slug: string): Promise<string> {
-    const [row] = await this.db.select({ id: sessions.id }).from(sessions).where(eq(sessions.slug, slug)).limit(1)
+  private async sessionIdBySlug(slug: string, centerId: string): Promise<string> {
+    const [row] = await this.db
+      .select({ id: sessions.id })
+      .from(sessions)
+      .where(and(eq(sessions.slug, slug), eq(sessions.centerId, centerId)))
+      .limit(1)
     if (!row) throw new NotFoundError('Field not found')
     return row.id
   }

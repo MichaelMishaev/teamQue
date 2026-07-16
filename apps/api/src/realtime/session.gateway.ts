@@ -73,7 +73,7 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection {
     client.emit(HELLO_EVENT, { serverNow: new Date().toISOString() })
 
     const requestedSlug = firstQueryValue(client.handshake.query['slug'])
-    const sessionId = requestedSlug ? await this.findSessionIdBySlug(requestedSlug) : await this.findActiveSessionId(centerId)
+    const sessionId = requestedSlug ? await this.findSessionIdBySlug(requestedSlug, centerId) : await this.findActiveSessionId(centerId)
     if (!sessionId) return
 
     await client.join(sessionRoom(sessionId))
@@ -108,8 +108,12 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection {
     return row?.id ?? null
   }
 
-  private async findSessionIdBySlug(slug: string): Promise<string | null> {
-    const [row] = await this.db.select({ id: sessions.id }).from(sessions).where(eq(sessions.slug, slug)).limit(1)
+  private async findSessionIdBySlug(slug: string, centerId: string): Promise<string | null> {
+    const [row] = await this.db
+      .select({ id: sessions.id })
+      .from(sessions)
+      .where(and(eq(sessions.slug, slug), eq(sessions.centerId, centerId)))
+      .limit(1)
     return row?.id ?? null
   }
 }

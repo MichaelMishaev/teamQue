@@ -246,9 +246,13 @@ describe('realtime gateway (integration)', () => {
         .send({ name: 'ב', matchDurationSec: 300 })
         .expect(201)
 
+      // Socket must present a cookie resolving to fixture.centerId — the same
+      // center that owns fields a/b — since findSessionIdBySlug now scopes by
+      // centerId. An empty cookie would fall back to whichever center was
+      // created earliest across this whole test file, not this fixture's.
       const socket = io(`${baseUrl}/session`, {
         query: { slug: b.body.slug },
-        extraHeaders: { Cookie: '' },
+        extraHeaders: { Cookie: fixture.sessionCookieHeader },
         transports: ['websocket'],
         forceNew: true,
         reconnection: false,
@@ -258,6 +262,47 @@ describe('realtime gateway (integration)', () => {
       const snapshot = await waitForEvent<SessionSnapshot>(socket, SOCKET_EVENTS.snapshot)
       expect(snapshot.session.id).toBe(b.body.snapshot.session.id)
       expect(snapshot.session.id).not.toBe(a.body.snapshot.session.id)
+    })
+
+    it('a socket with a garbage/unknown slug query joins no room and receives no snapshot', async () => {
+      const fixture = await seedCenterWithActiveSession()
+      const socket = io(`${baseUrl}/session`, {
+        query: { slug: 'zzzzzz' },
+        extraHeaders: { Cookie: fixture.sessionCookieHeader },
+        transports: ['websocket'],
+        forceNew: true,
+        reconnection: false,
+      })
+      openSockets.push(socket)
+
+      await waitForEvent(socket, HELLO_EVENT)
+      await expect(waitForEvent(socket, SOCKET_EVENTS.snapshot, 300)).rejects.toThrow()
+    })
+
+    it('a closed field slug still resolves via socket and delivers its closed-status snapshot', async () => {
+      const fixture = await seedCenterWithActiveSession()
+      const created = await request(app.getHttpServer())
+        .post('/fields')
+        .set('Cookie', fixture.staffCookies)
+        .send({ name: 'ה', matchDurationSec: 300 })
+        .expect(201)
+      await request(app.getHttpServer())
+        .post(`/fields/${created.body.slug}/close`)
+        .set('Cookie', fixture.staffCookies)
+        .expect(200)
+
+      const socket = io(`${baseUrl}/session`, {
+        query: { slug: created.body.slug },
+        extraHeaders: { Cookie: fixture.sessionCookieHeader },
+        transports: ['websocket'],
+        forceNew: true,
+        reconnection: false,
+      })
+      openSockets.push(socket)
+
+      const snapshot = await waitForEvent<SessionSnapshot>(socket, SOCKET_EVENTS.snapshot)
+      expect(snapshot.session.id).toBe(created.body.snapshot.session.id)
+      expect(snapshot.session.status).toBe('closed')
     })
   })
 })

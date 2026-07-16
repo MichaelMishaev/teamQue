@@ -36,8 +36,11 @@ export class FieldsController {
   }
 
   @Get(':slug')
-  async resolve(@Param('slug', new ZodValidationPipe(slugParamSchema)) slug: string): Promise<SessionSnapshot> {
-    return this.fieldsService.resolve(slug)
+  async resolve(
+    @Req() req: StaffAuthenticatedRequest,
+    @Param('slug', new ZodValidationPipe(slugParamSchema)) slug: string,
+  ): Promise<SessionSnapshot> {
+    return this.fieldsService.resolve(slug, req.centerId)
   }
 
   @HttpCode(200)
@@ -46,6 +49,6 @@ export class FieldsController {
     @Req() req: StaffAuthenticatedRequest,
     @Param('slug', new ZodValidationPipe(slugParamSchema)) slug: string,
   ): Promise<{ slug: string; status: 'closed' }> {
-    return this.fieldsService.closeBySlug(slug, req.staff.staffId)
+    return this.fieldsService.closeBySlug(slug, req.centerId, req.staff.staffId)
   }
 }
