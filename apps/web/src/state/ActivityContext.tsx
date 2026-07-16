@@ -22,6 +22,9 @@ export type ActivityAction =
   | 'match.replay'
   | 'match.undo'
   | 'team.update'
+  | 'field.open'
+  | 'field.close'
+  | 'field.expire'
 
 export interface ActivityEntry {
   id: string

@@ -27,6 +27,9 @@ const MESSAGE_KEY: Record<ActivityAction, MessageKey> = {
   'match.replay': 'activity.replay',
   'match.undo': 'activity.undo',
   'team.update': 'activity.teamUpdate',
+  'field.open': 'activity.fieldOpen',
+  'field.close': 'activity.fieldClose',
+  'field.expire': 'activity.fieldExpire',
 }
 
 function activityMessage(entry: ActivityEntry): string {

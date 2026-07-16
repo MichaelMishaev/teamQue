@@ -79,6 +79,15 @@ describe('toActivityEntry', () => {
     const e = toActivityEntry({ ...base, action: 'something.new', staffId: 'staff-1' } as WireActivityEntry, resolve)
     expect(e.action).toBe('team.update')
   })
+
+  it.each([
+    ['field.created', 'field.open'],
+    ['field.closed', 'field.close'],
+    ['field.expired', 'field.expire'],
+  ] as const)('maps the open-fields action %s to %s', (serverAction, webAction) => {
+    const e = toActivityEntry({ ...base, action: serverAction, staffId: 'staff-1' } as WireActivityEntry, resolve)
+    expect(e.action).toBe(webAction)
+  })
 })
 
 describe('toCaptainProfile', () => {

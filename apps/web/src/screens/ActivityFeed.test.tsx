@@ -30,4 +30,9 @@ describe('ActivityFeed', () => {
     const message = screen.getByText(/סיום אוטומטי/)
     expect(message.className).toContain('italic')
   })
+
+  it('renders the open-fields actions with their own labels, not the team-update fallback', () => {
+    renderFeed([{ id: 'a3', atIso: '2026-07-10T18:50:00.000Z', action: 'field.expire', staffName: null }])
+    expect(screen.getByText(/סגירה אוטומטית של מגרש/)).toBeDefined()
+  })
 })

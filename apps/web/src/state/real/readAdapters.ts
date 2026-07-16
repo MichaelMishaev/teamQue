@@ -46,6 +46,9 @@ const ACTION_MAP: Record<string, ActivityAction> = {
   'match.cancelled': 'line.remove',
   'captain.created': 'team.update',
   'captain.updated': 'team.update',
+  'field.created': 'field.open',
+  'field.closed': 'field.close',
+  'field.expired': 'field.expire',
   undo: 'match.undo',
 }
 
