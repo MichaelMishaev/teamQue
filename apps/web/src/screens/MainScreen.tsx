@@ -1,17 +1,14 @@
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/EmptyState'
 import { FieldCard } from '@/components/FieldCard'
 import { QueueList } from '@/components/QueueList'
 import { QuickAddBar } from '@/components/QuickAddBar'
-import { SessionSetupDialog } from '@/components/SessionSetupDialog'
 import { showStatusToast } from '@/components/UndoToast'
 import { t } from '@/i18n'
 import { computeBaseSec } from '@/lib/queue-pairing'
 import { matchCountdownInput, type RunningStatus } from '@/lib/time'
 import { useCountdown } from '@/hooks/useCountdown'
 import { useMatchEndAlert } from '@/hooks/useMatchEndAlert'
-import { useCurrentStaff } from '@/state/AuthContext'
 import { useSessionActions } from '@/state/SessionActions'
 import { useSnapshot } from '@/state/SnapshotContext'
 
@@ -20,17 +17,16 @@ import { useSnapshot } from '@/state/SnapshotContext'
  * §0) — one FieldCard (the live match, OR the front-two-of-the-line about
  * to kick off) above the line (count header + QueueList) above the sticky
  * QuickAddBar. The queue is a line of single teams — the front row is the
- * decision the manager is about to make (Mobbin "Up Next" pattern). Empty
- * states for no-session (manager gets the open-session CTA; staff gets a
- * waiting note) and empty-line. Top bar/tabs/clock live in App.tsx — shared
- * chrome, not MainScreen's responsibility.
+ * decision the manager is about to make (Mobbin "Up Next" pattern). Open-
+ * fields pivot: the snapshot comes from GET /fields/:slug, so !snapshot means
+ * a bad or closed link, not "no session yet" — creation lives on the public
+ * HomeScreen, so there is no open-session CTA here anymore. Top bar/tabs/clock
+ * live in App.tsx — shared chrome, not MainScreen's responsibility.
  */
 export function MainScreen() {
   const { snapshot, offsetMs } = useSnapshot()
   const actions = useSessionActions()
-  const currentStaff = useCurrentStaff()
   const [error, setError] = useState<string | null>(null)
-  const [setupOpen, setSetupOpen] = useState(false)
 
   const field = snapshot?.fields[0] ?? null
   const liveMatch = field?.liveMatch ?? null
@@ -45,22 +41,9 @@ export function MainScreen() {
   })
 
   if (!snapshot) {
-    const isManager = currentStaff?.role === 'manager'
     return (
       <div className="p-4">
-        <EmptyState
-          icon="⚽"
-          title={t('empty.noSession.title')}
-          hint={isManager ? t('empty.noSession.hint') : t('empty.noSession.staffHint')}
-          action={
-            isManager ? (
-              <Button variant="primary" className="min-w-44" onClick={() => setSetupOpen(true)}>
-                {t('empty.noSession.cta')}
-              </Button>
-            ) : undefined
-          }
-        />
-        {isManager && <SessionSetupDialog open={setupOpen} onClose={() => setSetupOpen(false)} />}
+        <EmptyState icon="⚽" title={t('field.notFound.title')} hint={t('field.notFound.hint')} />
       </div>
     )
   }

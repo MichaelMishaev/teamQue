@@ -62,16 +62,14 @@ function team(id: string, name: string): SessionSnapshot['queue'][number]['team'
   return { id, name, nickname: null, gamesToday: 0, lastPlayedAt: null }
 }
 
-describe('MainScreen — no active session', () => {
-  it('manager sees the open-session CTA', () => {
-    renderMain(NO_SESSION, 'manager')
-    expect(screen.getByText('פתח ערב משחקים')).toBeDefined()
-  })
-
-  it('staff sees a waiting note instead of a CTA', () => {
+// Open-fields pivot: MainScreen's snapshot now comes from GET /fields/:slug,
+// so !snapshot means "bad/closed link" (no session ever exists to open from
+// here — creation lives on the public HomeScreen), not "no session yet".
+describe('MainScreen — no snapshot (bad or closed field link)', () => {
+  it('shows the field-not-found empty state, regardless of role', () => {
     renderMain(NO_SESSION, 'staff')
+    expect(screen.getByText('המגרש לא נמצא')).toBeDefined()
     expect(screen.queryByText('פתח ערב משחקים')).toBeNull()
-    expect(screen.getByText('ממתינים שמנהל יפתח ערב משחקים')).toBeDefined()
   })
 })
 

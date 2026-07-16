@@ -20,3 +20,7 @@ export function fieldUrl(slug: string): string {
 export function navigateToField(slug: string): void {
   window.location.assign(fieldUrl(slug))
 }
+
+export function navigateHome(): void {
+  window.location.assign('/')
+}

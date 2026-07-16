@@ -16,8 +16,8 @@ if (!root) throw new Error('missing #root element')
  * VITE_DEMO=1 mounts the mock-backed providers directly (mock data, switchable
  * via SwitchUser). Otherwise the URL decides: '/' is the public home (create
  * a field + browse the active-fields list, no provider stack needed), '/f/:slug'
- * mounts the existing AppGate/RealProviders/App stack (slug threading into that
- * stack is a follow-up task — this only adds the routing split).
+ * mounts the AppGate/RealProviders/App stack, seeded and socket-joined to that
+ * slug (RealProviders/App both take it as a prop).
  */
 const isDemo = import.meta.env.VITE_DEMO === '1'
 const route = parseRoute(window.location.pathname)
@@ -34,8 +34,8 @@ export function Root() {
   return (
     <AppGate>
       <VisitorProvider>
-        <RealProviders>
-          <App />
+        <RealProviders slug={route.slug}>
+          <App slug={route.slug} />
         </RealProviders>
       </VisitorProvider>
     </AppGate>

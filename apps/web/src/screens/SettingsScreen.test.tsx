@@ -105,12 +105,23 @@ describe('SettingsScreen', () => {
     expect(screen.queryByText('צוות')).toBeNull()
   })
 
-  it('manager can close the session when the field is free', async () => {
+  it('manager can close the session when the field is free, after confirming', async () => {
     const { actions } = renderSettings('manager', { snapshot: activeSnapshot(false), connection: 'online', offsetMs: 0 })
     const closeButton = screen.getByText('סגור ערב') as HTMLButtonElement
     expect(closeButton.disabled).toBe(false)
     fireEvent.click(closeButton)
+    expect(actions.closeSession).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByText('סגור מגרש'))
     await waitFor(() => expect(actions.closeSession).toHaveBeenCalled())
+  })
+
+  it('cancelling the close confirmation does not call closeSession', () => {
+    const { actions } = renderSettings('manager', { snapshot: activeSnapshot(false), connection: 'online', offsetMs: 0 })
+    fireEvent.click(screen.getByText('סגור ערב'))
+    fireEvent.click(screen.getByText('ביטול'))
+    expect(actions.closeSession).not.toHaveBeenCalled()
+    expect(screen.queryByText('סגור מגרש')).toBeNull()
   })
 
   it('soft-blocks close with a visible reason when a match is live', () => {

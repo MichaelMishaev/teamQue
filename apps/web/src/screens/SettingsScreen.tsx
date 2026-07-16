@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Dialog } from '@/components/ui/dialog'
 import { SessionSetupDialog } from '@/components/SessionSetupDialog'
 import { t } from '@/i18n'
 import { useCurrentStaff } from '@/state/AuthContext'
@@ -13,9 +14,12 @@ const MAX_MINUTES = 60
 
 /**
  * Single responsibility: manager-only settings (client-prd §3.3, US-012/080)
- * — active-session duration stepper, soft-blocked close, a StaffAdmin
- * placeholder list, and a wake-lock toggle stub. Staff role sees a 403-style
- * message (fail closed, matches the real API's expected behavior).
+ * — active-session duration stepper, soft-blocked + confirmed close, a
+ * StaffAdmin placeholder list, and a wake-lock toggle stub. Staff role sees a
+ * 403-style message (fail closed, matches the real API's expected behavior).
+ * Closing a field is force-close under the open-fields pivot (bypasses the
+ * legacy live-match 409) — an explicit confirm dialog, not just the
+ * soft-disable, guards against a stray tap severing the field's link.
  */
 export function SettingsScreen() {
   const currentStaff = useCurrentStaff()
@@ -23,6 +27,7 @@ export function SettingsScreen() {
   const actions = useSessionActions()
   const { roster } = useStaffDirectory()
   const [setupOpen, setSetupOpen] = useState(false)
+  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [wakeLockEnabled, setWakeLockEnabled] = useState(() => localStorage.getItem(WAKE_LOCK_STORAGE_KEY) === '1')
 
@@ -48,6 +53,7 @@ export function SettingsScreen() {
   async function handleClose(): Promise<void> {
     try {
       await actions.closeSession()
+      setCloseConfirmOpen(false)
     } catch {
       setError(t('settings.session.error'))
     }
@@ -85,7 +91,7 @@ export function SettingsScreen() {
                 </Button>
               </div>
             </div>
-            <Button variant="danger" onClick={() => void handleClose()} disabled={hasLiveMatch}>
+            <Button variant="danger" onClick={() => setCloseConfirmOpen(true)} disabled={hasLiveMatch}>
               {t('settings.session.close')}
             </Button>
             {hasLiveMatch && <p className="text-[12.5px] text-muted">{t('settings.session.closeBlockedReason')}</p>}
@@ -131,6 +137,20 @@ export function SettingsScreen() {
       </section>
 
       <SessionSetupDialog open={setupOpen} onClose={() => setSetupOpen(false)} />
+
+      <Dialog open={closeConfirmOpen} onClose={() => setCloseConfirmOpen(false)} title={t('settings.session.closeConfirm.title')}>
+        <div className="flex flex-col gap-4">
+          <p className="text-[14px] text-muted">{t('settings.session.closeConfirm.hint')}</p>
+          <div className="flex gap-3">
+            <Button className="flex-1" onClick={() => setCloseConfirmOpen(false)}>
+              {t('settings.session.closeConfirm.cancel')}
+            </Button>
+            <Button className="flex-1" variant="danger" onClick={() => void handleClose()}>
+              {t('settings.session.closeConfirm.confirm')}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   )
 }

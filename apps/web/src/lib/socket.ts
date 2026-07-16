@@ -12,6 +12,8 @@ const HELLO_EVENT = 'session:hello'
 
 export interface CreateSessionSocketOptions {
   url: string
+  /** Public field slug (open-fields spec) — forwarded as a handshake query param so the server can join the right session room. */
+  slug?: string
   onSnapshot(snapshot: SessionSnapshot): void
   onConnect(serverNowIso: string): void
   onDisconnect(): void
@@ -29,7 +31,10 @@ function helloServerNow(payload: unknown): string | null {
 }
 
 export function createSessionSocket(opts: CreateSessionSocketOptions): SessionSocket {
-  const socket: Socket = io(`${opts.url}/session`, { withCredentials: true })
+  const socket: Socket = io(`${opts.url}/session`, {
+    withCredentials: true,
+    ...(opts.slug !== undefined ? { query: { slug: opts.slug } } : {}),
+  })
   let helloReceived = false
 
   socket.on(HELLO_EVENT, (payload: unknown) => {

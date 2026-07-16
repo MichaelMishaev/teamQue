@@ -148,5 +148,16 @@
   "home.list.header": "מגרשים פעילים",
   "home.list.empty": "אין מגרשים פעילים כרגע",
   "home.list.live": "משחק פעיל",
-  "home.list.queueCount": "{count} בתור"
+  "home.list.queueCount": "{count} בתור",
+  "field.share": "שיתוף קישור למגרש",
+  "field.share.copied": "הקישור הועתק",
+  "field.closed.title": "המגרש נסגר",
+  "field.closed.hint": "אפשר לראות את ההיסטוריה בלשונית ההיסטוריה, או לפתוח מגרש חדש",
+  "field.closed.cta": "פתח מגרש חדש",
+  "field.notFound.title": "המגרש לא נמצא",
+  "field.notFound.hint": "בדקו את הקישור או פתחו מגרש חדש מהעמוד הראשי",
+  "settings.session.closeConfirm.title": "לסגור את המגרש?",
+  "settings.session.closeConfirm.hint": "הקישור יפסיק לעבוד וההיסטוריה תישאר זמינה בלבד לצפייה",
+  "settings.session.closeConfirm.confirm": "סגור מגרש",
+  "settings.session.closeConfirm.cancel": "ביטול"
 }

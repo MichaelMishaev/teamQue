@@ -125,4 +125,25 @@ describe('createSessionSocket', () => {
 
     expect(onDisconnect).toHaveBeenCalled()
   })
+
+  it('forwards a slug as a handshake query param when provided', async () => {
+    const sessionNs = io.of('/session')
+    let receivedQuery: Record<string, unknown> = {}
+    sessionNs.on('connection', (socket) => {
+      receivedQuery = socket.handshake.query
+      socket.emit('session:hello', { serverNow: '2026-07-10T12:00:00.000Z' })
+    })
+
+    const onSnapshot = vi.fn()
+    const onConnect = vi.fn()
+    const onDisconnect = vi.fn()
+
+    const client = createSessionSocket({ url, slug: 'abc234', onSnapshot, onConnect, onDisconnect })
+
+    await waitFor(() => onConnect.mock.calls.length > 0)
+
+    expect(receivedQuery.slug).toBe('abc234')
+
+    client.disconnect()
+  })
 })

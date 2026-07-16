@@ -17,7 +17,7 @@ import { createRealSessionActions, type SessionIdHandle } from '@/state/real/rea
 import { SessionActionsContext } from '@/state/SessionActions'
 import { SnapshotContext, type SnapshotState } from '@/state/SnapshotContext'
 import { StaffDirectoryContext, type StaffRosterItem } from '@/state/StaffDirectoryContext'
-import { gateActions, useVisitor } from '@/state/VisitorContext'
+import { gateActions, useVisitor, VisitorRequiredError } from '@/state/VisitorContext'
 
 const EMPTY_HISTORY: HistoryState = { summary: null, matches: [] }
 const INITIAL_SNAPSHOT_STATE: SnapshotState = { snapshot: null, connection: 'offline', offsetMs: 0 }
@@ -33,16 +33,18 @@ function socketUrl(): string {
  * AppGate's `children` — i.e. only once `phase === 'authed'` — so every
  * effect below runs with the center + staff session cookies StaffSessionGuard
  * requires already set (see main.tsx for why the nesting order matters: an
- * unauthed mount would 401 on /sessions/active, /staff, and the socket).
+ * unauthed mount would 401 on /fields/:slug, /staff, and the socket).
  *
- * Feeds SnapshotContext from the initial `GET /sessions/active` fetch plus a
- * live session socket (technical-prd §5: full-snapshot broadcast after every
- * mutation — screens are dumb renderers of whatever arrives here), and
- * SessionActionsContext from realSessionActions. History/Activity/Captains
- * stay empty placeholders — wiring their read endpoints isn't part of this
- * task's scope (screens using them just render empty, same as before).
+ * Feeds SnapshotContext from the initial `GET /fields/:slug` fetch (open-
+ * fields spec — `slug` comes from the `/f/:slug` route) plus a live session
+ * socket joined to that slug's room (technical-prd §5: full-snapshot
+ * broadcast after every mutation — screens are dumb renderers of whatever
+ * arrives here), and SessionActionsContext from realSessionActions.
+ * History/Activity/Captains stay empty placeholders — wiring their read
+ * endpoints isn't part of this task's scope (screens using them just render
+ * empty, same as before).
  */
-export function RealProviders({ children }: { children: ReactNode }) {
+export function RealProviders({ slug, children }: { slug: string; children: ReactNode }) {
   const [snapshotState, setSnapshotState] = useState<SnapshotState>(INITIAL_SNAPSHOT_STATE)
   const [roster, setRoster] = useState<StaffRosterItem[]>([])
   const [history, setHistory] = useState<HistoryState>(EMPTY_HISTORY)
@@ -77,15 +79,27 @@ export function RealProviders({ children }: { children: ReactNode }) {
   )
 
   const { ensureVisitor } = useVisitor()
-  const actions = useMemo(
-    () => gateActions(createRealSessionActions(sessionIdHandle), ensureVisitor),
-    [sessionIdHandle, ensureVisitor],
-  )
+  const actions = useMemo(() => {
+    const gated = gateActions(createRealSessionActions(sessionIdHandle), ensureVisitor)
+    return {
+      ...gated,
+      // Public field links must close regardless of a live match (open-fields
+      // spec §4) — the legacy /sessions/:id/close 409s on a live match, so
+      // this bypasses realSessionActions.closeSession and hits the force-close
+      // route directly instead.
+      closeSession: async () => {
+        const ok = await ensureVisitor()
+        if (!ok) throw new VisitorRequiredError()
+        await apiPost(`/fields/${slug}/close`, {})
+        sessionIdHandle.set(null)
+      },
+    }
+  }, [sessionIdHandle, ensureVisitor, slug])
 
-  // Initial snapshot seed: GET /sessions/active, 404 → no active session.
+  // Initial snapshot seed: GET /fields/:slug, 404 → bad/closed link.
   useEffect(() => {
     let cancelled = false
-    apiGet<SessionSnapshot>('/sessions/active')
+    apiGet<SessionSnapshot>(`/fields/${slug}`)
       .then((snapshot) => {
         if (cancelled) return
         sessionIdRef.current = snapshot.session.id
@@ -101,7 +115,7 @@ export function RealProviders({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [reseedNonce])
+  }, [reseedNonce, slug])
 
   // Live socket: every snapshot event replaces the snapshot; connection
   // status tracks connect/disconnect, with a brief "resynced" on reconnect.
@@ -111,6 +125,7 @@ export function RealProviders({ children }: { children: ReactNode }) {
 
     const socket = createSessionSocket({
       url: socketUrl(),
+      slug,
       onConnect(serverNowIso) {
         const offsetMs = computeOffsetMs(serverNowIso, Date.now())
         const isReconnect = hasConnectedOnce
@@ -136,7 +151,7 @@ export function RealProviders({ children }: { children: ReactNode }) {
       clearTimeout(resyncTimer)
       socket.disconnect()
     }
-  }, [reseedNonce])
+  }, [reseedNonce, slug])
 
   // History / Activity / Captains read side. These aren't part of the snapshot
   // (which only carries the live line + fields), so fetch them alongside it and

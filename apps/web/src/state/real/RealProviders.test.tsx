@@ -1,8 +1,9 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SessionSnapshot } from 'shared'
-import { apiGet, ApiRequestError } from '@/lib/api'
+import { apiGet, apiPost, ApiRequestError } from '@/lib/api'
 import { createSessionSocket, type CreateSessionSocketOptions } from '@/lib/socket'
+import { useSessionActions } from '@/state/SessionActions'
 import { useSnapshot } from '@/state/SnapshotContext'
 import { useStaffDirectory } from '@/state/StaffDirectoryContext'
 import { VisitorProvider } from '@/state/VisitorContext'
@@ -34,18 +35,22 @@ function Probe() {
     <div>
       <span data-testid="connection">{connection}</span>
       <span data-testid="session-id">{snap?.session.id ?? 'none'}</span>
+      <span data-testid="session-status">{snap?.session.status ?? 'none'}</span>
       <span data-testid="roster-count">{roster.length}</span>
     </div>
   )
 }
 
+const SLUG = 'abc234'
+
 let socketOpts: CreateSessionSocketOptions | undefined
 let disconnectSocket: ReturnType<typeof vi.fn>
 
-function mockApiGet(bySessionActive: () => Promise<unknown>): void {
+function mockApiGet(byField: () => Promise<unknown>): void {
   vi.mocked(apiGet).mockImplementation((path: string) => {
-    if (path === '/sessions/active') return bySessionActive()
+    if (path === `/fields/${SLUG}`) return byField()
     if (path === '/staff') return Promise.resolve([{ id: 'staff-1', name: 'שרה', role: 'manager' }])
+    if (path === '/visitors/me') return Promise.resolve({ visitorId: 'v1', nickname: 'אורח 7' })
     return Promise.reject(new Error(`unexpected apiGet path: ${path}`))
   })
 }
@@ -65,11 +70,11 @@ afterEach(() => {
 })
 
 describe('RealProviders', () => {
-  it('populates SnapshotContext from the initial GET /sessions/active fetch', async () => {
+  it('populates SnapshotContext from the initial GET /fields/:slug fetch', async () => {
     mockApiGet(() => Promise.resolve(snapshot('s1')))
     render(
       <VisitorProvider>
-        <RealProviders>
+        <RealProviders slug={SLUG}>
           <Probe />
         </RealProviders>
       </VisitorProvider>,
@@ -77,16 +82,16 @@ describe('RealProviders', () => {
     await waitFor(() => expect(screen.getByTestId('session-id').textContent).toBe('s1'))
   })
 
-  it('a 404 from GET /sessions/active resolves to no active session', async () => {
+  it('a 404 from GET /fields/:slug resolves to no active session (bad/closed link)', async () => {
     mockApiGet(() => Promise.reject(new ApiRequestError('NOT_FOUND', 'no active session')))
     render(
       <VisitorProvider>
-        <RealProviders>
+        <RealProviders slug={SLUG}>
           <Probe />
         </RealProviders>
       </VisitorProvider>,
     )
-    await waitFor(() => expect(vi.mocked(apiGet)).toHaveBeenCalledWith('/sessions/active'))
+    await waitFor(() => expect(vi.mocked(apiGet)).toHaveBeenCalledWith(`/fields/${SLUG}`))
     expect(screen.getByTestId('session-id').textContent).toBe('none')
   })
 
@@ -94,7 +99,7 @@ describe('RealProviders', () => {
     mockApiGet(() => Promise.reject(new ApiRequestError('NOT_FOUND', 'no active session')))
     render(
       <VisitorProvider>
-        <RealProviders>
+        <RealProviders slug={SLUG}>
           <Probe />
         </RealProviders>
       </VisitorProvider>,
@@ -112,7 +117,7 @@ describe('RealProviders', () => {
     mockApiGet(() => Promise.reject(new ApiRequestError('NOT_FOUND', 'no active session')))
     render(
       <VisitorProvider>
-        <RealProviders>
+        <RealProviders slug={SLUG}>
           <Probe />
         </RealProviders>
       </VisitorProvider>,
@@ -130,7 +135,7 @@ describe('RealProviders', () => {
     mockApiGet(() => Promise.reject(new ApiRequestError('NOT_FOUND', 'no active session')))
     render(
       <VisitorProvider>
-        <RealProviders>
+        <RealProviders slug={SLUG}>
           <Probe />
         </RealProviders>
       </VisitorProvider>,
@@ -159,11 +164,69 @@ describe('RealProviders', () => {
     mockApiGet(() => Promise.resolve(snapshot('s1')))
     render(
       <VisitorProvider>
-        <RealProviders>
+        <RealProviders slug={SLUG}>
           <Probe />
         </RealProviders>
       </VisitorProvider>,
     )
     await waitFor(() => expect(screen.getByTestId('roster-count').textContent).toBe('1'))
+  })
+
+  it('passes the slug into the session socket handshake', async () => {
+    mockApiGet(() => Promise.resolve(snapshot('s1')))
+    render(
+      <VisitorProvider>
+        <RealProviders slug={SLUG}>
+          <Probe />
+        </RealProviders>
+      </VisitorProvider>,
+    )
+    await waitFor(() => expect(socketOpts).toBeDefined())
+    expect(socketOpts?.slug).toBe(SLUG)
+  })
+
+  it('closeSession force-closes via POST /fields/:slug/close, then re-seeds to the now-closed snapshot', async () => {
+    // GET /fields/:slug resolves the field whether it's active or closed (it's
+    // never a 404 post-close) — closeSession's sessionIdHandle.set(null) bumps
+    // reseedNonce, so the re-fetch after close is what actually surfaces the
+    // closed status to the app (App.tsx's ClosedFieldScreen takeover keys off
+    // session.status, not off the snapshot going away).
+    let fetchCount = 0
+    vi.mocked(apiGet).mockImplementation((path: string) => {
+      if (path === `/fields/${SLUG}`) {
+        fetchCount += 1
+        const s = snapshot('s1')
+        return Promise.resolve(fetchCount === 1 ? s : { ...s, session: { ...s.session, status: 'closed' as const } })
+      }
+      if (path === '/staff') return Promise.resolve([{ id: 'staff-1', name: 'שרה', role: 'manager' }])
+      if (path === '/visitors/me') return Promise.resolve({ visitorId: 'v1', nickname: 'אורח 7' })
+      return Promise.reject(new Error(`unexpected apiGet path: ${path}`))
+    })
+    vi.mocked(apiPost).mockResolvedValue(undefined)
+
+    function CloseProbe() {
+      const actions = useSessionActions()
+      return (
+        <button type="button" onClick={() => void actions.closeSession()}>
+          close
+        </button>
+      )
+    }
+
+    render(
+      <VisitorProvider>
+        <RealProviders slug={SLUG}>
+          <Probe />
+          <CloseProbe />
+        </RealProviders>
+      </VisitorProvider>,
+    )
+    await waitFor(() => expect(screen.getByTestId('session-id').textContent).toBe('s1'))
+    expect(screen.getByTestId('session-status').textContent).toBe('active')
+
+    fireEvent.click(screen.getByText('close'))
+
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith(`/fields/${SLUG}/close`, {}))
+    await waitFor(() => expect(screen.getByTestId('session-status').textContent).toBe('closed'))
   })
 })
