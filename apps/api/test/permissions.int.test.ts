@@ -8,10 +8,14 @@
  * center's active manager whenever a cookie is missing/invalid. So on every
  * StaffSessionGuard route BOTH `anonymous` (no cookies) AND `center-only` (a
  * valid center cookie but no session cookie) resolve to the SAME manager
- * fallback identity — they no longer 401. The only role differentiation left
- * is on @Roles('manager') routes (session open/update/close): `staff` still
- * gets 403, everyone else (anonymous/center-only/manager, all manager-role)
- * passes.
+ * fallback identity — they no longer 401.
+ *
+ * Open-fields pivot (docs/superpowers/specs/2026-07-16-open-fields-design.md):
+ * RolesGuard/@Roles('manager') were removed from every route, including
+ * session open/update/close — the app has no role-gated routes left at all.
+ * All four personas now resolve to a real identity and pass every route's
+ * guard chain; remaining per-persona status differences below come only
+ * from business state (409/404), never from role.
  *
  * Personas run in PERSONAS order (anonymous → center-only → staff → manager)
  * against a shared DB, so on NON-idempotent rows `anonymous` is now the
