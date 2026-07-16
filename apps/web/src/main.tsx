@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import './index.css'
 import { AppGate } from '@/screens/AppGate'
+import { HomeScreen } from '@/screens/HomeScreen'
+import { parseRoute } from '@/lib/route'
 import { DemoProviders } from '@/state/mock/DemoProviders'
 import { RealProviders } from '@/state/real/RealProviders'
 
@@ -11,13 +13,13 @@ if (!root) throw new Error('missing #root element')
 
 /**
  * VITE_DEMO=1 mounts the mock-backed providers directly (mock data, switchable
- * via SwitchUser). Otherwise AppGate resolves the current identity via
- * GET /auth/me first (auth is open — no PIN gate); RealProviders is passed as
- * its `children`, so it (and the GET /sessions/active + /staff + socket calls
- * its effects make) only mounts once `phase === 'authed'`, i.e. once AppGate
- * has an identity to seed AuthContext with.
+ * via SwitchUser). Otherwise the URL decides: '/' is the public home (create
+ * a field + browse the active-fields list, no provider stack needed), '/f/:slug'
+ * mounts the existing AppGate/RealProviders/App stack (slug threading into that
+ * stack is a follow-up task — this only adds the routing split).
  */
 const isDemo = import.meta.env.VITE_DEMO === '1'
+const route = parseRoute(window.location.pathname)
 
 function Root() {
   if (isDemo) {
@@ -27,6 +29,7 @@ function Root() {
       </DemoProviders>
     )
   }
+  if (route.kind === 'home') return <HomeScreen />
   return (
     <AppGate>
       <RealProviders>
