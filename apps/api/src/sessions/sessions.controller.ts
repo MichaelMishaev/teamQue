@@ -1,7 +1,8 @@
 /**
  * Sessions endpoints (technical-prd §7, features-prd US-010/011/012).
- * Open/update/close are manager-only (@Roles('manager')); active-session
- * read is any authenticated staff.
+ * Open-fields pivot (docs/superpowers/specs/2026-07-16-open-fields-design.md):
+ * the whole app is open, so open/update/close no longer require the
+ * manager role — any resolved identity (including a visitor) may call them.
  */
 import { Body, Controller, Get, Inject, Param, Patch, Post, Req, UseGuards } from '@nestjs/common'
 import {
@@ -12,8 +13,6 @@ import {
   type SessionSnapshot,
   type UpdateSessionBody,
 } from 'shared'
-import { Roles } from '../auth/decorators/roles.decorator'
-import { RolesGuard } from '../auth/guards/roles.guard'
 import { StaffSessionGuard } from '../auth/guards/staff-session.guard'
 import type { StaffAuthenticatedRequest } from '../auth/request.types'
 import { ZodValidationPipe } from '../common/zod.pipe'
@@ -34,8 +33,6 @@ export class SessionsController {
     return this.snapshotService.buildActiveSnapshot(req.centerId)
   }
 
-  @UseGuards(RolesGuard)
-  @Roles('manager')
   @Post()
   async open(
     @Req() req: StaffAuthenticatedRequest,
@@ -44,8 +41,6 @@ export class SessionsController {
     return this.sessionsService.open(req.centerId, req.staff.staffId, body)
   }
 
-  @UseGuards(RolesGuard)
-  @Roles('manager')
   @Patch(':id')
   async update(
     @Req() req: StaffAuthenticatedRequest,
@@ -55,8 +50,6 @@ export class SessionsController {
     return this.sessionsService.update(req.centerId, req.staff.staffId, id, body)
   }
 
-  @UseGuards(RolesGuard)
-  @Roles('manager')
   @Post(':id/close')
   async close(
     @Req() req: StaffAuthenticatedRequest,

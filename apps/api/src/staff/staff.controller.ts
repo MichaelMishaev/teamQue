@@ -5,7 +5,7 @@
  * read-only query).
  */
 import { Controller, Get, Inject, Req, UseGuards } from '@nestjs/common'
-import { and, asc, eq } from 'drizzle-orm'
+import { and, asc, eq, ne } from 'drizzle-orm'
 import { CenterGuard } from '../auth/guards/center.guard'
 import type { CenterAuthenticatedRequest } from '../auth/request.types'
 import { DRIZZLE, type Database } from '../db/db.module'
@@ -21,7 +21,7 @@ export class StaffController {
     return this.db
       .select({ id: staff.id, name: staff.name, role: staff.role })
       .from(staff)
-      .where(and(eq(staff.centerId, req.centerId), eq(staff.active, true)))
+      .where(and(eq(staff.centerId, req.centerId), eq(staff.active, true), ne(staff.role, 'visitor')))
       .orderBy(asc(staff.name))
   }
 }

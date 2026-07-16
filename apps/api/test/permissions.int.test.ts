@@ -336,24 +336,25 @@ describe('permission matrix (integration)', () => {
       },
       expected: { anonymous: 200, centerOnly: 200, staff: 200, manager: 200 },
     },
-    // --- Task 3a: sessions (@Roles('manager') on open/update/close) ---
+    // --- Task 3a/4: sessions — open/update/close were @Roles('manager') but
+    // Task 4 (docs/superpowers/specs/2026-07-16-open-fields-design.md) removed
+    // RolesGuard from all three: the whole app is open, so `staff` now passes
+    // the guard exactly like every other persona instead of 403ing.
     {
       route: 'POST /sessions',
       method: 'post',
       path: '/sessions',
-      // Open-fields pivot (docs/superpowers/specs/2026-07-16-open-fields-design.md):
-      // a center may have any number of concurrent active sessions, so the
-      // manager-role personas now succeed (201) instead of 409ing on
-      // beforeAll's pre-seeded matrixSessionId. This route's job in the
-      // matrix is still proving RolesGuard gates it (staff -> 403, everyone
-      // else -> past the guard).
+      // Open-fields pivot: a center may have any number of concurrent active
+      // sessions, so every persona (staff included, now that RolesGuard is
+      // gone from this route) succeeds (201) instead of 409ing on beforeAll's
+      // pre-seeded matrixSessionId.
       bodyFor: {
         anonymous: () => ({ matchDurationSec: 300 }),
         centerOnly: () => ({ matchDurationSec: 300 }),
         staff: () => ({ matchDurationSec: 300 }),
         manager: () => ({ matchDurationSec: 300 }),
       },
-      expected: { anonymous: 201, centerOnly: 201, staff: 403, manager: 201 },
+      expected: { anonymous: 201, centerOnly: 201, staff: 201, manager: 201 },
     },
     {
       route: 'GET /sessions/active',
@@ -372,7 +373,7 @@ describe('permission matrix (integration)', () => {
         staff: () => ({ matchDurationSec: 240 }),
         manager: () => ({ matchDurationSec: 240 }),
       },
-      expected: { anonymous: 200, centerOnly: 200, staff: 403, manager: 200 },
+      expected: { anonymous: 200, centerOnly: 200, staff: 200, manager: 200 },
     },
     // --- Task: line-domain (line-manager model) — StaffSessionGuard only,
     // no @Roles gate, so staff and manager are expected to reach the SAME
@@ -523,6 +524,37 @@ describe('permission matrix (integration)', () => {
       bodyFor: {},
       expected: { anonymous: 200, centerOnly: 200, staff: 200, manager: 200 },
     },
+    // --- Task 4: visitors (StaffSessionGuard only, no @Roles gate) ---
+    {
+      route: 'POST /visitors',
+      method: 'post',
+      path: '/visitors',
+      // Creates a fresh staff row every call (no shared state to collide
+      // on), so every persona succeeds identically — this row's only job is
+      // proving StaffSessionGuard (with its manager fallback for
+      // anonymous/centerOnly) gates it and nothing more restrictive.
+      bodyFor: {
+        anonymous: () => ({ nickname: 'Matrix Visitor (anon)' }),
+        centerOnly: () => ({ nickname: 'Matrix Visitor (center)' }),
+        staff: () => ({ nickname: 'Matrix Visitor (staff)' }),
+        manager: () => ({ nickname: 'Matrix Visitor (manager)' }),
+      },
+      expected: { anonymous: 201, centerOnly: 201, staff: 201, manager: 201 },
+    },
+    {
+      // Every matrix persona's resolved identity is a manager or staff
+      // member (anonymous/centerOnly fall back to the seeded manager;
+      // staff/manager carry an explicit non-visitor cookie) — none of them
+      // IS a visitor, so all 4 hit the handler's own 404 uniformly. That
+      // still proves the guard passes every persona through with no
+      // 401/403; the 200 (visitor identity) path is covered by
+      // test/visitors.int.test.ts.
+      route: 'GET /visitors/me',
+      method: 'get',
+      path: '/visitors/me',
+      bodyFor: {},
+      expected: { anonymous: 404, centerOnly: 404, staff: 404, manager: 404 },
+    },
   ]
 
   // Declared last, outside `cases`: this is the only destructive session
@@ -533,12 +565,15 @@ describe('permission matrix (integration)', () => {
   // real cleanup step first: POST /sessions/:id/start above left a live
   // match on matrixSessionId's field, which would otherwise block the
   // close with SESSION_HAS_LIVE_MATCH.
+  // Task 4 removed RolesGuard from this route too, so `staff` (running 3rd,
+  // PERSONAS order) no longer 403s — it reaches the same already-closed 409
+  // as centerOnly/manager, since anonymous's first call actually closed it.
   const closeCase: Case = {
     route: 'POST /sessions/:id/close',
     method: 'post',
     path: () => `/sessions/${matrixSessionId}/close`,
     bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
-    expected: { anonymous: 201, centerOnly: 409, staff: 403, manager: 409 },
+    expected: { anonymous: 201, centerOnly: 409, staff: 409, manager: 409 },
   }
 
   for (const testCase of cases) {

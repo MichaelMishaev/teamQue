@@ -16,6 +16,7 @@ import { ReadsModule } from './reads/reads.module'
 import { RealtimeModule } from './realtime/realtime.module'
 import { SessionsModule } from './sessions/sessions.module'
 import { StaffModule } from './staff/staff.module'
+import { VisitorsModule } from './visitors/visitors.module'
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { StaffModule } from './staff/staff.module'
         '/line/{*path}',
         '/actions/{*path}',
         '/activity/{*path}',
+        '/visitors/{*path}',
         '/health',
         '/socket.io/{*path}',
       ],
@@ -50,6 +52,7 @@ import { StaffModule } from './staff/staff.module'
     ActionsModule,
     ReadsModule,
     RealtimeModule,
+    VisitorsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_FILTER, useClass: HttpExceptionFilter }],

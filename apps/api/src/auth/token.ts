@@ -37,6 +37,15 @@ export function verifySessionToken(jwtService: JwtService, token: string): Sessi
   return jwtService.verify<SessionTokenPayload>(token)
 }
 
+const VISITOR_TOKEN_TTL = '365d'
+export const VISITOR_COOKIE_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000
+
+/** Open-fields: visitors are long-lived identities in the SAME cookie/payload
+ * shape as staff logins, so every existing guard verifies them unchanged. */
+export function signVisitorToken(jwtService: JwtService, payload: SessionTokenPayload): string {
+  return jwtService.sign(payload, { expiresIn: VISITOR_TOKEN_TTL })
+}
+
 export function cookieOptions(maxAgeMs: number, nodeEnv: string): CookieOptions {
   return {
     httpOnly: true,
