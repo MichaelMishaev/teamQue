@@ -59,7 +59,7 @@ function activeSnapshot(hasLiveMatch: boolean): SessionSnapshot {
   }
 }
 
-function renderSettings(role: 'manager' | 'staff', snapshotState: SnapshotState, actionsOverrides: Partial<SessionActions> = {}) {
+function renderSettings(role: 'manager' | 'staff' | 'visitor', snapshotState: SnapshotState, actionsOverrides: Partial<SessionActions> = {}) {
   const actions = actionsStub(actionsOverrides)
   render(
     <SnapshotContext.Provider value={snapshotState}>
@@ -99,10 +99,14 @@ describe('SettingsScreen', () => {
     vi.unstubAllGlobals()
   })
 
-  it('staff role sees a forbidden message, not the settings UI', () => {
+  it('renders the normal settings UI for a non-manager identity (open-fields: no role gate)', () => {
     renderSettings('staff', { snapshot: activeSnapshot(false), connection: 'online', offsetMs: 0 })
-    expect(screen.getByText('המסך הזה זמין למנהלים בלבד')).toBeDefined()
-    expect(screen.queryByText('צוות')).toBeNull()
+    expect(screen.getByText('סגור ערב')).toBeDefined()
+  })
+
+  it('renders the normal settings UI for a visitor identity', () => {
+    renderSettings('visitor', { snapshot: activeSnapshot(false), connection: 'online', offsetMs: 0 })
+    expect(screen.getByText('סגור ערב')).toBeDefined()
   })
 
   it('manager can close the session when the field is free, after confirming', async () => {

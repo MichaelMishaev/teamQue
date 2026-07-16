@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { SessionSetupDialog } from '@/components/SessionSetupDialog'
 import { t } from '@/i18n'
-import { useCurrentStaff } from '@/state/AuthContext'
 import { useSessionActions } from '@/state/SessionActions'
 import { useSnapshot } from '@/state/SnapshotContext'
 import { useStaffDirectory } from '@/state/StaffDirectoryContext'
@@ -13,16 +12,15 @@ const MIN_MINUTES = 1
 const MAX_MINUTES = 60
 
 /**
- * Single responsibility: manager-only settings (client-prd §3.3, US-012/080)
- * — active-session duration stepper, soft-blocked + confirmed close, a
- * StaffAdmin placeholder list, and a wake-lock toggle stub. Staff role sees a
- * 403-style message (fail closed, matches the real API's expected behavior).
- * Closing a field is force-close under the open-fields pivot (bypasses the
- * legacy live-match 409) — an explicit confirm dialog, not just the
- * soft-disable, guards against a stray tap severing the field's link.
+ * Single responsibility: settings (client-prd §3.3, US-012/080) — active-session
+ * duration stepper, soft-blocked + confirmed close, a StaffAdmin placeholder
+ * list, and a wake-lock toggle stub. Reachable by any identity (staff or
+ * visitor) — the open-fields model has no field owner, so there is no role
+ * gate here. Closing a field is force-close under the open-fields pivot
+ * (bypasses the legacy live-match 409) — an explicit confirm dialog, not just
+ * the soft-disable, guards against a stray tap severing the field's link.
  */
 export function SettingsScreen() {
-  const currentStaff = useCurrentStaff()
   const { snapshot } = useSnapshot()
   const actions = useSessionActions()
   const { roster } = useStaffDirectory()
@@ -30,14 +28,6 @@ export function SettingsScreen() {
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [wakeLockEnabled, setWakeLockEnabled] = useState(() => localStorage.getItem(WAKE_LOCK_STORAGE_KEY) === '1')
-
-  if (currentStaff?.role !== 'manager') {
-    return (
-      <div className="p-4">
-        <p className="text-[14px] text-muted">{t('settings.forbidden')}</p>
-      </div>
-    )
-  }
 
   const hasLiveMatch = snapshot?.fields.some((f) => f.liveMatch !== null) ?? false
   const durationMinutes = Math.round((snapshot?.session.matchDurationSec ?? 360) / 60)
