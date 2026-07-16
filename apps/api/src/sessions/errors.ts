@@ -3,18 +3,6 @@
  */
 import { DomainError } from '../common/domain-error'
 
-/** POST /sessions when the center already has an active session — the DB's
- * partial unique index (`one_active_session`) is the real guard; this is
- * just its 409 mapping. */
-export class SessionAlreadyActiveError extends DomainError {
-  readonly code = 'SESSION_ALREADY_ACTIVE' as const
-  readonly httpStatus = 409
-
-  constructor(message = 'An active session already exists for this center') {
-    super(message)
-  }
-}
-
 /** PATCH/close on a session that is already closed. */
 export class SessionClosedError extends DomainError {
   readonly code = 'SESSION_CLOSED' as const

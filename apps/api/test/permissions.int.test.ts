@@ -68,8 +68,8 @@ describe('permission matrix (integration)', () => {
   let matrixCaptainId2: string
   let matrixSessionId: string
   // Line-domain fixtures (line-manager model): queue entries seeded into
-  // matrixSessionId's line (the only session this center can have 'active'
-  // at once — see beforeAll), plus a separate pre-closed session+match for
+  // matrixSessionId's line (the single session these permission-matrix rows
+  // exercise — see beforeAll), plus a separate pre-closed session+match for
   // the match-lifecycle rows.
   let matrixMoveEntryId: string
   let matrixDeleteEntryId: string
@@ -125,11 +125,14 @@ describe('permission matrix (integration)', () => {
     if (!captain2) throw new Error('captain insert returned no row')
     matrixCaptainId2 = captain2.id
 
-    // Every line-domain fixture below reuses matrixSessionId — the center's
-    // `one_active_session` partial unique index means only ONE session for
-    // this center can be 'active' at a time, and matrixSessionId already
-    // holds that slot (needed by the PATCH/close rows above). A field is
-    // added so POST /sessions/:id/start has somewhere to kick off onto.
+    // Every line-domain fixture below reuses matrixSessionId — it's already
+    // seeded above for the PATCH/close rows, so reusing it keeps the queue
+    // entries wired to the same session those rows exercise. (A center may
+    // now hold any number of concurrent active sessions — the
+    // `one_active_session` constraint was dropped in the open-fields pivot,
+    // see docs/superpowers/specs/2026-07-16-open-fields-design.md — so this
+    // reuse is fixture economy, not a DB constraint.) A field is added so
+    // POST /sessions/:id/start has somewhere to kick off onto.
     const [field] = await pg.db.insert(fields).values({ sessionId: matrixSessionId, centerId, name: 'מגרש', position: 0 }).returning()
     if (!field) throw new Error('field insert returned no row')
 
@@ -155,8 +158,10 @@ describe('permission matrix (integration)', () => {
     // SESSION_CLOSED for both staff and manager (it can't succeed twice on
     // the same match anyway — replay doesn't consume the match, so a
     // "real" active session would make BOTH calls 201, which is a fine
-    // outcome too, but this avoids needing a second simultaneously-active
-    // session, which the DB constraint above rules out).
+    // outcome too, but a closed session keeps this fixture simple: a center
+    // may now hold multiple concurrent active sessions, so a second active
+    // session here would be legal too — just an unnecessary complication
+    // for what this row is testing).
     const [matrixMatchSession] = await pg.db
       .insert(sessions)
       .values({ centerId, date: '2026-07-10', slug: generateSlug(), matchDurationSec: 300, status: 'closed', createdBy: managerId })

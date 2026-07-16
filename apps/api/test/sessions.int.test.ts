@@ -2,8 +2,13 @@
  * Integration test (technical-prd §10 "API integration"): the sessions
  * lifecycle surface (US-010/011/012) against a real Postgres (Testcontainers)
  * and a real Nest app (supertest). Each scenario gets its own freshly
- * seeded center so the one-active-session-per-center invariant can't leak
- * state between tests.
+ * seeded center (via seedCenter()) purely for test isolation — GET
+ * /sessions/active resolves against the caller's center cookie, so a shared
+ * center would leak captains/queue entries/sessions/matches between
+ * scenarios. This is unrelated to any per-center active-session limit: a
+ * center may now hold any number of concurrent active sessions (the
+ * one_active_session constraint was dropped in the open-fields pivot, see
+ * docs/superpowers/specs/2026-07-16-open-fields-design.md).
  */
 import { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
