@@ -91,10 +91,9 @@ export function SettingsScreen() {
                 </Button>
               </div>
             </div>
-            <Button variant="danger" onClick={() => setCloseConfirmOpen(true)} disabled={hasLiveMatch}>
+            <Button variant="danger" onClick={() => setCloseConfirmOpen(true)}>
               {t('settings.session.close')}
             </Button>
-            {hasLiveMatch && <p className="text-[12.5px] text-muted">{t('settings.session.closeBlockedReason')}</p>}
           </>
         ) : (
           <Button variant="primary" onClick={() => setSetupOpen(true)}>
@@ -141,6 +140,7 @@ export function SettingsScreen() {
       <Dialog open={closeConfirmOpen} onClose={() => setCloseConfirmOpen(false)} title={t('settings.session.closeConfirm.title')}>
         <div className="flex flex-col gap-4">
           <p className="text-[14px] text-muted">{t('settings.session.closeConfirm.hint')}</p>
+          {hasLiveMatch && <p className="text-[14px] font-semibold text-danger">{t('settings.session.closeConfirm.hintLiveMatch')}</p>}
           <div className="flex gap-3">
             <Button className="flex-1" onClick={() => setCloseConfirmOpen(false)}>
               {t('settings.session.closeConfirm.cancel')}

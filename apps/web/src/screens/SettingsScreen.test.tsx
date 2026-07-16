@@ -124,11 +124,22 @@ describe('SettingsScreen', () => {
     expect(screen.queryByText('סגור מגרש')).toBeNull()
   })
 
-  it('soft-blocks close with a visible reason when a match is live', () => {
-    renderSettings('manager', { snapshot: activeSnapshot(true), connection: 'online', offsetMs: 0 })
+  it('keeps the close button enabled when a match is live (force-close is reachable), and warns the confirm dialog will cancel it', async () => {
+    const { actions } = renderSettings('manager', { snapshot: activeSnapshot(true), connection: 'online', offsetMs: 0 })
     const closeButton = screen.getByText('סגור ערב') as HTMLButtonElement
-    expect(closeButton.disabled).toBe(true)
+    expect(closeButton.disabled).toBe(false)
+
+    fireEvent.click(closeButton)
     expect(screen.getByText(/יש משחק פעיל במגרש/)).toBeDefined()
+
+    fireEvent.click(screen.getByText('סגור מגרש'))
+    await waitFor(() => expect(actions.closeSession).toHaveBeenCalled())
+  })
+
+  it('does not show the live-match warning in the confirm dialog when the field is free', () => {
+    renderSettings('manager', { snapshot: activeSnapshot(false), connection: 'online', offsetMs: 0 })
+    fireEvent.click(screen.getByText('סגור ערב'))
+    expect(screen.queryByText(/יש משחק פעיל במגרש/)).toBeNull()
   })
 
   it('persists the wake-lock toggle to localStorage', () => {

@@ -120,7 +120,6 @@
   "settings.session.title": "ניהול ערב משחקים",
   "settings.session.error": "הפעולה נכשלה — נסו שוב",
   "settings.session.close": "סגור ערב",
-  "settings.session.closeBlockedReason": "יש משחק פעיל במגרש — סיימו אותו כדי לסגור את הערב",
   "settings.staff.title": "צוות",
   "settings.staff.roleManager": "מנהל",
   "settings.staff.roleStaff": "צוות",
@@ -158,6 +157,7 @@
   "field.notFound.hint": "בדקו את הקישור או פתחו מגרש חדש מהעמוד הראשי",
   "settings.session.closeConfirm.title": "לסגור את המגרש?",
   "settings.session.closeConfirm.hint": "הקישור יפסיק לעבוד וההיסטוריה תישאר זמינה בלבד לצפייה",
+  "settings.session.closeConfirm.hintLiveMatch": "יש משחק פעיל במגרש — סגירה תבטל אותו מיידית",
   "settings.session.closeConfirm.confirm": "סגור מגרש",
   "settings.session.closeConfirm.cancel": "ביטול"
 }
