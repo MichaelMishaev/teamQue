@@ -132,5 +132,10 @@
   "tabs.main": "ראשי",
   "tabs.history": "היסטוריה",
   "tabs.activity": "פעילות",
-  "tabs.settings": "הגדרות"
+  "tabs.settings": "הגדרות",
+  "visitor.sheet.title": "איך קוראים לך?",
+  "visitor.sheet.hint": "השם יופיע ביומן הפעולות של המגרש",
+  "visitor.sheet.placeholder": "כינוי",
+  "visitor.sheet.confirm": "המשך",
+  "visitor.sheet.error": "השמירה נכשלה — נסו שוב"
 }

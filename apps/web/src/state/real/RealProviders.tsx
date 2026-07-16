@@ -17,6 +17,7 @@ import { createRealSessionActions, type SessionIdHandle } from '@/state/real/rea
 import { SessionActionsContext } from '@/state/SessionActions'
 import { SnapshotContext, type SnapshotState } from '@/state/SnapshotContext'
 import { StaffDirectoryContext, type StaffRosterItem } from '@/state/StaffDirectoryContext'
+import { gateActions, useVisitor } from '@/state/VisitorContext'
 
 const EMPTY_HISTORY: HistoryState = { summary: null, matches: [] }
 const INITIAL_SNAPSHOT_STATE: SnapshotState = { snapshot: null, connection: 'offline', offsetMs: 0 }
@@ -75,7 +76,11 @@ export function RealProviders({ children }: { children: ReactNode }) {
     [],
   )
 
-  const actions = useMemo(() => createRealSessionActions(sessionIdHandle), [sessionIdHandle])
+  const { ensureVisitor } = useVisitor()
+  const actions = useMemo(
+    () => gateActions(createRealSessionActions(sessionIdHandle), ensureVisitor),
+    [sessionIdHandle, ensureVisitor],
+  )
 
   // Initial snapshot seed: GET /sessions/active, 404 → no active session.
   useEffect(() => {

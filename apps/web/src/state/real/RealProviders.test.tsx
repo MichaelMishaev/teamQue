@@ -5,6 +5,7 @@ import { apiGet, ApiRequestError } from '@/lib/api'
 import { createSessionSocket, type CreateSessionSocketOptions } from '@/lib/socket'
 import { useSnapshot } from '@/state/SnapshotContext'
 import { useStaffDirectory } from '@/state/StaffDirectoryContext'
+import { VisitorProvider } from '@/state/VisitorContext'
 import { RealProviders } from './RealProviders'
 
 vi.mock('@/lib/api', async (importOriginal) => {
@@ -67,9 +68,11 @@ describe('RealProviders', () => {
   it('populates SnapshotContext from the initial GET /sessions/active fetch', async () => {
     mockApiGet(() => Promise.resolve(snapshot('s1')))
     render(
-      <RealProviders>
-        <Probe />
-      </RealProviders>,
+      <VisitorProvider>
+        <RealProviders>
+          <Probe />
+        </RealProviders>
+      </VisitorProvider>,
     )
     await waitFor(() => expect(screen.getByTestId('session-id').textContent).toBe('s1'))
   })
@@ -77,9 +80,11 @@ describe('RealProviders', () => {
   it('a 404 from GET /sessions/active resolves to no active session', async () => {
     mockApiGet(() => Promise.reject(new ApiRequestError('NOT_FOUND', 'no active session')))
     render(
-      <RealProviders>
-        <Probe />
-      </RealProviders>,
+      <VisitorProvider>
+        <RealProviders>
+          <Probe />
+        </RealProviders>
+      </VisitorProvider>,
     )
     await waitFor(() => expect(vi.mocked(apiGet)).toHaveBeenCalledWith('/sessions/active'))
     expect(screen.getByTestId('session-id').textContent).toBe('none')
@@ -88,9 +93,11 @@ describe('RealProviders', () => {
   it('a socket snapshot event replaces the snapshot', async () => {
     mockApiGet(() => Promise.reject(new ApiRequestError('NOT_FOUND', 'no active session')))
     render(
-      <RealProviders>
-        <Probe />
-      </RealProviders>,
+      <VisitorProvider>
+        <RealProviders>
+          <Probe />
+        </RealProviders>
+      </VisitorProvider>,
     )
     await waitFor(() => expect(socketOpts).toBeDefined())
 
@@ -104,9 +111,11 @@ describe('RealProviders', () => {
   it('onDisconnect flips connection to offline', async () => {
     mockApiGet(() => Promise.reject(new ApiRequestError('NOT_FOUND', 'no active session')))
     render(
-      <RealProviders>
-        <Probe />
-      </RealProviders>,
+      <VisitorProvider>
+        <RealProviders>
+          <Probe />
+        </RealProviders>
+      </VisitorProvider>,
     )
     await waitFor(() => expect(socketOpts).toBeDefined())
 
@@ -120,9 +129,11 @@ describe('RealProviders', () => {
   it('a reconnect flashes "resynced" before settling back to "online"', async () => {
     mockApiGet(() => Promise.reject(new ApiRequestError('NOT_FOUND', 'no active session')))
     render(
-      <RealProviders>
-        <Probe />
-      </RealProviders>,
+      <VisitorProvider>
+        <RealProviders>
+          <Probe />
+        </RealProviders>
+      </VisitorProvider>,
     )
     // Let the initial 404 + socket-registration microtasks settle on real timers
     // before switching to fake ones — RTL's waitFor never resolves under fake timers.
@@ -147,9 +158,11 @@ describe('RealProviders', () => {
   it('populates StaffDirectoryContext.roster from GET /staff', async () => {
     mockApiGet(() => Promise.resolve(snapshot('s1')))
     render(
-      <RealProviders>
-        <Probe />
-      </RealProviders>,
+      <VisitorProvider>
+        <RealProviders>
+          <Probe />
+        </RealProviders>
+      </VisitorProvider>,
     )
     await waitFor(() => expect(screen.getByTestId('roster-count').textContent).toBe('1'))
   })
