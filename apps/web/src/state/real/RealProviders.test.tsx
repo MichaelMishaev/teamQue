@@ -185,12 +185,12 @@ describe('RealProviders', () => {
     expect(socketOpts?.slug).toBe(SLUG)
   })
 
-  it('closeSession force-closes via POST /fields/:slug/close, then re-seeds to the now-closed snapshot', async () => {
+  it('closeSession force-closes via POST /fields/:slug/close, then re-fetches the now-closed snapshot directly (no null flash)', async () => {
     // GET /fields/:slug resolves the field whether it's active or closed (it's
-    // never a 404 post-close) — closeSession's sessionIdHandle.set(null) bumps
-    // reseedNonce, so the re-fetch after close is what actually surfaces the
-    // closed status to the app (App.tsx's ClosedFieldScreen takeover keys off
-    // session.status, not off the snapshot going away).
+    // never a 404 post-close) — closeSession re-fetches it directly and swaps
+    // the snapshot in-place, without ever nulling it out in between (that
+    // would transiently render the "field not found" screen for the very
+    // user who just closed their own field — see task-10 finding).
     let fetchCount = 0
     vi.mocked(apiGet).mockImplementation((path: string) => {
       if (path === `/fields/${SLUG}`) {
@@ -213,10 +213,22 @@ describe('RealProviders', () => {
       )
     }
 
+    // Records every status this snapshot passes through, so we can prove
+    // closeSession never regresses to `null` ("none") once the session has
+    // loaded — that transient null is what rendered the "field not found"
+    // screen for the very user who just closed their own field.
+    const statusLog: string[] = []
+    function StatusLog() {
+      const { snapshot: snap } = useSnapshot()
+      statusLog.push(snap?.session.status ?? 'none')
+      return null
+    }
+
     render(
       <VisitorProvider>
         <RealProviders slug={SLUG}>
           <Probe />
+          <StatusLog />
           <CloseProbe />
         </RealProviders>
       </VisitorProvider>,
@@ -228,5 +240,12 @@ describe('RealProviders', () => {
 
     await waitFor(() => expect(apiPost).toHaveBeenCalledWith(`/fields/${SLUG}/close`, {}))
     await waitFor(() => expect(screen.getByTestId('session-status').textContent).toBe('closed'))
+
+    const firstActiveIndex = statusLog.indexOf('active')
+    expect(firstActiveIndex).toBeGreaterThanOrEqual(0)
+    // No 'none' (null snapshot) anywhere between the session first loading and
+    // the close settling to 'closed' — proves there's no intermediate
+    // not-found flash during closeSession().
+    expect(statusLog.slice(firstActiveIndex + 1)).not.toContain('none')
   })
 })

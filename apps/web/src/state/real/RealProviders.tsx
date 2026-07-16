@@ -87,11 +87,21 @@ export function RealProviders({ slug, children }: { slug: string; children: Reac
       // spec §4) — the legacy /sessions/:id/close 409s on a live match, so
       // this bypasses realSessionActions.closeSession and hits the force-close
       // route directly instead.
+      //
+      // Deliberately does NOT go through sessionIdHandle.set(null): closing a
+      // field doesn't change which slug the client cares about (the closed
+      // field still resolves via GET /fields/:slug — fields.service.ts's
+      // resolve() never 404s a closed field), so there's no need to null out
+      // the snapshot or force a socket reconnect/reseed cycle. Instead this
+      // re-fetches the now-closed snapshot directly and swaps it in, so the
+      // UI goes straight from "live field" to "closed field" with no
+      // intermediate `snapshot === null` ("field not found") flash.
       closeSession: async () => {
         const ok = await ensureVisitor()
         if (!ok) throw new VisitorRequiredError()
         await apiPost(`/fields/${slug}/close`, {})
-        sessionIdHandle.set(null)
+        const closedSnapshot = await apiGet<SessionSnapshot>(`/fields/${slug}`)
+        setSnapshotState((prev) => ({ ...prev, snapshot: closedSnapshot }))
       },
     }
   }, [sessionIdHandle, ensureVisitor, slug])
