@@ -3,9 +3,12 @@
  * role 'visitor' — reusing the staff FKs means attribution (activity log,
  * history startedBy/endedBy names) works with zero schema or service churn.
  * The cookie is the standard qlm_session JWT, just signed with a 365d TTL.
+ * POST /visitors gets a throttler bucket (10/hour/IP) — unbounded, it's an
+ * unbounded-write vector on the `staff` table, same edge case as POST /fields.
  */
 import { Body, Controller, Get, Inject, Post, Req, Res, UseGuards } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler'
 import { eq } from 'drizzle-orm'
 import type { Response } from 'express'
 import { visitorHelloSchema, type VisitorHelloBody } from 'shared'
@@ -29,6 +32,8 @@ export class VisitorsController {
     @Inject(JwtService) private readonly jwtService: JwtService,
   ) {}
 
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { ttl: 60 * 60 * 1000, limit: 10 } })
   @Post()
   async hello(
     @Req() req: StaffAuthenticatedRequest,
