@@ -7,6 +7,7 @@ import { HomeScreen } from '@/screens/HomeScreen'
 import { parseRoute } from '@/lib/route'
 import { DemoProviders } from '@/state/mock/DemoProviders'
 import { RealProviders } from '@/state/real/RealProviders'
+import { VisitorProvider } from '@/state/VisitorContext'
 
 const root = document.getElementById('root')
 if (!root) throw new Error('missing #root element')
@@ -21,7 +22,7 @@ if (!root) throw new Error('missing #root element')
 const isDemo = import.meta.env.VITE_DEMO === '1'
 const route = parseRoute(window.location.pathname)
 
-function Root() {
+export function Root() {
   if (isDemo) {
     return (
       <DemoProviders>
@@ -32,9 +33,11 @@ function Root() {
   if (route.kind === 'home') return <HomeScreen />
   return (
     <AppGate>
-      <RealProviders>
-        <App />
-      </RealProviders>
+      <VisitorProvider>
+        <RealProviders>
+          <App />
+        </RealProviders>
+      </VisitorProvider>
     </AppGate>
   )
 }
