@@ -16,7 +16,7 @@ const sessionId = '22222222-2222-4222-8222-222222222222'
 
 function fakeSnapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
   return {
-    session: { id: sessionId, date: '2026-07-10', location: null, matchDurationSec: 300, status: 'active' },
+    session: { id: sessionId, slug: 'abc234', date: '2026-07-10', location: null, matchDurationSec: 300, status: 'active' },
     fields: [],
     queue: [],
     emittedAt: '2026-07-10T17:00:00.000Z',

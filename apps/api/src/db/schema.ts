@@ -77,6 +77,11 @@ export const sessions = pgTable(
       .references(() => centers.id),
     date: date('date').notNull(),
     location: text('location'),
+    // Open-fields pivot: a session row IS the backing store for a public
+    // "field" (docs/superpowers/specs/2026-07-16-open-fields-design.md).
+    // `slug` is its share-URL code; `lastActivityAt` drives auto-expiry.
+    slug: text('slug').notNull(),
+    lastActivityAt: timestamp('last_activity_at', { withTimezone: true }).notNull().defaultNow(),
     matchDurationSec: integer('match_duration_sec').notNull(),
     status: sessionStatusEnum('status').notNull(),
     createdBy: uuid('created_by')
@@ -84,9 +89,7 @@ export const sessions = pgTable(
       .references(() => staff.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    uniqueIndex('one_active_session').on(table.centerId).where(sql`${table.status} = 'active'`),
-  ],
+  (table) => [uniqueIndex('sessions_slug_unique').on(table.slug)],
 )
 
 export const fields = pgTable('fields', {

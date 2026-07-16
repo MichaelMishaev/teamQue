@@ -44,6 +44,7 @@ describe('SnapshotService.buildActiveSnapshot', () => {
     const sessionRow = {
       id: sessionId,
       centerId,
+      slug: 'abc234',
       date: '2026-07-10',
       location: 'Center Court',
       matchDurationSec: 360,
@@ -71,6 +72,7 @@ describe('SnapshotService.buildActiveSnapshot', () => {
     expect(sessionSnapshotSchema.safeParse(snapshot).success).toBe(true)
     expect(snapshot.session).toEqual({
       id: sessionId,
+      slug: 'abc234',
       date: '2026-07-10',
       location: 'Center Court',
       matchDurationSec: 360,
@@ -95,6 +97,7 @@ describe('SnapshotService.buildSnapshotBySessionId', () => {
     const sessionRow = {
       id: sessionId,
       centerId,
+      slug: 'abc234',
       date: '2026-07-10',
       location: 'Center Court',
       matchDurationSec: 360,

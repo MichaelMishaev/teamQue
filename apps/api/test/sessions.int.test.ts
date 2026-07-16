@@ -11,7 +11,7 @@ import { hash } from '@node-rs/argon2'
 import cookieParser from 'cookie-parser'
 import { and, eq } from 'drizzle-orm'
 import request from 'supertest'
-import { apiErrorSchema, sessionSnapshotSchema } from 'shared'
+import { sessionSnapshotSchema } from 'shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { AppModule } from '../src/app.module'
 import { activityLog, captains, centers, fields, matches, queueEntries, sessions, staff } from '../src/db/schema'
@@ -128,25 +128,19 @@ describe('sessions (integration)', () => {
       expect(logRows[0]?.createdAt).toBeInstanceOf(Date)
     })
 
-    it('a second active session for the same center -> 409 SESSION_ALREADY_ACTIVE, existing session untouched', async () => {
+    it('allows two active sessions concurrently (open-fields pivot)', async () => {
       const { managerCookies } = await seedCenter()
       const first = await request(app.getHttpServer())
         .post('/sessions')
         .set('Cookie', managerCookies)
         .send({ matchDurationSec: 300 })
-      expect(first.status).toBe(201)
-
       const second = await request(app.getHttpServer())
         .post('/sessions')
         .set('Cookie', managerCookies)
         .send({ matchDurationSec: 600 })
 
-      expect(second.status).toBe(409)
-      expect(apiErrorSchema.safeParse(second.body).success).toBe(true)
-      expect(second.body.code).toBe('SESSION_ALREADY_ACTIVE')
-
-      const [stillActive] = await pg.db.select().from(sessions).where(eq(sessions.id, first.body.id))
-      expect(stillActive?.matchDurationSec).toBe(300)
+      expect(first.status).toBe(201)
+      expect(second.status).toBe(201) // was 409 SESSION_ALREADY_ACTIVE before the pivot
     })
   })
 

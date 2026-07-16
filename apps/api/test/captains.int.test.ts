@@ -14,6 +14,7 @@ import { apiErrorSchema, captainSearchResultSchema } from 'shared'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { AppModule } from '../src/app.module'
 import { activityLog, captains, centers, fields, matches, sessions, staff } from '../src/db/schema'
+import { generateSlug } from '../src/fields/slug'
 import { centerCookieHeader, makeTestJwtService, sessionCookieHeader } from './helpers/auth-cookies'
 import { startTestPg, type TestPg } from './helpers/pg'
 
@@ -99,7 +100,7 @@ describe('captains (integration)', () => {
   async function seedActiveSession(centerId: string, staffId: string): Promise<string> {
     const [session] = await pg.db
       .insert(sessions)
-      .values({ centerId, date: '2026-07-10', matchDurationSec: 300, status: 'active', createdBy: staffId })
+      .values({ centerId, date: '2026-07-10', slug: generateSlug(), matchDurationSec: 300, status: 'active', createdBy: staffId })
       .returning()
     if (!session) throw new Error('session insert returned no row')
     const [field] = await pg.db
@@ -178,7 +179,7 @@ describe('captains (integration)', () => {
       const pastStaffCenter = staffId
       const [pastSession] = await pg.db
         .insert(sessions)
-        .values({ centerId, date: '2026-01-01', matchDurationSec: 300, status: 'closed', createdBy: pastStaffCenter })
+        .values({ centerId, date: '2026-01-01', slug: generateSlug(), matchDurationSec: 300, status: 'closed', createdBy: pastStaffCenter })
         .returning()
       if (!pastSession) throw new Error('session insert returned no row')
       await seedMatch(pastSession.id, centerId, captainAId, opponent, { status: 'finished' })

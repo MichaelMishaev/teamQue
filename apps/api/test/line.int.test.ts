@@ -13,6 +13,7 @@ import { apiErrorSchema, queueEntryViewSchema } from 'shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { AppModule } from '../src/app.module'
 import { activityLog, captains, centers, queueEntries, sessions, staff } from '../src/db/schema'
+import { generateSlug } from '../src/fields/slug'
 import { centerCookieHeader, makeTestJwtService, sessionCookieHeader } from './helpers/auth-cookies'
 import { startTestPg, type TestPg } from './helpers/pg'
 
@@ -74,7 +75,7 @@ describe('line (integration)', () => {
   async function seedActiveSession(centerId: string, staffId: string): Promise<string> {
     const [session] = await pg.db
       .insert(sessions)
-      .values({ centerId, date: '2026-07-10', matchDurationSec: 300, status: 'active', createdBy: staffId })
+      .values({ centerId, date: '2026-07-10', slug: generateSlug(), matchDurationSec: 300, status: 'active', createdBy: staffId })
       .returning()
     if (!session) throw new Error('session insert returned no row')
     return session.id

@@ -11,6 +11,7 @@ import { and, eq } from 'drizzle-orm'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { ActivityWriter } from '../src/activity/activity.writer'
 import { activityLog, captains, centers, fields, matches, sessions, staff } from '../src/db/schema'
+import { generateSlug } from '../src/fields/slug'
 import { AutoFinishService } from '../src/realtime/auto-finish.service'
 import { SessionEventsService } from '../src/realtime/session-events.service'
 import { SnapshotService } from '../src/sessions/snapshot.service'
@@ -60,7 +61,7 @@ describe('AutoFinishService (integration)', () => {
 
     const [session] = await pg.db
       .insert(sessions)
-      .values({ centerId: center.id, date: '2026-07-10', matchDurationSec: 300, status: 'active', createdBy: staffMember.id })
+      .values({ centerId: center.id, date: '2026-07-10', slug: generateSlug(), matchDurationSec: 300, status: 'active', createdBy: staffMember.id })
       .returning()
     if (!session) throw new Error('session insert returned no row')
 

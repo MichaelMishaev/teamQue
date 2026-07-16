@@ -21,6 +21,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { AppModule } from '../src/app.module'
 import { SESSION_COOKIE_NAME } from '../src/auth/token'
 import { captains, centers, fields, sessions, staff } from '../src/db/schema'
+import { generateSlug } from '../src/fields/slug'
 import { centerCookieHeader, makeTestJwtService, sessionCookieHeader } from './helpers/auth-cookies'
 import { startTestPg, type TestPg } from './helpers/pg'
 
@@ -106,7 +107,7 @@ describe('realtime gateway (integration)', () => {
 
     const [session] = await pg.db
       .insert(sessions)
-      .values({ centerId: center.id, date: '2026-07-10', matchDurationSec: 300, status: 'active', createdBy: staffMember.id })
+      .values({ centerId: center.id, date: '2026-07-10', slug: generateSlug(), matchDurationSec: 300, status: 'active', createdBy: staffMember.id })
       .returning()
     if (!session) throw new Error('session insert returned no row')
 

@@ -28,6 +28,7 @@ import request from 'supertest'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { AppModule } from '../src/app.module'
 import { activityLog, captains, centers, fields, matches, queueEntries, sessions, staff } from '../src/db/schema'
+import { generateSlug } from '../src/fields/slug'
 import { centerCookieHeader, makeTestJwtService, sessionCookieHeader } from './helpers/auth-cookies'
 import { startTestPg, type TestPg } from './helpers/pg'
 
@@ -115,7 +116,7 @@ describe('permission matrix (integration)', () => {
 
     const [session] = await pg.db
       .insert(sessions)
-      .values({ centerId, date: '2026-07-10', matchDurationSec: 300, status: 'active', createdBy: managerId })
+      .values({ centerId, date: '2026-07-10', slug: generateSlug(), matchDurationSec: 300, status: 'active', createdBy: managerId })
       .returning()
     if (!session) throw new Error('session insert returned no row')
     matrixSessionId = session.id
@@ -158,7 +159,7 @@ describe('permission matrix (integration)', () => {
     // session, which the DB constraint above rules out).
     const [matrixMatchSession] = await pg.db
       .insert(sessions)
-      .values({ centerId, date: '2026-07-10', matchDurationSec: 300, status: 'closed', createdBy: managerId })
+      .values({ centerId, date: '2026-07-10', slug: generateSlug(), matchDurationSec: 300, status: 'closed', createdBy: managerId })
       .returning()
     if (!matrixMatchSession) throw new Error('session insert returned no row')
     const [matrixMatchField] = await pg.db.insert(fields).values({ sessionId: matrixMatchSession.id, centerId, name: 'מגרש', position: 0 }).returning()
@@ -335,20 +336,19 @@ describe('permission matrix (integration)', () => {
       route: 'POST /sessions',
       method: 'post',
       path: '/sessions',
-      // manager gets 409, not 201: beforeAll pre-seeds an active session so
-      // the PATCH/close rows below have a real id regardless of case order.
-      // This route's job in the matrix is proving RolesGuard gates it
-      // (staff -> 403, manager -> past the guard); the true 201 happy path
-      // is covered by test/sessions.int.test.ts.
+      // Open-fields pivot (docs/superpowers/specs/2026-07-16-open-fields-design.md):
+      // a center may have any number of concurrent active sessions, so the
+      // manager-role personas now succeed (201) instead of 409ing on
+      // beforeAll's pre-seeded matrixSessionId. This route's job in the
+      // matrix is still proving RolesGuard gates it (staff -> 403, everyone
+      // else -> past the guard).
       bodyFor: {
-        // manager-role fallback (anon/center) passes RolesGuard and reaches
-        // create, which 409s on the pre-seeded active session; staff -> 403.
         anonymous: () => ({ matchDurationSec: 300 }),
         centerOnly: () => ({ matchDurationSec: 300 }),
         staff: () => ({ matchDurationSec: 300 }),
         manager: () => ({ matchDurationSec: 300 }),
       },
-      expected: { anonymous: 409, centerOnly: 409, staff: 403, manager: 409 },
+      expected: { anonymous: 201, centerOnly: 201, staff: 403, manager: 201 },
     },
     {
       route: 'GET /sessions/active',

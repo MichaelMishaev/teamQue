@@ -59,6 +59,7 @@ export class SnapshotService {
     return {
       session: {
         id: session.id,
+        slug: session.slug,
         date: session.date,
         location: session.location,
         matchDurationSec: session.matchDurationSec,

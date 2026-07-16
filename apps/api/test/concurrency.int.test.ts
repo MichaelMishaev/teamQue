@@ -13,6 +13,7 @@ import request from 'supertest'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { AppModule } from '../src/app.module'
 import { captains, centers, fields, matches, queueEntries, sessions, staff } from '../src/db/schema'
+import { generateSlug } from '../src/fields/slug'
 import { centerCookieHeader, makeTestJwtService, sessionCookieHeader } from './helpers/auth-cookies'
 import { startTestPg, type TestPg } from './helpers/pg'
 
@@ -75,7 +76,7 @@ describe('concurrency (integration, N-9)', () => {
 
     const [session] = await pg.db
       .insert(sessions)
-      .values({ centerId: center.id, date: '2026-07-10', matchDurationSec: 300, status: 'active', createdBy: managerMember.id })
+      .values({ centerId: center.id, date: '2026-07-10', slug: generateSlug(), matchDurationSec: 300, status: 'active', createdBy: managerMember.id })
       .returning()
     if (!session) throw new Error('session insert returned no row')
 

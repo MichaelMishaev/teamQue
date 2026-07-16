@@ -14,6 +14,7 @@ import { activityEntrySchema, historyEntrySchema, sessionListItemSchema, session
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { AppModule } from '../src/app.module'
 import { captains, centers, fields, matches, sessions, staff } from '../src/db/schema'
+import { generateSlug } from '../src/fields/slug'
 import { centerCookieHeader, makeTestJwtService, sessionCookieHeader } from './helpers/auth-cookies'
 import { startTestPg, type TestPg } from './helpers/pg'
 
@@ -75,7 +76,7 @@ describe('reads (integration)', () => {
   async function seedSessionWithField(centerId: string, staffId: string, date = '2026-07-10'): Promise<{ sessionId: string; fieldId: string }> {
     const [session] = await pg.db
       .insert(sessions)
-      .values({ centerId, date, matchDurationSec: 300, status: 'active', createdBy: staffId })
+      .values({ centerId, date, slug: generateSlug(), matchDurationSec: 300, status: 'active', createdBy: staffId })
       .returning()
     if (!session) throw new Error('session insert returned no row')
     const [field] = await pg.db.insert(fields).values({ sessionId: session.id, centerId, name: 'מגרש', position: 0 }).returning()
