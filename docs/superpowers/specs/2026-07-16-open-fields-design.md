@@ -44,34 +44,39 @@ activity log, snapshot broadcast, socket room — is therefore already per-field
 
 - `sessions.slug` — `text`, NOT NULL, UNIQUE. URL-safe short code (6 chars, unambiguous
   alphabet, collision-retry on insert). Generated at create.
-- `sessions.lastActivityAt` — `timestamptz`, NOT NULL, default now. Touched by every
-  mutating service call on that session (same places that call `broadcast`).
+- `sessions.lastActivityAt` — `timestamptz`, NOT NULL, default now. Touched inside
+  `SessionEventsService.broadcast` (amended at planning: broadcast is the single
+  post-commit choke point every mutating service already calls, so the heartbeat needs
+  zero per-service changes; it is a heartbeat, not an audit record, so post-commit
+  timing is fine).
 - Display name: **no new column** — the child `fields.name` (already `text NOT NULL`)
   holds the name entered at creation; `sessions.location` stays unused.
 - `sessions.created_by` is currently `NOT NULL REFERENCES staff` — relax to nullable and
   add nullable `created_by_visitor_id uuid REFERENCES visitors`; visitor creates populate
   the new column.
 - **Drop `one_active_session` partial unique index** — many fields are open concurrently.
-- New table `visitors`: `id uuid PK`, `nickname text NOT NULL`, `createdAt`. Parallel to
-  `staff`, does not pollute staff semantics.
-- Attribution FKs (`matches.startedBy/endedBy`, `activity_log` actor, undo ownership):
-  add nullable `visitor_id` columns referencing `visitors` alongside the existing staff
-  columns; new writes populate the visitor column, staff columns stay for old data.
-  Snapshot/contract exposes a single `actorName` string either way.
-- `queue_entries`, `matches` timer fields, `fields`: **no changes**.
+- **Visitors are `staff` rows with `role: 'visitor'`** (amended at planning: the earlier
+  parallel-`visitors`-table idea would force nullable twin FK columns on matches/activity
+  and a new param through ~12 service signatures for the same user-visible result).
+  `staffRoleSchema` gains `'visitor'`; the row uses a non-hash `pinHash` sentinel so it
+  can never pass PIN login; roster endpoints filter `role <> 'visitor'`. Every existing
+  attribution FK, activity write, and history name join works unchanged.
+- `queue_entries`, `matches`, `fields`: **no changes at all**.
 
 ### 3.2 Identity & guards
 
 - First **mutation** attempt (not page load — spectators are never interrupted) opens a
-  bottom-sheet nickname prompt with an auto-generated suggestion ("אורח 42"); server
-  issues a long-lived signed httpOnly cookie `{visitorId, nickname}` and inserts the
-  `visitors` row.
-- A single `VisitorGuard` replaces `CenterGuard`/`StaffSessionGuard`/`RolesGuard` on all
-  routed endpoints: it requires the cookie for mutations (401 → client shows the nickname
-  sheet, retries) and is pass-through for reads.
-- PIN auth module, staff tables, lockout logic: **kept in the codebase, unrouted**
-  (controllers removed from module routing or feature-flagged off), so staff mode is
-  recoverable.
+  bottom-sheet nickname prompt with an auto-generated suggestion ("אורח 42"); `POST
+  /visitors` inserts the visitor staff row and sets the existing `qlm_session` httpOnly
+  cookie signed with a 365-day TTL and `role: 'visitor'`.
+- **No new guard** (amended at planning): `StaffSessionGuard` already verifies that
+  cookie shape unchanged and — since auth was opened in a prior change — already falls
+  back to the seeded manager for cookieless requests. The nickname sheet is enforced
+  client-side before the first mutation; the server keeps the fallback (no hard 401),
+  which also keeps the entire existing integration suite valid. `RolesGuard` decorators
+  come OFF the session open/update/close routes (the whole app is open).
+- PIN auth module, staff tables, lockout logic: **kept in the codebase**; the PIN login
+  UI is simply unreachable from the new screens, so staff mode is recoverable.
 
 ### 3.3 Lifecycle & expiry
 
