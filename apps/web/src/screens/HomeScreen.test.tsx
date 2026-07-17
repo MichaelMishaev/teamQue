@@ -53,6 +53,9 @@ describe('HomeScreen', () => {
     render(<HomeScreen />)
 
     expect(await screen.findByText(DEFAULT_NAME)).toBeDefined()
+    expect(screen.getByText(t('home.hero.title'))).toBeDefined()
+    expect(screen.getByText(t('home.hero.meta'))).toBeDefined()
+    expect(screen.getByRole('img', { name: t('home.hero.alt') })).toBeDefined()
     expect(mockNavigateToField).not.toHaveBeenCalled()
     expect(mockApiPost).not.toHaveBeenCalled()
   })

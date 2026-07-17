@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import youthCityNetanya from '@/assets/youth-city-netanya-summer-2026.webp'
 import { CourtRow } from '@/components/CourtRow'
 import { CreateCourtSheet } from '@/components/CreateCourtSheet'
 import { EmptyState } from '@/components/EmptyState'
@@ -137,6 +138,23 @@ export function HomeScreen() {
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col gap-3 p-4">
       <h1 className="text-[19px] font-bold text-ink">{t('home.title')}</h1>
+
+      <section className="relative aspect-[2/1] overflow-hidden rounded-xl border border-line bg-surface">
+        <img
+          src={youthCityNetanya}
+          alt={t('home.hero.alt')}
+          width={1200}
+          height={600}
+          decoding="async"
+          fetchPriority="high"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-bg/95 via-bg/15 to-transparent" aria-hidden="true" />
+        <div className="absolute inset-0 flex flex-col justify-end p-4">
+          <h2 className="text-[21px] font-bold text-ink">{t('home.hero.title')}</h2>
+          <p className="mt-0.5 text-[13px] font-semibold text-muted">{t('home.hero.meta')}</p>
+        </div>
+      </section>
 
       {defaultFailed && (
         <p role="alert" className="text-[13px] font-semibold text-warn">
