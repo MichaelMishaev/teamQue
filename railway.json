@@ -6,6 +6,7 @@
     "watchPatterns": ["/apps/api/**", "/apps/web/**"]
   },
   "deploy": {
-    "startCommand": "pnpm --filter api db:migrate && pnpm --filter api start"
+    "preDeployCommand": "pnpm --filter api db:migrate",
+    "startCommand": "pnpm --filter api start"
   }
 }
