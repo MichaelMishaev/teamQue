@@ -140,6 +140,7 @@
   "home.empty.title": "אין מגרשים פעילים",
   "home.empty.hint": "צרו מגרש כדי להתחיל לנהל תור",
   "home.court.inQueue": "בתור",
+  "home.court.open": "כניסה למגרש",
   "home.create.action": "צור מגרש חדש",
   "home.create.sheetTitle": "מגרש חדש",
   "home.create.nameLabel": "שם המגרש",
