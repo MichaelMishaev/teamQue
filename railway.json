@@ -4,5 +4,8 @@
     "builder": "DOCKERFILE",
     "dockerfilePath": "Dockerfile",
     "watchPatterns": ["/apps/api/**", "/apps/web/**"]
+  },
+  "deploy": {
+    "startCommand": "pnpm --filter api db:migrate && pnpm --filter api start"
   }
 }
