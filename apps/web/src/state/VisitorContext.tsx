@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { VisitorNicknameSheet } from '@/components/VisitorNicknameSheet'
 import { apiGet, apiPost } from '@/lib/api'
 import type { SessionActions } from '@/state/SessionActions'
 
@@ -7,8 +6,8 @@ import type { SessionActions } from '@/state/SessionActions'
  * Single responsibility: anonymous visitor identity (open-fields spec §3.2).
  * Resolves GET /visitors/me once on mount; `ensureVisitor()` is the gate
  * every mutation passes through — instant true when identified, otherwise
- * it opens the nickname sheet and settles with the outcome. Reads are
- * never gated (spectators are never interrupted).
+ * it auto-registers a suggested nickname (no UI). Reads are never gated
+ * (spectators are never interrupted).
  */
 type VisitorState = { nickname: string | null; ensureVisitor(): Promise<boolean> }
 
@@ -26,10 +25,8 @@ function suggestedNickname(): string {
 
 export function VisitorProvider({ children }: { children: ReactNode }) {
   const [nickname, setNickname] = useState<string | null>(null)
-  const [sheetOpen, setSheetOpen] = useState(false)
-  const [suggestion] = useState(suggestedNickname)
-  const pendingResolvers = useRef<Array<(ok: boolean) => void>>([])
   const nicknameRef = useRef<string | null>(null)
+  const registerPromiseRef = useRef<Promise<boolean> | null>(null)
   nicknameRef.current = nickname
 
   useEffect(() => {
@@ -39,7 +36,7 @@ export function VisitorProvider({ children }: { children: ReactNode }) {
         if (!cancelled) setNickname(me.nickname)
       })
       .catch(() => {
-        // No identity yet — the sheet appears on the first gated action.
+        // No identity yet — auto-register on the first gated action.
       })
     return () => {
       cancelled = true
@@ -48,33 +45,28 @@ export function VisitorProvider({ children }: { children: ReactNode }) {
 
   const ensureVisitor = useCallback((): Promise<boolean> => {
     if (nicknameRef.current !== null) return Promise.resolve(true)
-    return new Promise<boolean>((resolve) => {
-      pendingResolvers.current.push(resolve)
-      setSheetOpen(true)
+    if (registerPromiseRef.current !== null) return registerPromiseRef.current
+
+    const promise = apiPost<{ visitorId: string; nickname: string }>('/visitors', {
+      nickname: suggestedNickname(),
     })
+      .then((me) => {
+        setNickname(me.nickname)
+        return true
+      })
+      .catch(() => false)
+      .finally(() => {
+        registerPromiseRef.current = null
+      })
+
+    registerPromiseRef.current = promise
+    return promise
   }, [])
 
-  function settle(ok: boolean): void {
-    for (const resolve of pendingResolvers.current) resolve(ok)
-    pendingResolvers.current = []
-    setSheetOpen(false)
-  }
-
-  async function handleSubmit(name: string): Promise<void> {
-    const me = await apiPost<{ visitorId: string; nickname: string }>('/visitors', { nickname: name })
-    setNickname(me.nickname)
-    settle(true)
-  }
-
-  return (
-    <VisitorContext.Provider value={{ nickname, ensureVisitor }}>
-      {children}
-      <VisitorNicknameSheet open={sheetOpen} suggestion={suggestion} onSubmit={handleSubmit} onClose={() => settle(false)} />
-    </VisitorContext.Provider>
-  )
+  return <VisitorContext.Provider value={{ nickname, ensureVisitor }}>{children}</VisitorContext.Provider>
 }
 
-/** Identity dismissed mid-gate — surfaces as the generic action error. */
+/** Identity registration failed mid-gate — surfaces as the generic action error. */
 export class VisitorRequiredError extends Error {
   constructor() {
     super('visitor identity required')

@@ -5,7 +5,6 @@ import { SettingsScreen } from './SettingsScreen'
 import { AuthProvider } from '@/state/AuthContext'
 import { SessionActionsContext, type SessionActions } from '@/state/SessionActions'
 import { SnapshotContext, type SnapshotState } from '@/state/SnapshotContext'
-import { StaffDirectoryContext } from '@/state/StaffDirectoryContext'
 
 function actionsStub(overrides: Partial<SessionActions> = {}): SessionActions {
   return {
@@ -64,11 +63,9 @@ function renderSettings(role: 'manager' | 'staff' | 'visitor', snapshotState: Sn
   render(
     <SnapshotContext.Provider value={snapshotState}>
       <SessionActionsContext.Provider value={actions}>
-        <StaffDirectoryContext.Provider value={{ roster: [{ id: 's1', name: 'שרה', role: 'manager' }], login: vi.fn() }}>
-          <AuthProvider currentStaff={{ id: 's1', name: 'שרה', role }}>
-            <SettingsScreen />
-          </AuthProvider>
-        </StaffDirectoryContext.Provider>
+        <AuthProvider currentStaff={{ id: 's1', name: 'שרה', role }}>
+          <SettingsScreen />
+        </AuthProvider>
       </SessionActionsContext.Provider>
     </SnapshotContext.Provider>,
   )

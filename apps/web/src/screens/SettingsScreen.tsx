@@ -5,25 +5,23 @@ import { SessionSetupDialog } from '@/components/SessionSetupDialog'
 import { t } from '@/i18n'
 import { useSessionActions } from '@/state/SessionActions'
 import { useSnapshot } from '@/state/SnapshotContext'
-import { useStaffDirectory } from '@/state/StaffDirectoryContext'
 
 const WAKE_LOCK_STORAGE_KEY = 'queueManager.wakeLockEnabled'
 const MIN_MINUTES = 1
 const MAX_MINUTES = 60
 
 /**
- * Single responsibility: settings (client-prd §3.3, US-012/080) — active-session
- * duration stepper, soft-blocked + confirmed close, a StaffAdmin placeholder
- * list, and a wake-lock toggle stub. Reachable by any identity (staff or
- * visitor) — the open-fields model has no field owner, so there is no role
- * gate here. Closing a field is force-close under the open-fields pivot
- * (bypasses the legacy live-match 409) — an explicit confirm dialog, not just
- * the soft-disable, guards against a stray tap severing the field's link.
+ * Single responsibility: settings (client-prd §3.3, US-012) — active-session
+ * duration stepper, soft-blocked + confirmed close, and a wake-lock toggle
+ * stub. Reachable by any identity (staff or visitor) — the open-fields model
+ * has no field owner, so there is no role gate here. Closing a field is
+ * force-close under the open-fields pivot (bypasses the legacy live-match
+ * 409) — an explicit confirm dialog, not just the soft-disable, guards
+ * against a stray tap severing the field's link.
  */
 export function SettingsScreen() {
   const { snapshot } = useSnapshot()
   const actions = useSessionActions()
-  const { roster } = useStaffDirectory()
   const [setupOpen, setSetupOpen] = useState(false)
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -90,32 +88,6 @@ export function SettingsScreen() {
             {t('empty.noSession.cta')}
           </Button>
         )}
-      </section>
-
-      <section className="flex flex-col gap-2">
-        <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">{t('settings.staff.title')}</h2>
-        <div className="rounded-xl border border-line bg-surface">
-          {roster.map((s) => (
-            <div key={s.id} className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5 last:border-b-0">
-              <span className="text-[14px] font-semibold">{s.name}</span>
-              <span className="text-[12.5px] text-muted">{s.role === 'manager' ? t('settings.staff.roleManager') : t('settings.staff.roleStaff')}</span>
-              <Button
-                onClick={() => {
-                  // TODO: wire to a real deactivate-staff endpoint once apps/api ships staff management (US-080).
-                }}
-              >
-                {t('settings.staff.deactivate')}
-              </Button>
-            </div>
-          ))}
-        </div>
-        <Button
-          onClick={() => {
-            // TODO: wire to a real add-staff flow (name/role/PIN) once apps/api ships staff management (US-080).
-          }}
-        >
-          {t('settings.staff.add')}
-        </Button>
       </section>
 
       <section className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-3">

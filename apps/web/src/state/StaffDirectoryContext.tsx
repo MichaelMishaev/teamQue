@@ -3,7 +3,7 @@ import type { CurrentStaff } from '@/state/AuthContext'
 
 /**
  * Single responsibility: the staff roster + PIN-login used by the SwitchUser
- * overlay (client-prd §3.4, US-003) and SettingsScreen's StaffAdmin list.
+ * overlay (client-prd §3.4, US-003).
  * Distinct from SessionActions (session mutations) — this is identity, not
  * queue state. Demo mode backs it with the mock roster; real mode is a
  * placeholder (empty roster, login rejects) until `/staff` + `/auth/login`

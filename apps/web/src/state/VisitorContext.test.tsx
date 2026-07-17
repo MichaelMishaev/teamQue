@@ -1,7 +1,6 @@
-import { act, fireEvent, renderHook, screen, waitFor } from '@testing-library/react'
+import { act, renderHook, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiGet, apiPost, ApiRequestError } from '@/lib/api'
-import { t } from '@/i18n'
 import type { SessionActions } from '@/state/SessionActions'
 import { gateActions, useVisitor, VisitorProvider } from './VisitorContext'
 
@@ -55,21 +54,18 @@ describe('VisitorContext', () => {
     await expect(result.current.ensureVisitor()).resolves.toBe(true)
   })
 
-  it('opens the sheet when no identity; submitting a nickname POSTs and resolves true', async () => {
+  it('auto-registers a suggested nickname when no identity — no popup', async () => {
     mockApiGet.mockRejectedValueOnce(new ApiRequestError('NOT_FOUND', 'none'))
-    mockApiPost.mockResolvedValueOnce({ visitorId: 'v2', nickname: 'אורח 7' })
+    mockApiPost.mockResolvedValueOnce({ visitorId: 'v2', nickname: 'אורח 42' })
     const { result } = renderVisitorHook()
-    let resolved: boolean | null = null
-    act(() => {
-      void result.current.ensureVisitor().then((ok) => {
-        resolved = ok
-      })
+    await act(async () => {
+      await expect(result.current.ensureVisitor()).resolves.toBe(true)
     })
-    const input = await screen.findByRole('textbox')
-    fireEvent.change(input, { target: { value: 'אורח 7' } })
-    fireEvent.click(screen.getByRole('button', { name: t('visitor.sheet.confirm') }))
-    await waitFor(() => expect(resolved).toBe(true))
-    expect(mockApiPost).toHaveBeenCalledWith('/visitors', { nickname: 'אורח 7' })
+    expect(mockApiPost).toHaveBeenCalledWith('/visitors', {
+      nickname: expect.stringMatching(/^אורח \d+$/),
+    })
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('gateActions calls ensureVisitor before a mutation and skips it for searchTeams', async () => {
@@ -83,7 +79,7 @@ describe('VisitorContext', () => {
     expect(ensure).toHaveBeenCalledTimes(1)
   })
 
-  it('gateActions rejects without calling the API when the sheet is dismissed', async () => {
+  it('gateActions rejects without calling the API when ensureVisitor returns false', async () => {
     const ensure = vi.fn().mockResolvedValue(false)
     const inner = fakeSessionActions()
     const gated = gateActions(inner, ensure)
