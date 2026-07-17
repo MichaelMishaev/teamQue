@@ -121,6 +121,29 @@ describe('matches (integration)', () => {
       expect(logRow).toMatchObject({ centerId, sessionId, staffId })
     })
 
+    it('denormalizes both captain names into the match.started activity afterJson', async () => {
+      const { centerId, staffId, staffCookies } = await seedCenter()
+      const { sessionId } = await seedSessionWithField(centerId, staffId, 300)
+      const a = await seedCaptain(centerId, 'קפטן א')
+      const b = await seedCaptain(centerId, 'קפטן ב')
+      await seedQueueEntry(sessionId, centerId, a, 1)
+      await seedQueueEntry(sessionId, centerId, b, 2)
+
+      const res = await request(app.getHttpServer()).post(`/sessions/${sessionId}/start`).set('Cookie', staffCookies).send({})
+      expect(res.status).toBe(201)
+
+      const [logRow] = await pg.db
+        .select()
+        .from(activityLog)
+        .where(and(eq(activityLog.entityId, res.body.id), eq(activityLog.action, 'match.started')))
+      if (!logRow) throw new Error('activity log row not found')
+
+      const afterJson = logRow.afterJson as { captainAId: string; captainBId: string; captainAName: string; captainBName: string }
+      const nameById: Record<string, string> = { [a]: 'קפטן א', [b]: 'קפטן ב' }
+      expect(afterJson.captainAName).toBe(nameById[afterJson.captainAId])
+      expect(afterJson.captainBName).toBe(nameById[afterJson.captainBId])
+    })
+
     it('an explicit entryIds pair starts those two specifically', async () => {
       const { centerId, staffId, staffCookies } = await seedCenter()
       const { sessionId } = await seedSessionWithField(centerId, staffId)

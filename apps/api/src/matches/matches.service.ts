@@ -104,6 +104,13 @@ export class MatchesService {
       }
       if (!matchRow) throw new Error('match insert returned no row')
 
+      const captainRows = await tx
+        .select({ id: captains.id, name: captains.name })
+        .from(captains)
+        .where(inArray(captains.id, [matchRow.captainAId, matchRow.captainBId]))
+      const captainAName = captainRows.find((c) => c.id === matchRow.captainAId)?.name ?? null
+      const captainBName = captainRows.find((c) => c.id === matchRow.captainBId)?.name ?? null
+
       await this.activity.write(tx, {
         centerId,
         sessionId,
@@ -111,7 +118,7 @@ export class MatchesService {
         action: 'match.started',
         entityType: 'match',
         entityId: matchRow.id,
-        afterJson: matchRow,
+        afterJson: { ...matchRow, captainAName, captainBName },
       })
 
       return buildMatchView(tx, matchRow)
