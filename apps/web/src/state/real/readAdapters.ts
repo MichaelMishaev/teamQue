@@ -52,6 +52,12 @@ const ACTION_MAP: Record<string, ActivityAction> = {
   undo: 'match.undo',
 }
 
+function stringField(json: unknown, key: string): string | undefined {
+  if (typeof json !== 'object' || json === null) return undefined
+  const value = Reflect.get(json, key)
+  return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
 /**
  * The API's activity endpoint returns the raw activity_log row (staffId +
  * createdAt, no names). Resolve the staff name from the roster; a null staffId
@@ -69,7 +75,17 @@ export function toActivityEntry(a: WireActivityEntry, resolveStaffName: (staffId
         : 'match.finish.manual'
       : (ACTION_MAP[a.action] ?? 'team.update')
 
-  return { id: a.id, atIso: a.createdAt, action, staffName }
+  const captainA = action === 'match.start' ? stringField(a.afterJson, 'captainAName') : undefined
+  const captainB = action === 'match.start' ? stringField(a.afterJson, 'captainBName') : undefined
+
+  return {
+    id: a.id,
+    atIso: a.createdAt,
+    action,
+    staffName,
+    ...(captainA !== undefined ? { captainA } : {}),
+    ...(captainB !== undefined ? { captainB } : {}),
+  }
 }
 
 export function toCaptainProfile(c: CaptainSearchResult): CaptainProfile {

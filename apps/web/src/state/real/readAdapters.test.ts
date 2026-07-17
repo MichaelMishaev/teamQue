@@ -88,6 +88,36 @@ describe('toActivityEntry', () => {
     const e = toActivityEntry({ ...base, action: serverAction, staffId: 'staff-1' } as WireActivityEntry, resolve)
     expect(e.action).toBe(webAction)
   })
+
+  it('extracts both captain names from afterJson for match.started', () => {
+    const e = toActivityEntry({
+      ...base,
+      action: 'match.started',
+      staffId: 'staff-1',
+      afterJson: { captainAId: 'a', captainAName: 'קפטן א', captainBId: 'b', captainBName: 'קפטן ב' },
+    } as WireActivityEntry, resolve)
+    expect(e.action).toBe('match.start')
+    expect(e.captainA).toBe('קפטן א')
+    expect(e.captainB).toBe('קפטן ב')
+  })
+
+  it('omits captain names for match.started when afterJson is malformed, without throwing', () => {
+    const e = toActivityEntry({ ...base, action: 'match.started', staffId: 'staff-1', afterJson: null } as WireActivityEntry, resolve)
+    expect(e.action).toBe('match.start')
+    expect(e.captainA).toBeUndefined()
+    expect(e.captainB).toBeUndefined()
+  })
+
+  it('does not extract captain names for actions other than match.started', () => {
+    const e = toActivityEntry({
+      ...base,
+      action: 'line.added',
+      staffId: 'staff-1',
+      afterJson: { captainAName: 'קפטן א', captainBName: 'קפטן ב' },
+    } as WireActivityEntry, resolve)
+    expect(e.captainA).toBeUndefined()
+    expect(e.captainB).toBeUndefined()
+  })
 })
 
 describe('toCaptainProfile', () => {
