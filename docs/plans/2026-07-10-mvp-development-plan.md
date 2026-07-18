@@ -148,11 +148,13 @@ Tasks:
 - [ ] Socket client + TanStack Query snapshot cache + clock-offset hook (TDD the offset/reconnect logic)
 - [ ] Auth screens composed from `PinPad`/`StaffPicker` against real API
 - [ ] App shell: top bar (user chip, clock, tabs), `ConnectivityBanner` wired to socket state
+- [ ] App shell navigation: URL-backed top-level destinations; Android/browser Back returns secondary screens directly to Main without remounting the field (US-074)
 - [ ] Countdown hook: 1s tick + `visibilitychange` recompute (TDD with fake timers)
 - [ ] Showcase `App.tsx` moves to `/dev-kit` route (kept as living style guide)
 
 ### 🛑 QA GATE 5
 - [ ] `auto` — component/unit suites green incl. offset + countdown hooks (wake from lock simulated via visibilitychange event)
+- [ ] `auto` — navigation regression: History/Activity/Settings use one managed history entry; Back returns to Main and Forward restores the last destination (US-074)
 - [ ] `auto` — Playwright: US-001/002/003 (unlock, login, switch user <5s) at 375×812
 - [ ] `manual` — real phone (installable later, browser now): login on 2 devices, watch clock + connectivity banner on airplane-mode toggle; countdown correct within 1s after wake
 - [ ] `evidence` — screen recording of the airplane-mode reconnect
@@ -213,6 +215,7 @@ Tasks:
 - [ ] `auto` — Lighthouse CI (simulated 4G, moto-class): LCP ≤2.5s, INP ≤200ms, CLS ≤0.1; PWA installable
 - [ ] `auto` — `pnpm audit` no high/critical
 - [ ] `manual` — install to home screen on iOS Safari + Android Chrome; standalone launch; lock phone 3 min during live match → wake shows correct time ±1s; SW update toast appears on redeploy
+- [ ] `manual` — on installed Android PWA, switch History → Activity → Settings; one system Back returns directly to Main in the same field, Forward restores Settings, and Back from Main remains native (US-074)
 - [ ] `evidence` — Lighthouse report JSON + install screenshots both platforms
 - Gate closed: ____
 

@@ -76,7 +76,15 @@ Single scrollable column, portrait-locked. **MVP shows exactly one field card** 
 
 Selected-captain chips show games-today inline so fairness is visible at the exact decision moment (product PRD §13).
 
-### 3.3 Secondary screens (tabs from top bar)
+### 3.3 Top-level field destinations
+
+The persistent top tab rail exposes Main, History, Activity, and Settings. Main
+uses the canonical `/f/:slug` URL; secondary destinations use
+`?tab=history|activity|settings` so reload, Back, and Forward preserve orientation.
+One Android/browser Back from any secondary destination returns directly to Main
+in the same field. Back from Main remains native and ungated. The mobile bottom
+edge stays reserved for `QuickAddBar` on Main so navigation never competes with
+the primary live-queue action.
 
 - **History** — session picker (default tonight) → **session summary header** (matches, unique captains, total play time, first→last, top captains, extensions, manual/auto finishes — US-073) above the finished match list: captains, field, 18:42→18:48, planned/actual, auto/manual, started-by/ended-by. Read-only, searchable by captain. The same summary is shown to the manager on session close.
 - **Activity** — chronological staff log feed (US-072), auto-updating.
@@ -146,7 +154,7 @@ Dialogs allowed **only** for: session open/close setup, settings, staff manageme
 
 ## 11. Component Inventory (build order)
 
-1. `AppShell` (top bar, tabs, offline banner)
+1. `AppShell` (top bar, URL-backed tabs, Back/Forward restoration, offline banner)
 2. `PinPad` (center unlock + staff login share it)
 3. `StaffPicker`
 4. `FieldCard` (+ `CountdownTimer`, `MatchControls`)

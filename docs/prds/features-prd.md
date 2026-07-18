@@ -175,6 +175,12 @@ State machine (single source of truth, technical-prd §7): `queued → live → 
 - **Given** the manager closes a session (or opens any past session in History), **Then** a summary report shows: total matches played, unique captains, total play time, first→last match times, average actual match duration, top captains by games, extensions count, manual vs automatic finishes.
 - All values derive from stored match history — nothing new is written; the report is a read view (`GET /sessions/:id/summary`).
 
+### US-074 — Top-level navigation and system Back
+- **Given** staff are on History, Activity, or Settings inside `/f/:slug`, **When** they press Android/browser Back, **Then** Main becomes active in the same field without a full reload.
+- **Given** staff switch across multiple secondary destinations, **When** they press Back once, **Then** they return directly to Main rather than replaying each tab tap.
+- **Given** Main is active, **When** staff press Back, **Then** normal system/browser behavior continues; the app does not trap or confirm exit.
+- **Given** Back returned from a secondary destination to Main, **When** staff press Forward, **Then** the last secondary destination is restored.
+
 ---
 
 ## 10. Staff Management (F13)
