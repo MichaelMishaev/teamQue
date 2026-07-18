@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { ConnectivityBanner } from '@/components/ConnectivityBanner'
 import { InstallAppButton } from '@/components/InstallAppButton'
 import { IntroSplash } from '@/components/IntroSplash'
 import { showStatusToast, UndoToaster } from '@/components/UndoToast'
+import { useAppTabNavigation } from '@/hooks/useAppTabNavigation'
 import { ActivityFeed } from '@/screens/ActivityFeed'
 import { ClosedFieldScreen } from '@/screens/ClosedFieldScreen'
 import { HistoryScreen } from '@/screens/HistoryScreen'
@@ -10,6 +11,7 @@ import { MainScreen } from '@/screens/MainScreen'
 import { SettingsScreen } from '@/screens/SettingsScreen'
 import { SwitchUser } from '@/screens/SwitchUser'
 import { t, type MessageKey } from '@/i18n'
+import { APP_TABS, type AppTab } from '@/lib/app-tab-route'
 import { cn } from '@/lib/cn'
 import { fieldUrl } from '@/lib/route'
 import { formatTimeOfDay } from '@/lib/time'
@@ -19,20 +21,23 @@ import { useSnapshot } from '@/state/SnapshotContext'
  * Single responsibility: the app shell — top bar (user chip, tabs, clock,
  * ConnectivityBanner) shared by every tab, plus the SwitchUser overlay and
  * the global UndoToaster (client-prd §3.1). Which screen renders per tab is
- * the only thing that changes below the header.
+ * the only thing that changes below the header. useAppTabNavigation owns the
+ * URL-backed destination and one-entry Android/browser Back contract (US-074).
  */
-type Tab = 'main' | 'history' | 'activity' | 'settings'
+const TAB_LABEL_KEYS = {
+  main: 'tabs.main',
+  history: 'tabs.history',
+  activity: 'tabs.activity',
+  settings: 'tabs.settings',
+} satisfies Record<AppTab, MessageKey>
 
-const TABS: { id: Tab; labelKey: MessageKey }[] = [
-  { id: 'main', labelKey: 'tabs.main' },
-  { id: 'history', labelKey: 'tabs.history' },
-  { id: 'activity', labelKey: 'tabs.activity' },
-  { id: 'settings', labelKey: 'tabs.settings' },
-]
+function isUnmodifiedPrimaryClick(event: ReactMouseEvent<HTMLAnchorElement>): boolean {
+  return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey
+}
 
 export default function App({ slug = '' }: { slug?: string }) {
   const { snapshot, connection, offsetMs } = useSnapshot()
-  const [tab, setTab] = useState<Tab>('main')
+  const { tab, hrefFor, selectTab } = useAppTabNavigation()
   const [switchUserOpen, setSwitchUserOpen] = useState(false)
   const [nowMs, setNowMs] = useState(() => Date.now())
 
@@ -62,19 +67,24 @@ export default function App({ slug = '' }: { slug?: string }) {
       <IntroSplash />
       <header className="sticky top-0 z-20 flex flex-col gap-2 border-b border-line bg-bg/95 p-3 backdrop-blur">
         <div className="flex items-center justify-between gap-2">
-          <nav className="flex items-center gap-1">
-            {TABS.map(({ id, labelKey }) => (
-              <button
+          <nav aria-label={t('tabs.navigationLabel')} className="flex items-center gap-1">
+            {APP_TABS.map((id) => (
+              <a
                 key={id}
-                type="button"
-                onClick={() => setTab(id)}
+                href={hrefFor(id)}
+                aria-current={tab === id ? 'page' : undefined}
+                onClick={(event) => {
+                  if (!isUnmodifiedPrimaryClick(event)) return
+                  event.preventDefault()
+                  selectTab(id)
+                }}
                 className={cn(
-                  'min-h-[var(--touch-target-min)] rounded-lg px-2.5 text-[13px] font-semibold',
-                  tab === id ? 'bg-accent-dim text-accent' : 'text-muted',
+                  'inline-flex min-h-[var(--touch-target-min)] items-center rounded-lg px-2.5 text-[13px] no-underline',
+                  tab === id ? 'bg-accent-dim font-bold text-accent' : 'font-semibold text-muted',
                 )}
               >
-                {t(labelKey)}
-              </button>
+                {t(TAB_LABEL_KEYS[id])}
+              </a>
             ))}
           </nav>
           <div className="flex items-center gap-1.5">

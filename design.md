@@ -89,6 +89,14 @@ Semantic state colors are not decoration; `accent` doubles as the single brand h
 - **Motion:** 150–200ms, none decorative during live operation; everything honors `prefers-reduced-motion`.
 - **Focus:** `:focus-visible` ring (2px accent, 2px offset) on every interactive element.
 
+### Top-level navigation and Back
+
+- Main is the field start destination (`/f/:slug`); History, Activity, and Settings are restorable URL-backed destinations.
+- One Android/browser Back from any secondary destination returns directly to Main in the same field. Back from Main stays native and is never gated by an exit popup.
+- Switching among secondary destinations replaces their one managed history entry instead of creating a long Back chain. Forward restores the last secondary destination.
+- The active destination is persistent, uses more than color alone, and exposes `aria-current="page"`.
+- Tabs remain in the top rail because the mobile bottom edge belongs to `QuickAddBar`; when navigation and the line compete for space, the line wins.
+
 ## 5. Component inventory (shared)
 
 | Component | File | States/variants |
