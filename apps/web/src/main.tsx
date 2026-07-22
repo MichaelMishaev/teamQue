@@ -4,6 +4,7 @@ import App from './App'
 import './index.css'
 import { AppGate } from '@/screens/AppGate'
 import { HomeScreen } from '@/screens/HomeScreen'
+import { PublicLineScreen } from '@/screens/PublicLineScreen'
 import { parseRoute } from '@/lib/route'
 import { DemoProviders } from '@/state/mock/DemoProviders'
 import { RealProviders } from '@/state/real/RealProviders'
@@ -23,6 +24,9 @@ const isDemo = import.meta.env.VITE_DEMO === '1'
 const route = parseRoute(window.location.pathname)
 
 export function Root() {
+  // The QR/player route must stay read-only even when local development uses
+  // VITE_DEMO=1: it owns its own GET + socket state and mounts no action stack.
+  if (route.kind === 'line') return <PublicLineScreen />
   if (isDemo) {
     return (
       <DemoProviders>

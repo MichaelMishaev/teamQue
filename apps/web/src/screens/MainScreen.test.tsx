@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { SessionSnapshot } from 'shared'
 import { MainScreen } from './MainScreen'
 import { showStatusToast } from '@/components/UndoToast'
+import { t } from '@/i18n'
 import { AuthProvider } from '@/state/AuthContext'
 import { SessionActionsContext, type SessionActions } from '@/state/SessionActions'
 import { SnapshotContext, type SnapshotState } from '@/state/SnapshotContext'
@@ -74,6 +75,24 @@ describe('MainScreen — no snapshot (bad or closed field link)', () => {
 })
 
 describe('MainScreen — active session, field free', () => {
+  it('opens the public player view in a separate tab from Main', () => {
+    const snapshot = activeSnapshot({
+      fields: [{ id: 'f1', name: t('home.create.nameDefault'), position: 0, liveMatch: null }],
+    })
+    renderMain({ snapshot, connection: 'online', offsetMs: 0 }, 'manager')
+
+    const link = screen.getByRole('link', { name: 'פתיחת תצוגת שחקנים בחלון חדש' })
+    expect(link.getAttribute('href')).toBe('/line')
+    expect(link.getAttribute('target')).toBe('_blank')
+    expect(link.getAttribute('rel')).toContain('noopener')
+  })
+
+  it('does not offer the fixed Independence Square player view from another field', () => {
+    renderMain({ snapshot: activeSnapshot(), connection: 'online', offsetMs: 0 }, 'manager')
+
+    expect(screen.queryByRole('link', { name: 'פתיחת תצוגת שחקנים בחלון חדש' })).toBeNull()
+  })
+
   it('disables start with a reason when the line has fewer than two teams', () => {
     const snapshot = activeSnapshot({ queue: [{ id: 'e1', position: 1, team: team('ca', 'יוסי') }] })
     renderMain({ snapshot, connection: 'online', offsetMs: 0 }, 'staff')

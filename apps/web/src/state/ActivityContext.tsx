@@ -25,6 +25,8 @@ export type ActivityAction =
   | 'field.open'
   | 'field.close'
   | 'field.expire'
+  | 'publicLine.viewed'
+  | 'publicLine.visitEnded'
 
 export interface ActivityEntry {
   id: string

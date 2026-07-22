@@ -135,9 +135,38 @@ export function HomeScreen() {
     )
   }
 
+  const hasPublicPlayerView = courts.some((court) => court.name === t('home.create.nameDefault'))
+
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col gap-3 p-4">
-      <h1 className="text-[19px] font-bold text-ink">{t('home.title')}</h1>
+      <header className="flex min-h-[var(--touch-target-min)] items-center justify-between gap-3">
+        <h1 className="text-[19px] font-bold text-ink">{t('home.title')}</h1>
+        {hasPublicPlayerView && (
+          <a
+            href="/line"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={t('publicLine.openPlayerView.newWindow')}
+            title={t('publicLine.openPlayerView.newWindow')}
+            className="inline-flex min-h-[var(--touch-target-min)] shrink-0 items-center gap-1.5 rounded-lg border border-accent bg-accent-dim px-3 text-[12.5px] font-bold text-accent no-underline transition-colors hover:bg-surface-2 active:bg-surface"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              className="h-4 w-4 shrink-0"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+              <circle cx="12" cy="12" r="2.5" />
+            </svg>
+            <span>{t('publicLine.openPlayerView')}</span>
+          </a>
+        )}
+      </header>
 
       <section className="relative aspect-[2/1] overflow-hidden rounded-xl border border-line bg-surface">
         <img
