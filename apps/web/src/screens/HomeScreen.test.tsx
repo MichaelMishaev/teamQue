@@ -56,6 +56,10 @@ describe('HomeScreen', () => {
     expect(screen.getByText(t('home.hero.title'))).toBeDefined()
     expect(screen.getByText(t('home.hero.meta'))).toBeDefined()
     expect(screen.getByRole('img', { name: t('home.hero.alt') })).toBeDefined()
+    const playerView = screen.getByRole('link', { name: t('publicLine.openPlayerView.newWindow') })
+    expect(playerView.getAttribute('href')).toBe('/line')
+    expect(playerView.getAttribute('target')).toBe('_blank')
+    expect(playerView.getAttribute('rel')).toContain('noopener')
     expect(mockNavigateToField).not.toHaveBeenCalled()
     expect(mockApiPost).not.toHaveBeenCalled()
   })
@@ -134,6 +138,7 @@ describe('HomeScreen', () => {
 
     expect(await screen.findByText('מגרש 2')).toBeDefined()
     expect(screen.getByText(t('home.default.error'))).toBeDefined()
+    expect(screen.queryByRole('link', { name: t('publicLine.openPlayerView.newWindow') })).toBeNull()
   })
 
   it('shows an error when the court list fails to load', async () => {
