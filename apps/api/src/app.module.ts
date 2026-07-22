@@ -12,6 +12,7 @@ import { DbModule } from './db/db.module'
 import { FieldsModule } from './fields/fields.module'
 import { HealthController } from './health/health.controller'
 import { MatchesModule } from './matches/matches.module'
+import { PublicLinePageController } from './public-line-page.controller'
 import { QueueModule } from './queue/queue.module'
 import { ReadsModule } from './reads/reads.module'
 import { RealtimeModule } from './realtime/realtime.module'
@@ -57,7 +58,7 @@ import { VisitorsModule } from './visitors/visitors.module'
     VisitorsModule,
     FieldsModule,
   ],
-  controllers: [HealthController],
+  controllers: [HealthController, PublicLinePageController],
   providers: [{ provide: APP_FILTER, useClass: HttpExceptionFilter }],
 })
 export class AppModule {}
