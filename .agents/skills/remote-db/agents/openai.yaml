@@ -1,0 +1,4 @@
+interface:
+  display_name: "Production Database"
+  short_description: "Safely inspect the live Railway database"
+  default_prompt: "Use $remote-db to inspect production safely in read-only mode."

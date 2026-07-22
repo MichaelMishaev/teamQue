@@ -79,7 +79,7 @@ Semantic state colors are not decoration; `accent` doubles as the single brand h
 2. Logical properties only: `ms-*/me-*/ps-*/pe-*`, `start/end`. `ml/mr/left/right` are forbidden (CI grep).
 3. Times, countdowns, score-like numbers render LTR inside RTL text: wrap in `<bdi>` or `dir="ltr"`.
 4. Directional icons (chevrons/arrows) flip with `rtl:` variants or use direction-neutral glyphs.
-5. Every user-facing string comes from `src/i18n/he.json` via `t()` — hardcoded Hebrew in JSX is a CI error (devRules N-13).
+5. Every user-facing string comes from `src/i18n/he.json` via `t()` — hardcoded Hebrew in JSX is a CI error (devRules → Data & correctness).
 
 ## 4. Interaction rules
 

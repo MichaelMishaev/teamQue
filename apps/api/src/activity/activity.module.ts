@@ -6,13 +6,14 @@ import { Module } from '@nestjs/common'
 import { ThrottlerGuard } from '@nestjs/throttler'
 import { AuthModule } from '../auth/auth.module'
 import { ActivityWriter } from './activity.writer'
+import { ExceptionActivityWriter } from './exception-activity.writer'
 import { PublicLineTelemetryController } from './public-line-telemetry.controller'
 import { PublicLineTelemetryWriter } from './public-line-telemetry.writer'
 
 @Module({
   imports: [AuthModule],
   controllers: [PublicLineTelemetryController],
-  providers: [ActivityWriter, PublicLineTelemetryWriter, ThrottlerGuard],
-  exports: [ActivityWriter],
+  providers: [ActivityWriter, ExceptionActivityWriter, PublicLineTelemetryWriter, ThrottlerGuard],
+  exports: [ActivityWriter, ExceptionActivityWriter],
 })
 export class ActivityModule {}

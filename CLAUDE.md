@@ -54,9 +54,26 @@ pnpm monorepo, three packages, strict build order (`shared` → `web`/`api`, sin
 
 **Auth is open (no PIN gate) at the HTTP boundary**: `GET /auth/me` always resolves to a real identity (seeded manager by default, or whoever was picked via `SwitchUser`). `apps/web/src/screens/AppGate.tsx` blocks briefly on that call, then mounts `RealProviders` under `AuthProvider`. Setting `VITE_DEMO=1` skips the API entirely and mounts `DemoProviders`/`mockSession.ts` (in-memory, switchable via `SwitchUser`) — useful for UI work with no backend running. Guards for privileged endpoints (manager-only routes, staff PIN auth for local actions) live in `apps/api/src/auth/guards/`.
 
-## Hard rules (from devRules.md as adapted in technical-prd §12)
+## Critical paths (devRules tier classification)
 
-- **TDD**: failing test first for all domain logic and new components. A failing test is frozen — fix the implementation, never the test.
+A diff touching **any** of these globs makes the **whole change critical** — reviewer-authored frozen test, Codex adversarial gate, N-parallel race tests. Unsure → critical.
+
+```
+apps/api/src/queue/**        # races — position renumbering under the per-session advisory lock
+apps/api/src/matches/**      # races — kickoff pairs two queue_entries into one match, exactly-one-wins
+apps/api/src/actions/**      # irreversible — undo/replay state transitions
+apps/api/src/auth/**         # auth — guards, manager-only routes, staff PIN
+apps/api/src/db/schema.ts    # irreversible — schema
+apps/api/drizzle/**          # irreversible — migrations
+```
+
+Everything else is **standard** (the fast path): `apps/web/**`, `packages/shared/**`, and the remaining api modules (`staff`, `captains`, `sessions`, `activity`, `reads`, `realtime`).
+
+Not critical here, deliberately: **money** (no billing surface exists) and **data isolation** (single center / single field at MVP — the multi-center schema is ready but carries no live tenant wall). Both flip to critical the day they gain a real surface.
+
+## Hard rules (baseline `~/Desktop/devRules.md`; project additions in technical-prd §12)
+
+- **Tests**: a failing test is frozen — fix the implementation, never the test. Every bug gets a regression test before it's closed. Standard paths: test what's worth testing, no test-first mandate, no coverage gates. Critical paths (above): failing test first, authored by Codex, plus N-parallel concurrent-attempt tests on any line mutation.
 - **TypeScript max-strict**: no `any`, no non-null `!`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`.
 - **i18n**: zero hardcoded user-facing strings — everything through `apps/web/src/i18n/he.json` + typed `t()`. Missing key = compile error.
 - **RTL**: logical properties only (`ms-*/me-*/ps-*/pe-*`, `start/end`); `ml/mr/left/right` are forbidden. Times/numbers LTR-isolated (`<bdi>`/`dir="ltr"`) with `tabular-nums`.

@@ -7,7 +7,17 @@
  */
 import { Controller, Get, Inject, Param, Query, Req, UseGuards } from '@nestjs/common'
 import { z } from 'zod'
-import { sessionIdSchema, type ActivityEntry, type HistoryEntry, type SessionListItem, type SessionSummary } from 'shared'
+import {
+  activityEventKindSchema,
+  activityOutcomeSchema,
+  sessionIdSchema,
+  staffIdSchema,
+  type ActivityEntry,
+  type ActivityLogPage,
+  type HistoryEntry,
+  type SessionListItem,
+  type SessionSummary,
+} from 'shared'
 import { StaffSessionGuard } from '../auth/guards/staff-session.guard'
 import type { StaffAuthenticatedRequest } from '../auth/request.types'
 import { ZodValidationPipe } from '../common/zod.pipe'
@@ -18,6 +28,25 @@ const activityQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(200).optional(),
 })
 
+const activityLogQuerySchema = z
+  .object({
+    sessionId: sessionIdSchema.optional(),
+    eventKind: activityEventKindSchema.optional(),
+    outcome: activityOutcomeSchema.optional(),
+    action: z.string().min(1).max(160).optional(),
+    staffId: staffIdSchema.optional(),
+    statusCode: z.coerce.number().int().min(400).max(599).optional(),
+    from: z.iso.datetime().optional(),
+    to: z.iso.datetime().optional(),
+    cursor: z.string().min(1).max(500).optional(),
+    limit: z.coerce.number().int().min(1).max(100).optional(),
+  })
+  .refine((query) => !query.from || !query.to || query.from <= query.to, {
+    message: 'from must be before or equal to to',
+  })
+
+type ActivityLogQuery = z.infer<typeof activityLogQuerySchema>
+
 const sessionsListQuerySchema = z.object({
   from: z.iso.date().optional(),
   to: z.iso.date().optional(),
@@ -27,6 +56,14 @@ const sessionsListQuerySchema = z.object({
 @UseGuards(StaffSessionGuard)
 export class ActivityController {
   constructor(@Inject(ReadsService) private readonly readsService: ReadsService) {}
+
+  @Get('log')
+  async fullLog(
+    @Req() req: StaffAuthenticatedRequest,
+    @Query(new ZodValidationPipe(activityLogQuerySchema)) query: ActivityLogQuery,
+  ): Promise<ActivityLogPage> {
+    return this.readsService.activityLogPage(req.centerId, query)
+  }
 
   @Get()
   async list(

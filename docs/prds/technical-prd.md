@@ -317,22 +317,41 @@ Undoable actions: cancel/remove from queue, manual finish (within 30s), reorder.
 
 WebSockets are natively supported on Railway; no special config beyond sticky sessions being unnecessary (single api instance).
 
-## 12. Dev Rules — Adaptation for This App
+## 12. Dev Rules — This App
 
-Baseline: `devRules.md`. Applied verbatim unless listed here.
+Baseline: `~/Desktop/devRules.md`, applied as written. It is deliberately small; this section
+does not override it, it only adds what a generic baseline cannot know about this app.
 
-| Rule | Adaptation | Why |
-|---|---|---|
-| R-10 (depend on abstractions/DI) | Applied only where a second implementation is plausible (none at MVP). Services depend on Drizzle repos directly; no interface ceremony for single-impl classes. | K-2 simplicity; YAGNI |
-| R-13 (permission matrix) | Kept, but matrix is small (2 roles) — one table-driven test file | Scale-appropriate |
-| R-15 (coverage) | 80% on api domain modules; web shared components carry behavior unit tests (Testing Library) but no coverage gate — E2E covers flows | Behavior tests catch regressions; a % gate on UI invites snapshot noise |
-| R-28 (feature flags) | Dropped for MVP | No risky-rollout surface yet; single deploy target |
-| R-31/R-34/R-35 (QA artifacts) | User stories live in features-prd.md and ARE the acceptance criteria; E2E specs reference their US-IDs | Same intent, single source |
-| R-37 (OpenAPI drift) | Kept: generated spec committed; CI diff check | |
-| N-11 (idempotency for side effects) | N/A — no email/SMS/webhooks at MVP. The undo/replay endpoints are state-guarded instead | No external side effects exist |
-| N-20 (CWV gates in CI) | Lighthouse CI budget on the built PWA (LCP ≤ 2.5s on simulated 4G mobile), advisory at MVP, blocking post-launch | Avoid blocking early iteration on lab noise |
-| N-13 (locale files) | Kept strictly — Hebrew `he.json` from day one; missing key = CI error | |
-| K-1..K-4, R-1..R-9, R-11/R-12/R-14, R-16..R-27, R-29/R-30, R-32/R-33, R-36, R-38, N-7..N-10, N-12, N-14..N-19, N-21..N-25 | Verbatim | |
+**Additions — enforced here, absent from the baseline:**
+
+| Rule | Detail |
+|---|---|
+| RTL-only layout | Logical properties exclusively (`ms-*/me-*/ps-*/pe-*`, `start/end`). `ml/mr/left/right` are a bug. Times and numbers LTR-isolated (`<bdi>`/`dir="ltr"`) with `tabular-nums`. See `design.md`. |
+| Design tokens | Components consume semantic utilities (`bg-surface`, `text-accent`) and component tokens (`--btn-height-big`). A hex value in a component file is a bug. |
+| No blocking popups in live flows | Undo toasts, disabled-with-reason, inline errors — never a modal mid-match. Touch targets ≥44px, primary actions 60px. (One flagged exception: `QueueList` reorder confirmations — see `CLAUDE.md`.) |
+| Snapshot-only client state | The server `SessionSnapshot` is the single state source. No client-derived queue/match state, no delta reducer. §5. |
+| Timers computed, never ticked | Remaining time is a pure function of stored timestamps, server- and client-side. A `setInterval` that decrements a counter is a bug. §6. |
+
+**Tier classification (baseline "Critical sections"):**
+
+The critical-path globs are pinned in `CLAUDE.md`. In short: `queue`, `matches`, `actions`, `auth`,
+`schema.ts` and `drizzle/**` are **critical**; `apps/web`, `packages/shared` and the remaining api
+modules are **standard**. No money surface exists, and data isolation is dormant at MVP (single
+center, single field) — both flip to critical when they gain one.
+
+Consequences worth stating, since this app's hot path is a race:
+
+| Topic | Call |
+|---|---|
+| Concurrency tests | Queue renumbering under the per-session advisory lock (`line.service.ts`) and kickoff pairing (`POST /sessions/:id/start`, deletes both queue rows) are the canonical "exactly one wins" flows here. Every new line mutation gets N-parallel concurrent-attempt tests: exactly one succeeds, the rest return a typed error. Not optional — these paths are critical. |
+| Test authorship on critical paths | Codex writes the failing test, not the implementer; the test is frozen. Green tests are not the merge gate — the adversarial verdict is. |
+| Audit trail | Every queue/match state transition leaves an activity-log entry (`activity` module), in the same transaction as the mutation. |
+| Permission matrix | Small (2 roles) — one table-driven test file, not a test per (role × endpoint). |
+| OpenAPI drift | Kept: generated spec committed, CI diff check. The baseline leaves this per-project; a generated client exists, so it applies. |
+| i18n | Baseline rule, no softening: Hebrew `he.json` from day one, missing key = compile error. |
+| Coverage gates | None, anywhere — the baseline drops them. Supersedes the "≥80% api / 90% auth" line in §11. Critical paths are covered by reviewer-authored frozen tests + N-parallel race tests instead, which is a stronger guarantee than a percentage. Web components carry behavior unit tests; E2E covers flows. |
+| Lighthouse / CWV | Budget on the built PWA (LCP ≤ 2.5s, simulated 4G mobile). Advisory at MVP, blocking post-launch. |
+| User stories | `features-prd.md` US-IDs ARE the acceptance criteria; E2E specs cite them. |
 
 ## 13. Non-Goals (technical)
 
