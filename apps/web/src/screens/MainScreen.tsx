@@ -93,7 +93,6 @@ export function MainScreen() {
 
   const frontTwo = snapshot.queue.slice(0, 2)
   const nextTwo = frontTwo.length === 2 ? { teamA: frontTwo[0]!.team.name, teamB: frontTwo[1]!.team.name } : undefined
-  const hasPublicPlayerView = field.name === t('home.create.nameDefault')
 
   return (
     <>
@@ -133,32 +132,6 @@ export function MainScreen() {
             <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">
               {t('queue.header', { count: snapshot.queue.length })}
             </h2>
-            {hasPublicPlayerView && (
-              <a
-                href="/line"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={t('publicLine.openPlayerView.newWindow')}
-                title={t('publicLine.openPlayerView.newWindow')}
-                className="inline-flex min-h-[var(--touch-target-min)] shrink-0 items-center gap-1.5 rounded-lg border border-line bg-surface-2 px-3 text-[12.5px] font-semibold text-ink no-underline transition-colors hover:border-accent hover:text-accent"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                  className="h-4 w-4 shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M14 4h6v6" />
-                  <path d="m20 4-9 9" />
-                  <path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" />
-                </svg>
-                <span>{t('publicLine.openPlayerView')}</span>
-              </a>
-            )}
           </header>
           {snapshot.queue.length === 0 ? (
             <EmptyState title={t('empty.queue')} />

@@ -1,7 +1,13 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { showStatusToast } from '@/components/UndoToast'
 import { DemoProviders } from '@/state/mock/DemoProviders'
+
+vi.mock('@/components/UndoToast', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/components/UndoToast')>()),
+  showStatusToast: vi.fn(),
+}))
 
 function fakeLocalStorage(): Storage {
   const store = new Map<string, string>()
@@ -86,5 +92,44 @@ describe('App top-level navigation', () => {
 
     expect(window.location.pathname + window.location.search).toBe('/f/abc234')
     expect(screen.getByRole('link', { name: 'ראשי' }).getAttribute('aria-current')).toBe('page')
+  })
+})
+
+describe('App top header — public player view link', () => {
+  const mockWriteText = vi.fn()
+
+  beforeEach(() => {
+    vi.stubGlobal('localStorage', fakeLocalStorage())
+    window.history.replaceState(null, '', '/f/abc234')
+    vi.mocked(showStatusToast).mockClear()
+    mockWriteText.mockReset().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: mockWriteText },
+    })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    window.history.replaceState(null, '', '/')
+  })
+
+  it('copies the player view link instead of navigating, and confirms via toast', async () => {
+    renderApp()
+
+    const button = screen.getByRole('button', { name: 'העתקת קישור לתצוגת השחקנים' })
+    expect(button.tagName).toBe('BUTTON')
+
+    fireEvent.click(button)
+
+    await waitFor(() => expect(mockWriteText).toHaveBeenCalledWith(`${window.location.origin}/line`))
+    expect(showStatusToast).toHaveBeenCalledWith('publicLine.openPlayerView.copied')
+  })
+
+  it('hides the button on non-Main tabs', () => {
+    renderApp()
+    fireEvent.click(screen.getByRole('link', { name: 'הגדרות' }))
+
+    expect(screen.queryByRole('button', { name: 'העתקת קישור לתצוגת השחקנים' })).toBeNull()
   })
 })
