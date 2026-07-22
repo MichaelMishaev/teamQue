@@ -46,6 +46,10 @@ export function publicLineHostGuard(publicLineHost: string | undefined) {
       next()
       return
     }
+    if (req.method === 'GET' && req.path === '/') {
+      res.redirect(302, '/line')
+      return
+    }
     if (isBlockedForPublicLineHost(req.method, req.path)) {
       res.status(404).end()
       return

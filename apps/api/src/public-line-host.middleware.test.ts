@@ -14,9 +14,10 @@ function makeReqRes(hostname: string, method: string, path: string) {
   const req = { hostname, method, path } as unknown as Request
   const end = vi.fn()
   const status = vi.fn(() => ({ end }))
-  const res = { status } as unknown as Response
+  const redirect = vi.fn()
+  const res = { status, redirect } as unknown as Response
   const next = vi.fn()
-  return { req, res, next, status, end }
+  return { req, res, next, status, end, redirect }
 }
 
 describe('publicLineHostGuard', () => {
@@ -57,8 +58,19 @@ describe('publicLineHostGuard', () => {
     expect(status).not.toHaveBeenCalled()
   })
 
+  it('redirects GET / to /line on the public host', () => {
+    const guard = publicLineHostGuard(PUBLIC_HOST)
+    const { req, res, next, status, redirect } = makeReqRes(PUBLIC_HOST, 'GET', '/')
+
+    guard(req, res, next)
+
+    expect(redirect).toHaveBeenCalledWith(302, '/line')
+    expect(next).not.toHaveBeenCalled()
+    expect(status).not.toHaveBeenCalled()
+  })
+
   it.each([
-    ['GET', '/'],
+    ['POST', '/'],
     ['GET', '/auth/me'],
     ['POST', '/auth/login'],
     ['GET', '/staff'],
