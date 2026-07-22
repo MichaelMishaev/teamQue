@@ -12,6 +12,10 @@ export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),
   WEB_ORIGIN: z.string().min(1, 'WEB_ORIGIN is required'),
+  // Hostname of the anonymous public QR-code surface (e.g. line.maple-group.info).
+  // When set, publicLineHostGuard restricts that host to the read-only /line
+  // route; unset in environments with no separate public domain (e.g. local dev).
+  PUBLIC_LINE_HOST: z.string().min(1).optional(),
 })
 
 export type Env = z.infer<typeof envSchema>

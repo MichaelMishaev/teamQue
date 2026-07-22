@@ -6,6 +6,7 @@ import helmet from 'helmet'
 import { Logger } from 'nestjs-pino'
 import { AppModule } from './app.module'
 import { loadEnv } from './config/env'
+import { publicLineHostGuard } from './public-line-host.middleware'
 
 async function bootstrap(): Promise<void> {
   const env = loadEnv()
@@ -19,6 +20,7 @@ async function bootstrap(): Promise<void> {
   app.set('trust proxy', 1)
   app.use(helmet())
   app.use(cookieParser())
+  app.use(publicLineHostGuard(env.PUBLIC_LINE_HOST))
   app.enableCors({ origin: env.WEB_ORIGIN, credentials: true })
   app.enableShutdownHooks()
 
