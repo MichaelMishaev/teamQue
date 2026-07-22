@@ -28,5 +28,6 @@ export const apiErrorSchema = z.object({
   code: errorCodeSchema,
   message: z.string(),
   details: z.unknown().optional(),
+  correlationId: z.uuid().optional(),
 })
 export type ApiError = z.infer<typeof apiErrorSchema>

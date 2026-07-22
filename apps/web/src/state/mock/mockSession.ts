@@ -359,6 +359,24 @@ export function createMockSession(opts: CreateMockSessionOptions = {}): MockSess
       appendToLine(captainId)
       logActivity('line.addToLine', { captainA: nameOf(captainId) })
     }
+
+    // Demo-only exception row so the full-log filters and safe error treatment
+    // can be visually inspected without deliberately breaking a live action.
+    logEntries.push({
+      id: `act-${(logSeq += 1)}`,
+      atIso: nowIso(),
+      action: 'exception',
+      rawAction: 'PATCH /sessions/:id/line',
+      eventKind: 'exception',
+      outcome: 'rejected',
+      staffId: 'staff-sarah',
+      staffName: 'שרה',
+      errorCode: 'VALIDATION_FAILED',
+      statusCode: 409,
+      correlationId: '4c2f9b1a-6e21-4a3d-9f3a-1b2c3d4e5f60',
+      requestMethod: 'PATCH',
+      requestPath: '/sessions/:id/line',
+    })
   }
   seed()
 

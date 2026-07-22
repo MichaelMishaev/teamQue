@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type {
   ActivityEntry as WireActivityEntry,
+  ActivityLogPage as WireActivityLogPage,
   CaptainSearchResult,
   HistoryEntry,
   SessionSnapshot,
@@ -9,7 +10,12 @@ import type {
 import { apiGet, apiPost, ApiRequestError } from '@/lib/api'
 import { computeOffsetMs } from '@/lib/server-clock'
 import { createSessionSocket } from '@/lib/socket'
-import { ActivityContext, type ActivityEntry } from '@/state/ActivityContext'
+import {
+  ActivityContext,
+  type ActivityEntry,
+  type ActivityLogFilters,
+  type ActivityLogSource,
+} from '@/state/ActivityContext'
 import { CaptainsContext, type CaptainProfile } from '@/state/CaptainsContext'
 import { HistoryContext, type HistoryState } from '@/state/HistoryContext'
 import { toActivityEntry, toCaptainProfile, toFinishedMatchView } from '@/state/real/readAdapters'
@@ -106,6 +112,28 @@ export function RealProviders({ slug, children }: { slug: string; children: Reac
     }
   }, [sessionIdHandle, ensureVisitor, slug])
 
+  const loadActivityPage = useCallback(async (filters: ActivityLogFilters, cursor?: string) => {
+    const params = new URLSearchParams({ limit: '50' })
+    if (filters.eventKind !== 'all') params.set('eventKind', filters.eventKind)
+    if (filters.outcome !== 'all') params.set('outcome', filters.outcome)
+    if (filters.action) params.set('action', filters.action)
+    if (filters.staffId) params.set('staffId', filters.staffId)
+    if (filters.statusCode) params.set('statusCode', filters.statusCode)
+    const from = localDateTimeToIso(filters.from)
+    const to = localDateTimeToIso(filters.to)
+    if (from) params.set('from', from)
+    if (to) params.set('to', to)
+    if (cursor) params.set('cursor', cursor)
+
+    const page = await apiGet<WireActivityLogPage>(`/activity/log?${params.toString()}`)
+    return {
+      entries: page.items.map((row) => toActivityEntry(row)),
+      nextCursor: page.nextCursor,
+      actions: page.actions,
+      actors: page.actors,
+    }
+  }, [])
+
   // Initial snapshot seed: GET /fields/:slug, 404 → bad/closed link.
   useEffect(() => {
     let cancelled = false
@@ -169,6 +197,10 @@ export function RealProviders({ slug, children }: { slug: string; children: Reac
   // possibly a finish or a new activity row). No active session → clear them.
   const sessionId = snapshotState.snapshot?.session.id ?? null
   const snapshotStamp = snapshotState.snapshot?.emittedAt ?? null
+  const activitySource = useMemo<ActivityLogSource>(
+    () => ({ entries: activity, revision: snapshotStamp, loadPage: loadActivityPage }),
+    [activity, loadActivityPage, snapshotStamp],
+  )
   useEffect(() => {
     if (sessionId === null) {
       setHistory(EMPTY_HISTORY)
@@ -232,7 +264,7 @@ export function RealProviders({ slug, children }: { slug: string; children: Reac
     <SnapshotContext.Provider value={snapshotState}>
       <SessionActionsContext.Provider value={actions}>
         <HistoryContext.Provider value={history}>
-          <ActivityContext.Provider value={activity}>
+          <ActivityContext.Provider value={activitySource}>
             <CaptainsContext.Provider value={captainProfiles}>
               <StaffDirectoryContext.Provider value={staffDirectory}>{children}</StaffDirectoryContext.Provider>
             </CaptainsContext.Provider>
@@ -241,4 +273,10 @@ export function RealProviders({ slug, children }: { slug: string; children: Reac
       </SessionActionsContext.Provider>
     </SnapshotContext.Provider>
   )
+}
+
+function localDateTimeToIso(value: string): string | undefined {
+  if (!value) return undefined
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
 }

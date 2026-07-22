@@ -5,6 +5,7 @@ import { ScheduleModule } from '@nestjs/schedule'
 import { ServeStaticModule } from '@nestjs/serve-static'
 import { LoggerModule } from 'nestjs-pino'
 import { ActionsModule } from './actions/actions.module'
+import { ActivityModule } from './activity/activity.module'
 import { AuthModule } from './auth/auth.module'
 import { CaptainsModule } from './captains/captains.module'
 import { HttpExceptionFilter } from './common/http-exception.filter'
@@ -46,6 +47,7 @@ import { VisitorsModule } from './visitors/visitors.module'
       ],
     }),
     DbModule,
+    ActivityModule,
     AuthModule,
     StaffModule,
     CaptainsModule,

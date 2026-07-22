@@ -3,7 +3,15 @@
  * Enum value lists are sourced from `shared`'s zod enums so the DB and the
  * API/web contracts cannot drift.
  */
-import { endReasonSchema, matchStatusSchema, sessionStatusSchema, staffRoleSchema } from 'shared'
+import {
+  endReasonSchema,
+  matchStatusSchema,
+  sessionStatusSchema,
+  staffRoleSchema,
+  type ActivityEventKind,
+  type ActivityOutcome,
+  type ErrorCode,
+} from 'shared'
 import { sql } from 'drizzle-orm'
 import {
   boolean,
@@ -164,15 +172,36 @@ export const queueEntries = pgTable(
   (table) => [index('queue_entries_session_position_idx').on(table.sessionId, table.position)],
 )
 
-export const activityLog = pgTable('activity_log', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  centerId: uuid('center_id').notNull(),
-  sessionId: uuid('session_id').references(() => sessions.id),
-  staffId: uuid('staff_id').references(() => staff.id),
-  action: text('action').notNull(),
-  entityType: text('entity_type').notNull(),
-  entityId: uuid('entity_id').notNull(),
-  beforeJson: jsonb('before_json'),
-  afterJson: jsonb('after_json'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
-})
+export const activityLog = pgTable(
+  'activity_log',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    centerId: uuid('center_id').notNull(),
+    sessionId: uuid('session_id').references(() => sessions.id),
+    staffId: uuid('staff_id').references(() => staff.id),
+    eventKind: text('event_kind').$type<ActivityEventKind>().notNull().default('action'),
+    outcome: text('outcome').$type<ActivityOutcome>().notNull().default('success'),
+    action: text('action').notNull(),
+    entityType: text('entity_type').notNull(),
+    entityId: uuid('entity_id').notNull(),
+    statusCode: integer('status_code'),
+    errorCode: text('error_code').$type<ErrorCode>(),
+    requestMethod: text('request_method'),
+    requestPath: text('request_path'),
+    correlationId: uuid('correlation_id'),
+    beforeJson: jsonb('before_json'),
+    afterJson: jsonb('after_json'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    check('activity_log_event_kind_check', sql`${table.eventKind} IN ('action', 'exception')`),
+    check('activity_log_outcome_check', sql`${table.outcome} IN ('success', 'rejected', 'failed')`),
+    check(
+      'activity_log_kind_outcome_check',
+      sql`(${table.eventKind} = 'action' AND ${table.outcome} = 'success') OR (${table.eventKind} = 'exception' AND ${table.outcome} IN ('rejected', 'failed'))`,
+    ),
+    index('activity_log_center_created_idx').on(table.centerId, table.createdAt, table.id),
+    index('activity_log_center_kind_created_idx').on(table.centerId, table.eventKind, table.createdAt),
+    index('activity_log_center_action_created_idx').on(table.centerId, table.action, table.createdAt),
+  ],
+)

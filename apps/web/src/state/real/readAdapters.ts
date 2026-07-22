@@ -66,8 +66,28 @@ function stringField(json: unknown, key: string): string | undefined {
  * marks an automatic/system action (e.g. auto-finish). Team/field names aren't
  * carried on the row, so activity lines render action + staff + time.
  */
-export function toActivityEntry(a: WireActivityEntry, resolveStaffName: (staffId: string) => string | null): ActivityEntry {
-  const staffName = a.staffId === null ? null : resolveStaffName(a.staffId)
+export function toActivityEntry(
+  a: WireActivityEntry,
+  resolveStaffName: (staffId: string) => string | null = () => null,
+): ActivityEntry {
+  const staffName = a.staffId === null ? null : (a.staffName ?? resolveStaffName(a.staffId))
+  if (a.eventKind === 'exception') {
+    return {
+      id: a.id,
+      atIso: a.createdAt,
+      action: 'exception',
+      rawAction: a.action,
+      eventKind: 'exception',
+      outcome: a.outcome,
+      staffId: a.staffId,
+      staffName,
+      errorCode: a.errorCode,
+      statusCode: a.statusCode,
+      correlationId: a.correlationId,
+      requestMethod: a.requestMethod,
+      requestPath: a.requestPath,
+    }
+  }
   // 'match.finished' covers both manual and automatic finishes; a null staff
   // (auto-finish scheduler, US-044) distinguishes the automatic one.
   const action: ActivityAction =
@@ -84,6 +104,10 @@ export function toActivityEntry(a: WireActivityEntry, resolveStaffName: (staffId
     id: a.id,
     atIso: a.createdAt,
     action,
+    rawAction: a.action,
+    eventKind: 'action',
+    outcome: 'success',
+    staffId: a.staffId,
     staffName,
     ...(captainA !== undefined ? { captainA } : {}),
     ...(captainB !== undefined ? { captainB } : {}),

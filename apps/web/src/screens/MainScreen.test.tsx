@@ -133,7 +133,7 @@ describe('MainScreen — active session, field free', () => {
 })
 
 describe('MainScreen — active session, field live', () => {
-  it('confirms a finished match without offering an undo action', async () => {
+  it('asks for confirmation before finishing and cancel keeps the match active', async () => {
     const snapshot = activeSnapshot({
       fields: [
         {
@@ -158,7 +158,21 @@ describe('MainScreen — active session, field live', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'סיים' }))
 
+    expect(screen.getByRole('dialog', { name: 'לסיים את המשחק?' })).toBeDefined()
+    expect(screen.getByText('הפעולה תסיים את המשחק הנוכחי. האם אתה בטוח?')).toBeDefined()
+    expect(actions.finish).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'ביטול' }))
+
+    expect(screen.queryByRole('dialog', { name: 'לסיים את המשחק?' })).toBeNull()
+    expect(actions.finish).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'סיים' }))
+    fireEvent.click(screen.getByRole('button', { name: 'כן, סיים' }))
+
     await waitFor(() => expect(actions.finish).toHaveBeenCalledWith('m1'))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'לסיים את המשחק?' })).toBeNull())
+    expect(actions.finish).toHaveBeenCalledTimes(1)
     expect(showStatusToast).toHaveBeenCalledWith('toast.matchFinished')
     expect(actions.undo).not.toHaveBeenCalled()
   })

@@ -9,10 +9,12 @@
  * be constructor-injected into a singleton APP_FILTER. Same pattern as
  * config/env.ts's bootstrap-time logging.
  */
-import { ArgumentsHost, Catch, HttpException, type ExceptionFilter } from '@nestjs/common'
-import type { Response } from 'express'
+import { randomUUID } from 'node:crypto'
+import { ArgumentsHost, Catch, HttpException, Inject, Optional, type ExceptionFilter } from '@nestjs/common'
+import type { Request, Response } from 'express'
 import pino from 'pino'
 import type { ApiError, ErrorCode } from 'shared'
+import { ExceptionActivityWriter } from '../activity/exception-activity.writer'
 import { DomainError } from './domain-error'
 
 const logger = pino()
@@ -38,31 +40,102 @@ function mapStatusToCode(status: number): ErrorCode | undefined {
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
-  catch(exception: unknown, host: ArgumentsHost): void {
-    const response = host.switchToHttp().getResponse<Response>()
+  constructor(
+    @Optional() @Inject(ExceptionActivityWriter) private readonly exceptionActivity?: ExceptionActivityWriter,
+  ) {}
 
-    if (exception instanceof DomainError) {
-      const body: ApiError = {
+  async catch(exception: unknown, host: ArgumentsHost): Promise<void> {
+    const http = host.switchToHttp()
+    const response = http.getResponse<Response>()
+    const request = typeof http.getRequest === 'function' ? http.getRequest<Request>() : undefined
+    const mapped = mapException(exception)
+    const canPersist = this.exceptionActivity !== undefined && typeof request?.centerId === 'string'
+    const correlationId = canPersist ? randomUUID() : undefined
+
+    if (exception instanceof Error && mapped.status >= 500) {
+      logger.error({ err: exception, correlationId }, 'Unhandled exception')
+    } else if (!(exception instanceof DomainError) && !(exception instanceof HttpException)) {
+      logger.error({ err: exception, correlationId }, 'Unhandled exception')
+    }
+
+    if (correlationId && this.exceptionActivity && request) {
+      const requestMethod = request.method.toUpperCase()
+      const requestPath = normalizeRequestPath(request.originalUrl)
+      const sessionId = sessionIdFromRequest(request, requestPath)
+      try {
+        await this.exceptionActivity.write({
+          centerId: request.centerId as string,
+          ...(sessionId ? { sessionId } : {}),
+          ...(request.staff?.staffId ? { staffId: request.staff.staffId } : {}),
+          outcome: mapped.status >= 500 ? 'failed' : 'rejected',
+          action: `${requestMethod} ${requestPath}`,
+          statusCode: mapped.status,
+          errorCode: mapped.errorCode,
+          requestMethod,
+          requestPath,
+          correlationId,
+        })
+      } catch (auditError) {
+        logger.error({ err: auditError, correlationId }, 'Failed to persist exception activity')
+      }
+    }
+
+    if (correlationId && typeof response.setHeader === 'function') {
+      response.setHeader('X-Correlation-Id', correlationId)
+    }
+    const body = correlationId ? { ...mapped.body, correlationId } : mapped.body
+    response.status(mapped.status).json(body)
+  }
+}
+
+interface MappedException {
+  status: number
+  errorCode: ErrorCode
+  body: ApiError | { message: string }
+}
+
+function mapException(exception: unknown): MappedException {
+  if (exception instanceof DomainError) {
+    return {
+      status: exception.httpStatus,
+      errorCode: exception.code,
+      body: {
         code: exception.code,
         message: exception.message,
         details: exception.details,
-      }
-      response.status(exception.httpStatus).json(body)
-      return
+      },
     }
-
-    if (exception instanceof HttpException) {
-      const status = exception.getStatus()
-      const code = mapStatusToCode(status)
-      const body: ApiError | { message: string } = code
-        ? { code, message: exception.message }
-        : { message: exception.message }
-      response.status(status).json(body)
-      return
-    }
-
-    logger.error({ err: exception }, 'Unhandled exception')
-    const body: ApiError = { code: 'INTERNAL_ERROR', message: 'unexpected error' }
-    response.status(500).json(body)
   }
+
+  if (exception instanceof HttpException) {
+    const status = exception.getStatus()
+    const code = mapStatusToCode(status)
+    return {
+      status,
+      errorCode: code ?? (status >= 500 ? 'INTERNAL_ERROR' : 'VALIDATION_FAILED'),
+      body: code ? { code, message: exception.message } : { message: exception.message },
+    }
+  }
+
+  return {
+    status: 500,
+    errorCode: 'INTERNAL_ERROR',
+    body: { code: 'INTERNAL_ERROR', message: 'unexpected error' },
+  }
+}
+
+const UUID_SEGMENT = /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi
+
+/** Remove query values and replace UUID path segments so filters never store personal/entity ids. */
+function normalizeRequestPath(originalUrl: string): string {
+  const [path = '/'] = originalUrl.split('?')
+  return path.replace(UUID_SEGMENT, ':id')
+}
+
+function sessionIdFromRequest(request: Request, normalizedPath: string): string | undefined {
+  if (!normalizedPath.startsWith('/sessions/:id')) return undefined
+  const candidate = request.params.id
+  return typeof candidate === 'string' && new RegExp(`^${UUID_SEGMENT.source}$`, 'i').test(candidate)
+    ? candidate
+    : undefined
 }

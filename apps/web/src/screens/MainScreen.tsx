@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { EmptyState } from '@/components/EmptyState'
 import { FieldCard } from '@/components/FieldCard'
+import { FinishMatchConfirmDialog } from '@/components/FinishMatchConfirmDialog'
 import { QueueList } from '@/components/QueueList'
 import { QuickAddBar } from '@/components/QuickAddBar'
 import { showStatusToast } from '@/components/UndoToast'
@@ -27,6 +28,8 @@ export function MainScreen() {
   const { snapshot, offsetMs } = useSnapshot()
   const actions = useSessionActions()
   const [error, setError] = useState<string | null>(null)
+  const [finishMatchId, setFinishMatchId] = useState<string | null>(null)
+  const [finishing, setFinishing] = useState(false)
 
   const field = snapshot?.fields[0] ?? null
   const liveMatch = field?.liveMatch ?? null
@@ -58,13 +61,24 @@ export function MainScreen() {
     }
   }
 
-  async function handleFinish(matchId: string): Promise<void> {
+  async function handleFinish(matchId: string): Promise<boolean> {
     try {
       await actions.finish(matchId)
       showStatusToast('toast.matchFinished')
+      return true
     } catch {
       setError(t('queue.actions.error'))
+      return false
     }
+  }
+
+  async function confirmFinish(): Promise<void> {
+    if (finishMatchId === null || finishing) return
+
+    setFinishing(true)
+    const finished = await handleFinish(finishMatchId)
+    setFinishing(false)
+    if (finished) setFinishMatchId(null)
   }
 
   async function handleFinishAndNext(matchId: string): Promise<void> {
@@ -102,7 +116,7 @@ export function MainScreen() {
             onPause={() => void withErrorHandling(() => actions.pause(liveMatch.id))}
             onResume={() => void withErrorHandling(() => actions.resume(liveMatch.id))}
             onExtend={() => void withErrorHandling(() => actions.extend(liveMatch.id))}
-            onFinish={() => void handleFinish(liveMatch.id)}
+            onFinish={() => setFinishMatchId(liveMatch.id)}
             onFinishAndNext={() => void handleFinishAndNext(liveMatch.id)}
           />
         ) : (
@@ -155,6 +169,12 @@ export function MainScreen() {
       </div>
 
       <QuickAddBar />
+      <FinishMatchConfirmDialog
+        open={finishMatchId !== null && liveMatch?.id === finishMatchId}
+        submitting={finishing}
+        onConfirm={() => void confirmFinish()}
+        onCancel={() => setFinishMatchId(null)}
+      />
     </>
   )
 }

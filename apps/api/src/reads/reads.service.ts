@@ -4,14 +4,38 @@
  * summary. None of these mutate — no ActivityWriter, no transactions.
  */
 import { Inject, Injectable } from '@nestjs/common'
-import { and, desc, eq, gte, lte, sql } from 'drizzle-orm'
+import { and, desc, eq, getTableColumns, gte, isNotNull, lte, lt, or, sql, type SQL } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
-import type { ActivityEntry, HistoryEntry, SessionListItem, SessionSummary } from 'shared'
-import { NotFoundError } from '../common/errors'
+import {
+  activityIdSchema,
+  type ActivityEntry,
+  type ActivityEventKind,
+  type ActivityLogPage,
+  type ActivityOutcome,
+  type HistoryEntry,
+  type SessionListItem,
+  type SessionSummary,
+} from 'shared'
+import { NotFoundError, ValidationFailedError } from '../common/errors'
 import { DRIZZLE, type Database } from '../db/db.module'
 import { activityLog, captains, fields, matches, sessions, staff } from '../db/schema'
 
 const DEFAULT_ACTIVITY_LIMIT = 50
+const activityColumns = { ...getTableColumns(activityLog), staffName: staff.name }
+type ActivityRow = typeof activityLog.$inferSelect & { staffName: string | null }
+
+export interface ActivityLogFilters {
+  sessionId?: string | undefined
+  eventKind?: ActivityEventKind | undefined
+  outcome?: ActivityOutcome | undefined
+  action?: string | undefined
+  staffId?: string | undefined
+  statusCode?: number | undefined
+  from?: string | undefined
+  to?: string | undefined
+  cursor?: string | undefined
+  limit?: number | undefined
+}
 
 @Injectable()
 export class ReadsService {
@@ -20,23 +44,61 @@ export class ReadsService {
   /** GET /activity?sessionId=&limit= — newest first. */
   async activity(centerId: string, sessionId: string | undefined, limit: number): Promise<ActivityEntry[]> {
     const rows = await this.db
-      .select()
+      .select(activityColumns)
       .from(activityLog)
+      .leftJoin(staff, eq(staff.id, activityLog.staffId))
       .where(and(eq(activityLog.centerId, centerId), sessionId ? eq(activityLog.sessionId, sessionId) : undefined))
-      .orderBy(desc(activityLog.createdAt))
+      .orderBy(desc(activityLog.createdAt), desc(activityLog.id))
       .limit(limit || DEFAULT_ACTIVITY_LIMIT)
 
-    return rows.map((row) => ({
-      id: row.id,
-      sessionId: row.sessionId,
-      staffId: row.staffId,
-      action: row.action,
-      entityType: row.entityType,
-      entityId: row.entityId,
-      beforeJson: row.beforeJson,
-      afterJson: row.afterJson,
-      createdAt: row.createdAt.toISOString(),
-    }))
+    return rows.map(toActivityEntry)
+  }
+
+  /** GET /activity/log — complete center history, stable cursor pagination. */
+  async activityLogPage(centerId: string, filters: ActivityLogFilters): Promise<ActivityLogPage> {
+    const limit = filters.limit ?? DEFAULT_ACTIVITY_LIMIT
+    const conditions = activityConditions(centerId, filters, { includeAction: true, includeCursor: true })
+
+    const [rows, actionRows, actorRows] = await Promise.all([
+      this.db
+        .select(activityColumns)
+        .from(activityLog)
+        .leftJoin(staff, eq(staff.id, activityLog.staffId))
+        .where(and(...conditions))
+        .orderBy(desc(activityLog.createdAt), desc(activityLog.id))
+        .limit(limit + 1),
+      this.db
+        .select({ action: activityLog.action, count: sql<number>`count(*)::int` })
+        .from(activityLog)
+        .where(and(...activityConditions(centerId, filters, { includeAction: false, includeCursor: false })))
+        .groupBy(activityLog.action)
+        .orderBy(desc(sql`count(*)`), activityLog.action),
+      this.db
+        .select({ staffId: staff.id, staffName: staff.name, count: sql<number>`count(*)::int` })
+        .from(activityLog)
+        .innerJoin(staff, eq(staff.id, activityLog.staffId))
+        .where(
+          and(
+            ...activityConditions(centerId, filters, { includeAction: false, includeCursor: false }),
+            isNotNull(activityLog.staffId),
+          ),
+        )
+        .groupBy(staff.id, staff.name)
+        .orderBy(desc(sql`count(*)`), staff.name),
+    ])
+
+    const hasMore = rows.length > limit
+    const pageRows = hasMore ? rows.slice(0, limit) : rows
+    const last = pageRows.at(-1)
+
+    return {
+      items: pageRows.map(toActivityEntry),
+      nextCursor: hasMore && last ? encodeActivityCursor(last.createdAt, last.id) : null,
+      actions: actionRows.map((row) => ({ action: row.action, count: Number(row.count) })),
+      actors: actorRows
+        .filter((row): row is typeof row & { staffId: string; staffName: string } => row.staffId !== null && row.staffName !== null)
+        .map((row) => ({ staffId: row.staffId, staffName: row.staffName, count: Number(row.count) })),
+    }
   }
 
   /** GET /sessions/:id/history — finished matches, newest first. */
@@ -185,6 +247,104 @@ export class ReadsService {
   private async findOwnedSession(centerId: string, sessionId: string): Promise<void> {
     const [row] = await this.db.select({ id: sessions.id }).from(sessions).where(and(eq(sessions.id, sessionId), eq(sessions.centerId, centerId))).limit(1)
     if (!row) throw new NotFoundError('Session not found')
+  }
+}
+
+function toActivityEntry(row: ActivityRow): ActivityEntry {
+  const common = {
+    id: row.id,
+    sessionId: row.sessionId,
+    staffId: row.staffId,
+    staffName: row.staffName,
+    action: row.action,
+    entityType: row.entityType,
+    entityId: row.entityId,
+    createdAt: row.createdAt.toISOString(),
+  }
+
+  if (row.eventKind === 'exception') {
+    if (
+      (row.outcome !== 'rejected' && row.outcome !== 'failed') ||
+      row.statusCode === null ||
+      row.errorCode === null ||
+      row.requestMethod === null ||
+      row.requestPath === null ||
+      row.correlationId === null
+    ) {
+      throw new Error('Malformed exception activity row')
+    }
+    return {
+      ...common,
+      eventKind: 'exception',
+      outcome: row.outcome,
+      statusCode: row.statusCode,
+      errorCode: row.errorCode,
+      requestMethod: row.requestMethod,
+      requestPath: row.requestPath,
+      correlationId: row.correlationId,
+      beforeJson: null,
+      afterJson: null,
+    }
+  }
+
+  return {
+    ...common,
+    eventKind: 'action',
+    outcome: 'success',
+    statusCode: null,
+    errorCode: null,
+    requestMethod: null,
+    requestPath: null,
+    correlationId: null,
+    beforeJson: row.beforeJson,
+    afterJson: row.afterJson,
+  }
+}
+
+function activityConditions(
+  centerId: string,
+  filters: ActivityLogFilters,
+  options: { includeAction: boolean; includeCursor: boolean },
+): SQL[] {
+  const conditions: SQL[] = [eq(activityLog.centerId, centerId)]
+  if (filters.sessionId) conditions.push(eq(activityLog.sessionId, filters.sessionId))
+  if (filters.eventKind) conditions.push(eq(activityLog.eventKind, filters.eventKind))
+  if (filters.outcome) conditions.push(eq(activityLog.outcome, filters.outcome))
+  if (options.includeAction && filters.action) conditions.push(eq(activityLog.action, filters.action))
+  if (filters.staffId) conditions.push(eq(activityLog.staffId, filters.staffId))
+  if (filters.statusCode !== undefined) conditions.push(eq(activityLog.statusCode, filters.statusCode))
+  if (filters.from) conditions.push(gte(activityLog.createdAt, new Date(filters.from)))
+  if (filters.to) conditions.push(lte(activityLog.createdAt, new Date(filters.to)))
+
+  if (options.includeCursor && filters.cursor) {
+    const cursor = decodeActivityCursor(filters.cursor)
+    const cursorCondition = or(
+      lt(activityLog.createdAt, cursor.createdAt),
+      and(eq(activityLog.createdAt, cursor.createdAt), lt(activityLog.id, cursor.id)),
+    )
+    if (cursorCondition) conditions.push(cursorCondition)
+  }
+
+  return conditions
+}
+
+function encodeActivityCursor(createdAt: Date, id: string): string {
+  return Buffer.from(JSON.stringify({ createdAt: createdAt.toISOString(), id }), 'utf8').toString('base64url')
+}
+
+function decodeActivityCursor(cursor: string): { createdAt: Date; id: string } {
+  try {
+    const decoded: unknown = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'))
+    if (typeof decoded !== 'object' || decoded === null) throw new Error('cursor is not an object')
+    const createdAt = Reflect.get(decoded, 'createdAt')
+    const id = Reflect.get(decoded, 'id')
+    const parsedDate = typeof createdAt === 'string' ? new Date(createdAt) : new Date(Number.NaN)
+    if (Number.isNaN(parsedDate.getTime()) || !activityIdSchema.safeParse(id).success) {
+      throw new Error('cursor fields are invalid')
+    }
+    return { createdAt: parsedDate, id: id as string }
+  } catch {
+    throw new ValidationFailedError('Invalid activity cursor')
   }
 }
 
