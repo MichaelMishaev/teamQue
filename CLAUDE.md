@@ -17,7 +17,7 @@ Authoritative specs (read before feature work):
 
 ```bash
 pnpm install                    # workspace root
-pnpm dev                        # builds shared, then starts the web Vite dev server
+pnpm dev                        # builds shared, then starts the web Vite dev server (force-kills whatever's on :5179 first, see apps/web/scripts/free-dev-port.mjs)
 pnpm test                       # shared build + vitest run across all packages
 pnpm typecheck                  # strict tsc across all packages
 pnpm build                      # pnpm -r build (shared → web → api, build order matters)
@@ -41,7 +41,7 @@ pnpm --filter api seed          # tsx scripts/seed.ts
 pnpm monorepo, three packages, strict build order (`shared` → `web`/`api`, since both depend on `shared`'s built `dist/`):
 
 - **`packages/shared`** — zod contracts: enums, request/response shapes, the `SessionSnapshot` view type, `SOCKET_EVENTS`, typed domain errors. This is the only source of truth for shapes shared across the API and web — the Drizzle enums in `apps/api/src/db/schema.ts` are generated from `shared`'s zod enums so the DB and the contracts cannot drift.
-- **`apps/api`** — NestJS + Socket.IO + Drizzle + Postgres. One Nest module per domain (`auth`, `staff`, `captains`, `sessions`, `queue`, `matches`, `actions` (undo), `activity`, `reads`, `realtime`).
+- **`apps/api`** — NestJS + Socket.IO + Drizzle + Postgres. One Nest module per domain (`auth`, `staff`, `captains`, `sessions`, `queue`, `matches`, `actions` (undo), `activity`, `reads`, `realtime`). `reads` is staff-only (activity feed/log, session history — `StaffSessionGuard`-guarded); it is unrelated to the public `/line` surface below.
 - **`apps/web`** — Vite + React 19 + Tailwind v4, shadcn-style components. Presentational; the session snapshot from the server is the only state source (no client-derived queue/match state).
 
 **Realtime model**: every mutating API service calls `SessionEventsService.broadcast(sessionId)` after its own transaction commits (technical-prd §5). This rebuilds the *full* session snapshot via `SnapshotService` and emits it to the session's Socket.IO room (`session:<id>`) — never a diff, never a partial patch. Clients are dumb renderers of whatever snapshot they last received; there is no separate client-side reducer reconciling deltas.
@@ -53,6 +53,10 @@ pnpm monorepo, three packages, strict build order (`shared` → `web`/`api`, sin
 **Single-service deploy**: in production the API serves the built web SPA at `/` (same origin as the API + Socket.IO), configured in `apps/api/src/app.module.ts` via `ServeStaticModule` with API route prefixes excluded so they still reach their controllers. This keeps auth cookies `SameSite=Lax` with no CORS. The `Dockerfile` builds `shared` → `web` (with `VITE_API_URL=""`) → `api`, then runs `db:migrate` before starting `node apps/api/dist/main.js`. Railway watches `/apps/api/**` and `/apps/web/**` (`railway.json`).
 
 **Auth is open (no PIN gate) at the HTTP boundary**: `GET /auth/me` always resolves to a real identity (seeded manager by default, or whoever was picked via `SwitchUser`). `apps/web/src/screens/AppGate.tsx` blocks briefly on that call, then mounts `RealProviders` under `AuthProvider`. Setting `VITE_DEMO=1` skips the API entirely and mounts `DemoProviders`/`mockSession.ts` (in-memory, switchable via `SwitchUser`) — useful for UI work with no backend running. Guards for privileged endpoints (manager-only routes, staff PIN auth for local actions) live in `apps/api/src/auth/guards/`.
+
+**Public read-only player view (`/line`)**: a second, anonymous, no-provider-stack surface separate from the staff app. `PublicLinePageController` (`apps/api/src/public-line-page.controller.ts`, registered directly on `AppModule`, not inside a feature module) serves the same SPA `index.html` at `GET /line`; `apps/web/src/lib/route.ts` + `apps/web/src/main.tsx` special-case that path to mount `PublicLineScreen` with none of `AppGate`/`RealProviders`/`VisitorProvider` (not even under `VITE_DEMO=1`). It reads the fixed "default court" via the pre-existing public `GET /fields`/`GET /fields/:slug` routes and subscribes to the same Socket.IO snapshot stream as staff clients — there is no per-slug routing yet, only one hardcoded court name. View/visit-end events are posted to a separate unauthenticated, throttled endpoint (`POST /activity/:slug/public-line-events`, `apps/api/src/activity/public-line-telemetry.controller.ts` + `.writer.ts`) as `activityLog` rows (`public_line.viewed` / `public_line.visit_ended`). Entry point from staff UI: the "open player view" link in `HomeScreen`/`MainScreen`, shown only for that one default court.
+
+**Exception logging**: the global `HttpExceptionFilter` (`APP_FILTER` in `app.module.ts`) writes every rejected/failed HTTP request (4xx/5xx) with a resolved `centerId` into the activity log via `ExceptionActivityWriter` (`apps/api/src/activity/exception-activity.writer.ts`) as `eventKind: 'exception'` rows — status code, error code, method, a normalized path (UUIDs replaced with `:id`), and a `correlationId` (also returned as `X-Correlation-Id`), deliberately never the raw message/stack/body/cookies. `ReadsService` and `ActivityFeed.tsx` render these alongside normal action entries.
 
 ## Critical paths (devRules tier classification)
 
