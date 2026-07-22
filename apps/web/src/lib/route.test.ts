@@ -8,6 +8,9 @@ describe('parseRoute', () => {
   it('/f/<slug> is a field', () => {
     expect(parseRoute('/f/abc234')).toEqual({ kind: 'field', slug: 'abc234' })
   })
+  it('/line is the public read-only Independence Square line', () => {
+    expect(parseRoute('/line')).toEqual({ kind: 'line' })
+  })
   it('junk falls back to home', () => {
     expect(parseRoute('/f/UPPER!')).toEqual({ kind: 'home' })
     expect(parseRoute('/f/')).toEqual({ kind: 'home' })

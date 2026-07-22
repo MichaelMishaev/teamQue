@@ -60,7 +60,12 @@ export function matchCountdownInput(match: MatchCountdownSource): { endsAtMs: nu
   return { endsAtMs: null, pausedRemainingSec: null }
 }
 
-/** he-IL 24h clock for a moment, LTR-rendered by the caller (design.md §2/§3). */
+/** Israel-local 24h clock for a moment, LTR-rendered by the caller (design.md §2/§3). */
 export function formatTimeOfDay(iso: string): string {
-  return new Intl.DateTimeFormat('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso))
+  return new Intl.DateTimeFormat('he-IL', {
+    timeZone: 'Asia/Jerusalem',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(iso))
 }

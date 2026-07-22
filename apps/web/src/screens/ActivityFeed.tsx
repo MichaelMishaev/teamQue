@@ -30,6 +30,8 @@ const MESSAGE_KEY: Record<ActivityAction, MessageKey> = {
   'field.open': 'activity.fieldOpen',
   'field.close': 'activity.fieldClose',
   'field.expire': 'activity.fieldExpire',
+  'publicLine.viewed': 'activity.publicLineViewed',
+  'publicLine.visitEnded': 'activity.publicLineVisitEnded',
 }
 
 function activityMessage(entry: ActivityEntry): string {

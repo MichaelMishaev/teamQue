@@ -27,6 +27,9 @@ describe('InstallAppButton', () => {
     const event = fireBeforeInstallPrompt()
 
     const button = screen.getByRole('button', { name: 'התקן אפליקציה' })
+    expect(screen.getByText('התקן')).toBeDefined()
+    expect(button.querySelector('svg')).not.toBeNull()
+    expect(button.textContent).not.toContain('⬇')
     await act(async () => {
       fireEvent.click(button)
       await event.userChoice

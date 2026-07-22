@@ -1,6 +1,5 @@
 import { useEffect, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { ConnectivityBanner } from '@/components/ConnectivityBanner'
-import { InstallAppButton } from '@/components/InstallAppButton'
 import { IntroSplash } from '@/components/IntroSplash'
 import { showStatusToast, UndoToaster } from '@/components/UndoToast'
 import { useAppTabNavigation } from '@/hooks/useAppTabNavigation'
@@ -98,7 +97,6 @@ export default function App({ slug = '' }: { slug?: string }) {
                 ↗
               </button>
             )}
-            <InstallAppButton />
             <bdi dir="ltr" className="tabular text-[13.5px] font-semibold text-muted">
               {clock}
             </bdi>

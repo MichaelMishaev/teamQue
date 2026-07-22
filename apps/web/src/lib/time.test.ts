@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatClock, remainingSeconds, timerState } from './time'
+import { formatClock, formatTimeOfDay, remainingSeconds, timerState } from './time'
 
 describe('formatClock', () => {
   it('formats mm:ss with zero padding', () => {
@@ -15,6 +15,16 @@ describe('formatClock', () => {
 
   it('handles >1h sessions of extend abuse', () => {
     expect(formatClock(3661)).toBe('61:01')
+  })
+})
+
+describe('formatTimeOfDay', () => {
+  it('renders summer timestamps in Israel daylight time', () => {
+    expect(formatTimeOfDay('2026-07-22T06:02:23.407Z')).toBe('09:02')
+  })
+
+  it('renders winter timestamps in Israel standard time', () => {
+    expect(formatTimeOfDay('2026-01-22T07:02:23.407Z')).toBe('09:02')
   })
 })
 

@@ -89,6 +89,14 @@ describe('toActivityEntry', () => {
     expect(e.action).toBe(webAction)
   })
 
+  it.each([
+    ['public_line.viewed', 'publicLine.viewed'],
+    ['public_line.visit_ended', 'publicLine.visitEnded'],
+  ] as const)('maps the telemetry action %s to %s', (serverAction, webAction) => {
+    const e = toActivityEntry({ ...base, action: serverAction, staffId: null } as WireActivityEntry, resolve)
+    expect(e.action).toBe(webAction)
+  })
+
   it('extracts both captain names from afterJson for match.started', () => {
     const e = toActivityEntry({
       ...base,

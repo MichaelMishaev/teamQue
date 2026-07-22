@@ -25,9 +25,10 @@ import type { SnapshotState } from '@/state/SnapshotContext'
 import type { ActivityAction, ActivityEntry } from '@/state/ActivityContext'
 import type { CaptainProfile } from '@/state/CaptainsContext'
 import type { FinishedMatchView, HistoryState } from '@/state/HistoryContext'
+import { t } from '@/i18n'
 
 const FIELD_ID = 'field-main'
-const FIELD_NAME = 'מגרש ראשי'
+const FIELD_NAME = t('home.create.nameDefault')
 const DEFAULT_DURATION_SEC = 360
 
 export interface StaffRosterItem {

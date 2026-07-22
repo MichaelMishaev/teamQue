@@ -43,6 +43,7 @@ async function errorFromResponse(response: Response): Promise<ApiRequestError> {
 export interface ApiRequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   body?: unknown
+  keepalive?: boolean
 }
 
 /** Low-level request; prefer apiGet/apiPost below. */
@@ -55,6 +56,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     response = await fetch(`${BASE_URL}${path}`, {
       method,
       credentials: 'include',
+      keepalive: options.keepalive ?? false,
       ...(hasBody ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(options.body) } : {}),
     })
   } catch (cause) {
@@ -73,8 +75,8 @@ export function apiGet<T>(path: string): Promise<T> {
   return apiRequest<T>(path, { method: 'GET' })
 }
 
-export function apiPost<T>(path: string, body?: unknown): Promise<T> {
-  return apiRequest<T>(path, { method: 'POST', body: body ?? {} })
+export function apiPost<T>(path: string, body?: unknown, options: { keepalive?: boolean } = {}): Promise<T> {
+  return apiRequest<T>(path, { method: 'POST', body: body ?? {}, keepalive: options.keepalive ?? false })
 }
 
 export function apiPatch<T>(path: string, body?: unknown): Promise<T> {
