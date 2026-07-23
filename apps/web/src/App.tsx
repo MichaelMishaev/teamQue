@@ -1,6 +1,7 @@
 import { useEffect, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { ConnectivityBanner } from '@/components/ConnectivityBanner'
 import { IntroSplash } from '@/components/IntroSplash'
+import { PublicLineQrOverlay } from '@/components/PublicLineQrOverlay'
 import { showStatusToast, UndoToaster } from '@/components/UndoToast'
 import { useAppTabNavigation } from '@/hooks/useAppTabNavigation'
 import { ActivityFeed } from '@/screens/ActivityFeed'
@@ -12,7 +13,7 @@ import { SwitchUser } from '@/screens/SwitchUser'
 import { t, type MessageKey } from '@/i18n'
 import { APP_TABS, type AppTab } from '@/lib/app-tab-route'
 import { cn } from '@/lib/cn'
-import { fieldUrl } from '@/lib/route'
+import { fieldUrl, PUBLIC_LINE_URL } from '@/lib/route'
 import { formatTimeOfDay } from '@/lib/time'
 import { useSnapshot } from '@/state/SnapshotContext'
 
@@ -38,6 +39,7 @@ export default function App({ slug = '' }: { slug?: string }) {
   const { snapshot, connection, offsetMs } = useSnapshot()
   const { tab, hrefFor, selectTab } = useAppTabNavigation()
   const [switchUserOpen, setSwitchUserOpen] = useState(false)
+  const [qrOpen, setQrOpen] = useState(false)
   const [nowMs, setNowMs] = useState(() => Date.now())
 
   useEffect(() => {
@@ -62,9 +64,13 @@ export default function App({ slug = '' }: { slug?: string }) {
     }
   }
 
-  async function copyPlayerViewLink(): Promise<void> {
+  // Copy-then-show, not navigate: the staff device must stay in its session
+  // while the teen scans (spec: docs/superpowers/specs/2026-07-23-qr-handoff-
+  // overlay-design.md). Always the public URL, never the staff origin.
+  async function showPlayerViewQr(): Promise<void> {
+    setQrOpen(true)
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/line`)
+      await navigator.clipboard.writeText(PUBLIC_LINE_URL)
       showStatusToast('publicLine.openPlayerView.copied')
     } catch {
       showStatusToast('publicLine.openPlayerView.copyFailed')
@@ -102,7 +108,7 @@ export default function App({ slug = '' }: { slug?: string }) {
                 type="button"
                 aria-label={t('publicLine.openPlayerView.copyLink')}
                 title={t('publicLine.openPlayerView.copyLink')}
-                onClick={() => void copyPlayerViewLink()}
+                onClick={() => void showPlayerViewQr()}
                 className="flex min-h-[var(--touch-target-min)] min-w-[var(--touch-target-min)] items-center justify-center rounded-lg text-muted"
               >
                 <svg
@@ -152,6 +158,7 @@ export default function App({ slug = '' }: { slug?: string }) {
       </main>
 
       <SwitchUser open={switchUserOpen} onClose={() => setSwitchUserOpen(false)} />
+      {qrOpen && <PublicLineQrOverlay onClose={() => setQrOpen(false)} />}
       <UndoToaster />
     </div>
   )

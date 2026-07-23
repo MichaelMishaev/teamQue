@@ -3,10 +3,12 @@ import youthCityNetanya from '@/assets/youth-city-netanya-summer-2026.webp'
 import { CourtRow } from '@/components/CourtRow'
 import { CreateCourtSheet } from '@/components/CreateCourtSheet'
 import { EmptyState } from '@/components/EmptyState'
+import { PublicLineQrOverlay } from '@/components/PublicLineQrOverlay'
+import { showStatusToast, UndoToaster } from '@/components/UndoToast'
 import { Button } from '@/components/ui/button'
 import { t } from '@/i18n'
 import { ApiRequestError, apiGet, apiPost } from '@/lib/api'
-import { navigateToField } from '@/lib/route'
+import { navigateToField, PUBLIC_LINE_URL } from '@/lib/route'
 import type { FieldListItem, SessionSnapshot } from 'shared'
 
 /**
@@ -77,6 +79,19 @@ export function HomeScreen() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [qrOpen, setQrOpen] = useState(false)
+
+  // Copy-then-show, not navigate (2026-07-23 qr-handoff-overlay spec): the
+  // staff device stays on the court list; the teen scans the public URL.
+  async function showPlayerViewQr(): Promise<void> {
+    setQrOpen(true)
+    try {
+      await navigator.clipboard.writeText(PUBLIC_LINE_URL)
+      showStatusToast('publicLine.openPlayerView.copied')
+    } catch {
+      showStatusToast('publicLine.openPlayerView.copyFailed')
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -142,13 +157,12 @@ export function HomeScreen() {
       <header className="flex min-h-[var(--touch-target-min)] items-center justify-between gap-3">
         <h1 className="text-[19px] font-bold text-ink">{t('home.title')}</h1>
         {hasPublicPlayerView && (
-          <a
-            href="/line"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={t('publicLine.openPlayerView.newWindow')}
-            title={t('publicLine.openPlayerView.newWindow')}
-            className="inline-flex min-h-[var(--touch-target-min)] shrink-0 items-center gap-1.5 rounded-lg border border-accent bg-accent-dim px-3 text-[12.5px] font-bold text-accent no-underline transition-colors hover:bg-surface-2 active:bg-surface"
+          <button
+            type="button"
+            aria-label={t('publicLine.qr.dialogLabel')}
+            title={t('publicLine.qr.dialogLabel')}
+            onClick={() => void showPlayerViewQr()}
+            className="inline-flex min-h-[var(--touch-target-min)] shrink-0 items-center gap-1.5 rounded-lg border border-accent bg-accent-dim px-3 text-[12.5px] font-bold text-accent transition-colors hover:bg-surface-2 active:bg-surface"
           >
             <svg
               viewBox="0 0 24 24"
@@ -164,7 +178,7 @@ export function HomeScreen() {
               <circle cx="12" cy="12" r="2.5" />
             </svg>
             <span>{t('publicLine.openPlayerView')}</span>
-          </a>
+          </button>
         )}
       </header>
 
@@ -221,6 +235,9 @@ export function HomeScreen() {
         error={createError}
         busy={creating}
       />
+
+      {qrOpen && <PublicLineQrOverlay onClose={() => setQrOpen(false)} />}
+      <UndoToaster />
     </div>
   )
 }

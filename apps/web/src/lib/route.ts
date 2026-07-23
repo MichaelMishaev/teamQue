@@ -14,7 +14,11 @@ const FIELD_PATH = /^\/f\/([a-z2-9]{6})$/
  * so the client router must also treat the hostname as authoritative, or
  * a cached load of '/' on this host would mount the staff HomeScreen.
  */
-const PUBLIC_LINE_HOST = 'line.maple-group.info'
+export const PUBLIC_LINE_HOST = 'line.maple-group.info'
+
+/** The URL teens follow (QR + copied link) — always the dedicated public
+ * host, never the staff origin, so shared links can't reach the staff app. */
+export const PUBLIC_LINE_URL = `https://${PUBLIC_LINE_HOST}/`
 
 export type Route = { kind: 'home' } | { kind: 'field'; slug: string } | { kind: 'line' }
 

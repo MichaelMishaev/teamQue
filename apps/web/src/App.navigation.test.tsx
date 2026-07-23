@@ -114,7 +114,7 @@ describe('App top header — public player view link', () => {
     window.history.replaceState(null, '', '/')
   })
 
-  it('copies the player view link instead of navigating, and confirms via toast', async () => {
+  it('copies the public URL, confirms via toast, and opens the QR overlay instead of navigating', async () => {
     renderApp()
 
     const button = screen.getByRole('button', { name: 'העתקת קישור לתצוגת השחקנים' })
@@ -122,8 +122,13 @@ describe('App top header — public player view link', () => {
 
     fireEvent.click(button)
 
-    await waitFor(() => expect(mockWriteText).toHaveBeenCalledWith(`${window.location.origin}/line`))
+    await waitFor(() => expect(mockWriteText).toHaveBeenCalledWith('https://line.maple-group.info/'))
     expect(showStatusToast).toHaveBeenCalledWith('publicLine.openPlayerView.copied')
+    const dialog = screen.getByRole('dialog', { name: 'קוד QR לתצוגת השחקנים' })
+    expect(dialog).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: 'חזרה' }))
+    expect(screen.queryByRole('dialog', { name: 'קוד QR לתצוגת השחקנים' })).toBeNull()
   })
 
   it('hides the button on non-Main tabs', () => {

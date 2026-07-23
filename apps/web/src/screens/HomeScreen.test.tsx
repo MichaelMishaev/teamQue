@@ -56,12 +56,24 @@ describe('HomeScreen', () => {
     expect(screen.getByText(t('home.hero.title'))).toBeDefined()
     expect(screen.getByText(t('home.hero.meta'))).toBeDefined()
     expect(screen.getByRole('img', { name: t('home.hero.alt') })).toBeDefined()
-    const playerView = screen.getByRole('link', { name: t('publicLine.openPlayerView.newWindow') })
-    expect(playerView.getAttribute('href')).toBe('/line')
-    expect(playerView.getAttribute('target')).toBe('_blank')
-    expect(playerView.getAttribute('rel')).toContain('noopener')
+    expect(screen.getByRole('button', { name: t('publicLine.qr.dialogLabel') })).toBeDefined()
     expect(mockNavigateToField).not.toHaveBeenCalled()
     expect(mockApiPost).not.toHaveBeenCalled()
+  })
+
+  it('player-view button copies the public URL and shows the QR overlay instead of navigating', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+    mockApiGet.mockResolvedValueOnce([court()])
+    render(<HomeScreen />)
+
+    fireEvent.click(await screen.findByRole('button', { name: t('publicLine.qr.dialogLabel') }))
+
+    expect(screen.getByRole('dialog', { name: t('publicLine.qr.dialogLabel') })).toBeDefined()
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('https://line.maple-group.info/'))
+
+    fireEvent.click(screen.getByRole('button', { name: t('publicLine.qr.back') }))
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('creates the default court when no active court carries its name', async () => {
@@ -138,7 +150,7 @@ describe('HomeScreen', () => {
 
     expect(await screen.findByText('מגרש 2')).toBeDefined()
     expect(screen.getByText(t('home.default.error'))).toBeDefined()
-    expect(screen.queryByRole('link', { name: t('publicLine.openPlayerView.newWindow') })).toBeNull()
+    expect(screen.queryByRole('button', { name: t('publicLine.qr.dialogLabel') })).toBeNull()
   })
 
   it('shows an error when the court list fails to load', async () => {
