@@ -131,7 +131,7 @@ describe('PublicLineScreen', () => {
     expect(screen.getByText(t('publicLine.pair.gamesAheadOne'))).toBeDefined()
     expect(screen.getByText(t('publicLine.pair.gamesAheadMany', { count: 2 }))).toBeDefined()
     expect(screen.getByText(t('publicLine.pair.gamesAheadMany', { count: 3 }))).toBeDefined()
-    expect(screen.getAllByText(/^~\d+$/)).toHaveLength(3)
+    expect(screen.getAllByText(t('publicLine.pair.etaApproxPrefix'))).toHaveLength(3)
     expect(screen.getAllByText(t('publicLine.pair.estimatedAt'))).toHaveLength(3)
     expect(screen.getByText(t('publicLine.pair.waitingForOpponent'))).toBeDefined()
     expect(screen.getAllByText(/^#\d$/)).toHaveLength(5)

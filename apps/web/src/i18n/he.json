@@ -227,6 +227,7 @@
   "publicLine.pair.gamesAheadOne": "משחק אחד לפניכם",
   "publicLine.pair.gamesAheadMany": "{count} משחקים לפניכם",
   "publicLine.pair.startsNow": "עולים עכשיו",
+  "publicLine.pair.etaApproxPrefix": "כ־",
   "publicLine.pair.estimatedAt": "עלייה משוערת",
   "publicLine.position": "#{position}",
   "publicLine.unavailable": "התור של כיכר העצמאות לא זמין כרגע. נסו שוב כשהמגרש ייפתח."

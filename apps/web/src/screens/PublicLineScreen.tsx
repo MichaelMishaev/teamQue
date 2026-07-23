@@ -364,11 +364,14 @@ export function PublicLineScreen() {
                           </span>
                         ) : (
                           <>
-                            <span className="flex items-baseline gap-1 whitespace-nowrap text-ink">
+                            <span className="flex items-baseline whitespace-nowrap text-ink">
+                              <span className="text-[13px] font-semibold sm:text-[14px]">
+                                {t('publicLine.pair.etaApproxPrefix')}
+                              </span>
                               <bdi dir="ltr" className="tabular font-mono text-[19px] font-bold sm:text-[21px]">
-                                ~{etaMinutes}
+                                {etaMinutes}
                               </bdi>
-                              <span className="text-[12px] font-semibold sm:text-[13px]">
+                              <span className="ms-1 text-[12px] font-semibold sm:text-[13px]">
                                 {t('queue.pair.etaSuffixMinutes')}
                               </span>
                             </span>
