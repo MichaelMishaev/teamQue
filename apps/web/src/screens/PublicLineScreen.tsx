@@ -335,26 +335,54 @@ export function PublicLineScreen() {
                         : 'overflow-hidden rounded-xl border border-line bg-surface'
                     }
                   >
-                    <header className="flex min-h-8 items-center justify-between gap-2 border-b border-line bg-surface-2 px-3 py-1.5 sm:min-h-11 sm:px-3.5 sm:py-2">
-                      <span className={isNext ? 'text-[12px] font-bold text-accent' : 'text-[12px] font-bold text-muted'}>
-                        {gamesAhead === 1
-                          ? t('publicLine.pair.gamesAheadOne')
-                          : t('publicLine.pair.gamesAheadMany', { count: gamesAhead })}
-                      </span>
-                      <span className="flex whitespace-nowrap text-[11px] text-muted sm:text-[11.5px]">
+                    <header className="flex items-center justify-between gap-3 border-b border-line bg-surface-2 px-3 py-2 sm:px-3.5 sm:py-2.5">
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <span className={isNext ? 'text-[12.5px] font-bold text-accent sm:text-[13px]' : 'text-[12.5px] font-bold text-muted sm:text-[13px]'}>
+                          {gamesAhead === 0
+                            ? t('publicLine.pair.next')
+                            : gamesAhead === 1
+                              ? t('publicLine.pair.gamesAheadOne')
+                              : t('publicLine.pair.gamesAheadMany', { count: gamesAhead })}
+                        </span>
+                        {gamesAhead > 0 && (
+                          <span aria-hidden="true" className="flex gap-1">
+                            {Array.from({ length: Math.min(gamesAhead, 4) }, (_, dotIndex) => (
+                              <span
+                                key={dotIndex}
+                                className={
+                                  isNext ? 'h-1.5 w-1.5 rounded-full bg-accent' : 'h-1.5 w-1.5 rounded-full bg-accent-dim'
+                                }
+                              />
+                            ))}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-0.5">
                         {group.etaSec === 0 ? (
-                          t('publicLine.pair.startsNow')
+                          <span className="whitespace-nowrap text-[17px] font-bold text-accent sm:text-[19px]">
+                            {t('publicLine.pair.startsNow')}
+                          </span>
                         ) : (
                           <>
-                            <span>{t('queue.pair.etaPrefix')}</span>
-                            <bdi dir="ltr" className="tabular mx-1 font-mono font-semibold text-ink">
-                              {etaMinutes}
-                            </bdi>
-                            {t('queue.pair.etaSuffixMinutes')}
-                            {!group.hasPartner && <span className="ms-1">{t('queue.pair.etaApprox')}</span>}
+                            <span className="flex items-baseline gap-1 whitespace-nowrap text-ink">
+                              <bdi dir="ltr" className="tabular font-mono text-[19px] font-bold sm:text-[21px]">
+                                ~{etaMinutes}
+                              </bdi>
+                              <span className="text-[12px] font-semibold sm:text-[13px]">
+                                {t('queue.pair.etaSuffixMinutes')}
+                              </span>
+                            </span>
+                            {liveMatch !== null && (
+                              <span className="flex items-baseline gap-1 whitespace-nowrap text-[11px] text-muted sm:text-[11.5px]">
+                                <span>{t('publicLine.pair.estimatedAt')}</span>
+                                <bdi dir="ltr" className="tabular font-mono">
+                                  {formatTimeOfDay(new Date(Date.now() + offsetMs + group.etaSec * 1000).toISOString())}
+                                </bdi>
+                              </span>
+                            )}
                           </>
                         )}
-                      </span>
+                      </div>
                     </header>
                     <div className="grid min-h-[54px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 py-2 sm:min-h-[68px] sm:gap-3 sm:px-3.5 sm:py-3">
                       {group.hasPartner ? (
