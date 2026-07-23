@@ -7,9 +7,19 @@
  */
 const FIELD_PATH = /^\/f\/([a-z2-9]{6})$/
 
+/**
+ * The dedicated public QR-code hostname. The API's publicLineHostGuard
+ * already restricts this host server-side, but the PWA service worker
+ * serves the cached app shell for any path without hitting the network —
+ * so the client router must also treat the hostname as authoritative, or
+ * a cached load of '/' on this host would mount the staff HomeScreen.
+ */
+const PUBLIC_LINE_HOST = 'line.maple-group.info'
+
 export type Route = { kind: 'home' } | { kind: 'field'; slug: string } | { kind: 'line' }
 
-export function parseRoute(pathname: string): Route {
+export function parseRoute(pathname: string, hostname?: string): Route {
+  if (hostname === PUBLIC_LINE_HOST) return { kind: 'line' }
   if (pathname === '/line') return { kind: 'line' }
   const match = FIELD_PATH.exec(pathname)
   if (match?.[1]) return { kind: 'field', slug: match[1] }

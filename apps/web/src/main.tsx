@@ -21,7 +21,7 @@ if (!root) throw new Error('missing #root element')
  * slug (RealProviders/App both take it as a prop).
  */
 const isDemo = import.meta.env.VITE_DEMO === '1'
-const route = parseRoute(window.location.pathname)
+const route = parseRoute(window.location.pathname, window.location.hostname)
 
 export function Root() {
   // The QR/player route must stay read-only even when local development uses
