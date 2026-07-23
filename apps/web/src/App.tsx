@@ -106,8 +106,8 @@ export default function App({ slug = '' }: { slug?: string }) {
             {hasPublicPlayerView && (
               <button
                 type="button"
-                aria-label={t('publicLine.openPlayerView.copyLink')}
-                title={t('publicLine.openPlayerView.copyLink')}
+                aria-label={t('publicLine.qr.dialogLabel')}
+                title={t('publicLine.qr.dialogLabel')}
                 onClick={() => void showPlayerViewQr()}
                 className="flex min-h-[var(--touch-target-min)] min-w-[var(--touch-target-min)] items-center justify-center rounded-lg text-muted"
               >
@@ -121,8 +121,10 @@ export default function App({ slug = '' }: { slug?: string }) {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <rect x="8" y="8" width="13" height="13" rx="2" />
-                  <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                  <rect x="3" y="3" width="6" height="6" rx="1" />
+                  <rect x="15" y="3" width="6" height="6" rx="1" />
+                  <rect x="3" y="15" width="6" height="6" rx="1" />
+                  <path d="M15 15h2v2m4 0v.01M15 21h2m4-6v6h-2" />
                 </svg>
               </button>
             )}

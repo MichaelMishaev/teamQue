@@ -174,8 +174,10 @@ export function HomeScreen() {
               strokeLinecap="round"
               strokeLinejoin="round"
             >
-              <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
-              <circle cx="12" cy="12" r="2.5" />
+              <rect x="3" y="3" width="6" height="6" rx="1" />
+              <rect x="15" y="3" width="6" height="6" rx="1" />
+              <rect x="3" y="15" width="6" height="6" rx="1" />
+              <path d="M15 15h2v2m4 0v.01M15 21h2m4-6v6h-2" />
             </svg>
             <span>{t('publicLine.openPlayerView')}</span>
           </button>

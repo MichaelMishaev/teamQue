@@ -37,4 +37,27 @@ describe('PublicLineQrOverlay', () => {
 
     expect(document.activeElement).toBe(screen.getByRole('button', { name: t('publicLine.qr.back') }))
   })
+
+  it('share button uses the native share sheet with the public URL', async () => {
+    const nativeShare = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { share: nativeShare })
+    render(<PublicLineQrOverlay onClose={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: t('publicLine.share') }))
+
+    await vi.waitFor(() =>
+      expect(nativeShare).toHaveBeenCalledWith(expect.objectContaining({ url: PUBLIC_LINE_URL })),
+    )
+  })
+
+  it('share falls back to clipboard when the native sheet is unavailable', async () => {
+    Object.assign(navigator, { share: undefined })
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+    render(<PublicLineQrOverlay onClose={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: t('publicLine.share') }))
+
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith(PUBLIC_LINE_URL))
+  })
 })

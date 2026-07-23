@@ -117,7 +117,7 @@ describe('App top header — public player view link', () => {
   it('copies the public URL, confirms via toast, and opens the QR overlay instead of navigating', async () => {
     renderApp()
 
-    const button = screen.getByRole('button', { name: 'העתקת קישור לתצוגת השחקנים' })
+    const button = screen.getByRole('button', { name: 'קוד QR לתצוגת השחקנים' })
     expect(button.tagName).toBe('BUTTON')
 
     fireEvent.click(button)
@@ -135,6 +135,6 @@ describe('App top header — public player view link', () => {
     renderApp()
     fireEvent.click(screen.getByRole('link', { name: 'הגדרות' }))
 
-    expect(screen.queryByRole('button', { name: 'העתקת קישור לתצוגת השחקנים' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'קוד QR לתצוגת השחקנים' })).toBeNull()
   })
 })

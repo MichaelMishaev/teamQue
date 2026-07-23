@@ -1,12 +1,14 @@
 /**
  * Single responsibility: the full-screen QR handoff surface — the staff
  * member taps the player-view button, holds the phone up, a teen scans the
- * code and lands on the read-only public line. Presentational: the QR is a
- * committed static asset (see the spec: the public URL is a fixed constant),
- * and the only behavior is closing via the back button or Escape.
+ * code and lands on the read-only public line. The QR is a committed static
+ * asset (see the spec: the public URL is a fixed constant). Two actions:
+ * close (back button / Escape) and share (native sheet, clipboard fallback)
+ * so the link can also be sent remotely, not only shown in person.
  */
 import { useEffect, useRef } from 'react'
 import publicLineQr from '@/assets/public-line-qr.svg'
+import { showStatusToast } from '@/components/UndoToast'
 import { t } from '@/i18n'
 import { PUBLIC_LINE_URL } from '@/lib/route'
 
@@ -22,6 +24,23 @@ export function PublicLineQrOverlay({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [onClose])
 
+  async function share(): Promise<void> {
+    try {
+      if (typeof navigator.share === 'function') {
+        await navigator.share({
+          title: t('publicLine.share.title'),
+          text: t('publicLine.share.text'),
+          url: PUBLIC_LINE_URL,
+        })
+        return
+      }
+      await navigator.clipboard.writeText(PUBLIC_LINE_URL)
+      showStatusToast('publicLine.share.copied')
+    } catch {
+      // user dismissed the native share sheet — nothing to report
+    }
+  }
+
   return (
     <div
       role="dialog"
@@ -29,7 +48,7 @@ export function PublicLineQrOverlay({ onClose }: { onClose: () => void }) {
       aria-label={t('publicLine.qr.dialogLabel')}
       className="fixed inset-0 z-40 flex flex-col bg-bg"
     >
-      <header className="flex min-h-[var(--touch-target-min)] items-center p-3">
+      <header className="flex min-h-[var(--touch-target-min)] items-center justify-between p-3">
         <button
           ref={backRef}
           type="button"
@@ -49,6 +68,30 @@ export function PublicLineQrOverlay({ onClose }: { onClose: () => void }) {
             <path d="M15 18 9 12l6-6" />
           </svg>
           <span>{t('publicLine.qr.back')}</span>
+        </button>
+
+        <button
+          type="button"
+          aria-label={t('publicLine.share')}
+          onClick={() => void share()}
+          className="inline-flex min-h-[var(--touch-target-min)] items-center gap-1.5 rounded-lg px-2.5 text-[14px] font-semibold text-accent"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            className="h-4 w-4 shrink-0"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="18" cy="5" r="3" />
+            <circle cx="6" cy="12" r="3" />
+            <circle cx="18" cy="19" r="3" />
+            <path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" />
+          </svg>
+          <span>{t('publicLine.share')}</span>
         </button>
       </header>
 
