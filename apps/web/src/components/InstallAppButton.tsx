@@ -1,16 +1,19 @@
 import { usePwaInstall } from '@/hooks/usePwaInstall'
 import { t } from '@/i18n'
+import { showStatusToast } from './UndoToast'
 
 /** Single responsibility: header control that triggers the native PWA install prompt when the browser makes one available. */
 export function InstallAppButton() {
-  const { canInstall, promptInstall } = usePwaInstall()
-  if (!canInstall) return null
+  const { isInstalled, promptInstall } = usePwaInstall()
+  if (isInstalled) return null
 
   return (
     <button
       type="button"
       onClick={() => {
-        void promptInstall()
+        void promptInstall().then((prompted) => {
+          if (!prompted) showStatusToast('app.install.fallback')
+        })
       }}
       aria-label={t('app.install')}
       title={t('app.install')}

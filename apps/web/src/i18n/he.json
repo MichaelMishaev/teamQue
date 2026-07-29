@@ -79,6 +79,7 @@
   "toast.newVersion": "גרסה חדשה זמינה",
   "app.install": "התקן אפליקציה",
   "app.install.short": "התקן",
+  "app.install.fallback": "פתחו את תפריט הדפדפן ובחרו ״התקנת אפליקציה״ או ״הוספה למסך הבית״",
   "app.managerName": "ניהול מגרשים",
   "app.lineName": "התור במגרש",
   "empty.noSession.title": "אין ערב פעיל",
