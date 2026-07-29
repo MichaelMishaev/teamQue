@@ -39,6 +39,7 @@ describe('realtime gateway (integration)', () => {
     process.env.SESSION_SECRET = SESSION_SECRET
     process.env.WEB_ORIGIN = 'http://localhost:5173'
     process.env.PUBLIC_LINE_HOST = 'line.maple-group.info'
+    process.env.RAILWAY_PUBLIC_DOMAIN = 'gate.netanya.club'
     process.env.NODE_ENV = 'test'
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile()
@@ -142,6 +143,15 @@ describe('realtime gateway (integration)', () => {
 
       const snapshot = await waitForEvent<SessionSnapshot>(socket, SOCKET_EVENTS.snapshot)
       expect(sessionSnapshotSchema.safeParse(snapshot).success).toBe(true)
+      expect(snapshot.session.id).toBe(fixture.sessionId)
+    })
+
+    it('allows an authenticated socket from the exact Railway manager domain', async () => {
+      const fixture = await seedCenterWithActiveSession()
+      const socket = connectSocket(fixture.sessionCookieHeader, 'https://gate.netanya.club')
+
+      await expect(waitForEvent(socket, HELLO_EVENT)).resolves.toBeDefined()
+      const snapshot = await waitForEvent<SessionSnapshot>(socket, SOCKET_EVENTS.snapshot)
       expect(snapshot.session.id).toBe(fixture.sessionId)
     })
 

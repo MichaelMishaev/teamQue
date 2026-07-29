@@ -29,7 +29,9 @@ const HELLO_EVENT = 'session:hello'
   cors: {
     origin: (origin: string | undefined, callback: (err: Error | null, origin?: boolean) => void) => {
       const publicOrigin = process.env.PUBLIC_LINE_HOST ? `https://${process.env.PUBLIC_LINE_HOST}` : null
-      const allowed = origin === undefined || origin === process.env.WEB_ORIGIN || origin === publicOrigin
+      const managerOrigin = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null
+      const allowed =
+        origin === undefined || origin === process.env.WEB_ORIGIN || origin === managerOrigin || origin === publicOrigin
       callback(allowed ? null : new Error('origin not allowed'), allowed)
     },
     credentials: true,
