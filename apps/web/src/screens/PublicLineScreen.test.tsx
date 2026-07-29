@@ -210,6 +210,7 @@ describe('PublicLineScreen', () => {
     )
     expect(communityLink.getAttribute('target')).toBe('_blank')
     expect(communityLink.getAttribute('rel')).toBe('noopener noreferrer')
+    expect(communityLink.className).toContain('w-full')
     expect(communityLink.className).not.toContain('fixed')
     expect(communityLink.className).not.toContain('sticky')
     const currentSection = screen.getByRole('heading', { name: t('publicLine.current') }).closest('section')
@@ -218,8 +219,8 @@ describe('PublicLineScreen', () => {
     if (currentSection === null || communitySection === null || queueSection === null) {
       throw new Error('expected public line sections')
     }
-    expect(currentSection.compareDocumentPosition(queueSection) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
-    expect(queueSection.compareDocumentPosition(communitySection) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+    expect(currentSection.compareDocumentPosition(communitySection) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+    expect(communitySection.compareDocumentPosition(queueSection) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
     expect(screen.queryByText(t('action.start'))).toBeNull()
     expect(screen.queryByText(t('queue.remove'))).toBeNull()
     const managerLinks = screen.queryAllByRole('link').filter((link) => {

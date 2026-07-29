@@ -10,7 +10,7 @@
 
 - The right-side vertical timeline contains the visible games-remaining values 1–6.
 - The first marker is filled and later markers are outlined, matching the selected hierarchy.
-- Six complete pairs remain visible in one 390 × 844 viewport; the community card begins below the queue.
+- Six complete pairs remain visible in one 390 × 844 viewport.
 - Pair names, the accent "against" label, and the approximate wait remain readable without overlap or truncation.
 - Duplicate textual game counts and queue-position numbers were removed so the marker numbers have one unambiguous meaning.
 - Existing app-shell and live-match patterns were retained intentionally. ETA values include the product's configured one-minute transition gap between games, so they are one minute later than the concept image.
@@ -21,5 +21,13 @@
 - P1 resolved: moved the community block below the queue so the line remains the hero surface.
 - P2 resolved: collapsed separate cards into compact continuous rows and removed duplicate numeric labels.
 - P2 resolved: aligned the vertical line through every marker and kept the active marker visually dominant.
+
+## Sticky WhatsApp follow-up
+
+- implementation: `/Users/michaelmishayev/.codex/visualizations/2026/07/29/019fad59-d437-71d0-82d7-08c9d15703f5/public-line-whatsapp-under-clock-local-390x844.png`
+- viewport: 390 × 844 CSS px at 1× density
+- The full-width labeled WhatsApp button appears directly after the current-match card and before the queue.
+- The CTA retains the original community title, explanation, third-party link behavior, and 44px minimum touch target.
+- The CTA measures 340 × 44px at the narrow viewport; the page remains exactly 390px wide with no horizontal overflow.
 
 final result: passed
