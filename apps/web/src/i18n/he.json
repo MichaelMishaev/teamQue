@@ -227,6 +227,7 @@
   "publicLine.community.cta": "הצטרפות לקבוצת WhatsApp",
   "publicLine.queue.title": "כל התור ({count})",
   "publicLine.queue.subtitle": "כמה משחקים נשארו וזמן ההמתנה",
+  "publicLine.queue.gamesRemaining": "משחקים עד שתעלו",
   "publicLine.queue.empty": "אין שחקנים בתור כרגע",
   "publicLine.realtime": "מתעדכן בזמן אמת",
   "publicLine.pair.next": "המשחק הבא",

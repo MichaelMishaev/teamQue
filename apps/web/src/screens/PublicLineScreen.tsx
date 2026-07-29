@@ -303,6 +303,116 @@ export function PublicLineScreen() {
           </div>
         </section>
 
+        <section aria-labelledby="public-line-queue-title" className="flex flex-col gap-2 sm:gap-3">
+          <header className="flex items-end justify-between gap-3">
+            <div>
+              <h2 id="public-line-queue-title" className="text-[17px] font-bold tracking-tight sm:text-[19px]">
+                {t('publicLine.queue.title', { count: snapshot.queue.length })}
+              </h2>
+              <p className="text-[11.5px] text-muted sm:mt-0.5 sm:text-[12.5px]">{t('publicLine.queue.subtitle')}</p>
+            </div>
+            <span className="text-[11px] font-semibold text-muted">{t('publicLine.realtime')}</span>
+          </header>
+
+          {pairGroups.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-line bg-surface px-4 py-8 text-center text-sm text-muted">
+              {t('publicLine.queue.empty')}
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-line bg-surface">
+              <p className="border-b border-line bg-surface-2 px-3 py-1.5 text-[10.5px] font-semibold text-accent sm:px-4 sm:text-[11.5px]">
+                {t('publicLine.queue.gamesRemaining')}
+              </p>
+              <ol className="relative">
+                <span aria-hidden="true" className="absolute inset-y-5 start-8 z-0 w-px bg-accent/60 sm:start-9" />
+                {pairGroups.map((group) => {
+                  const entries = group.entryIds
+                    .map((id) => entryById.get(id))
+                    .filter((entry): entry is QueueEntryView => entry !== undefined)
+                  const isNext = group.pairIndex === 0 && group.hasPartner
+                  const gamesRemaining = group.gamesAhead + (liveMatch === null ? 0 : 1)
+                  const gamesRemainingLabel =
+                    gamesRemaining === 0
+                      ? t('publicLine.pair.next')
+                      : gamesRemaining === 1
+                        ? t('publicLine.pair.gamesAheadOne')
+                        : t('publicLine.pair.gamesAheadMany', { count: gamesRemaining })
+                  const etaMinutes = Math.ceil(group.etaSec / 60)
+                  return (
+                    <li
+                      key={group.entryIds[0]}
+                      className={
+                        isNext
+                          ? 'relative grid min-h-[76px] grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-accent/40 bg-accent-dim/20 px-3 py-1.5 last:border-b-0 sm:min-h-[82px] sm:grid-cols-[2.5rem_minmax(0,1fr)_auto] sm:gap-3 sm:px-4'
+                          : 'relative grid min-h-[72px] grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-line px-3 py-1.5 last:border-b-0 sm:min-h-[78px] sm:grid-cols-[2.5rem_minmax(0,1fr)_auto] sm:gap-3 sm:px-4'
+                      }
+                    >
+                      <bdi
+                        dir="ltr"
+                        data-testid="public-line-games-remaining"
+                        aria-label={gamesRemainingLabel}
+                        className={
+                          isNext
+                            ? 'relative z-10 flex size-8 items-center justify-center rounded-full border-2 border-accent bg-accent font-mono text-[14px] font-bold tabular text-on-accent sm:size-9 sm:text-[15px]'
+                            : 'relative z-10 flex size-8 items-center justify-center rounded-full border-2 border-accent bg-surface font-mono text-[14px] font-bold tabular text-accent sm:size-9 sm:text-[15px]'
+                        }
+                      >
+                        {gamesRemaining}
+                      </bdi>
+
+                      <div className="min-w-0">
+                        {isNext && (
+                          <span className="mb-0.5 inline-flex rounded-full bg-accent-dim px-2 py-0.5 text-[10px] font-bold text-accent">
+                            {t('publicLine.pair.next')}
+                          </span>
+                        )}
+                        {group.hasPartner ? (
+                          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-baseline gap-1.5 text-center">
+                            {entries[0] && <QueuedPlayer entry={entries[0]} />}
+                            <span className="text-[10.5px] font-semibold text-accent sm:text-[12px]">
+                              {t('match.vs')}
+                            </span>
+                            {entries[1] && <QueuedPlayer entry={entries[1]} />}
+                          </div>
+                        ) : (
+                          entries[0] && (
+                            <div className="min-w-0 text-center">
+                              <QueuedPlayer entry={entries[0]} />
+                              <p className="text-[10px] text-muted sm:text-[11.5px]">
+                                {t('publicLine.pair.waitingForOpponent')}
+                              </p>
+                            </div>
+                          )
+                        )}
+                      </div>
+
+                      <div className="flex min-w-[4.5rem] shrink-0 justify-end">
+                        {group.etaSec === 0 ? (
+                          <span className="whitespace-nowrap text-[13px] font-bold text-accent sm:text-[15px]">
+                            {t('publicLine.pair.startsNow')}
+                          </span>
+                        ) : (
+                          <span className="flex items-baseline whitespace-nowrap text-accent">
+                            <span className="text-[11px] font-semibold sm:text-[12px]">
+                              {t('publicLine.pair.etaApproxPrefix')}
+                            </span>
+                            <bdi dir="ltr" className="tabular font-mono text-[17px] font-bold sm:text-[19px]">
+                              {etaMinutes}
+                            </bdi>
+                            <span className="ms-1 text-[10.5px] font-semibold sm:text-[12px]">
+                              {t('queue.pair.etaSuffixMinutes')}
+                            </span>
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  )
+                })}
+              </ol>
+            </div>
+          )}
+        </section>
+
         <section
           aria-labelledby="public-line-community-title"
           className="flex flex-col gap-3 rounded-xl border border-accent/50 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4"
@@ -337,118 +447,6 @@ export function PublicLineScreen() {
             </svg>
             <span>{t('publicLine.community.cta')}</span>
           </a>
-        </section>
-
-        <section aria-labelledby="public-line-queue-title" className="flex flex-col gap-2 sm:gap-3">
-          <header className="flex items-end justify-between gap-3">
-            <div>
-              <h2 id="public-line-queue-title" className="text-[17px] font-bold tracking-tight sm:text-[19px]">
-                {t('publicLine.queue.title', { count: snapshot.queue.length })}
-              </h2>
-              <p className="text-[11.5px] text-muted sm:mt-0.5 sm:text-[12.5px]">{t('publicLine.queue.subtitle')}</p>
-            </div>
-            <span className="text-[11px] font-semibold text-muted">{t('publicLine.realtime')}</span>
-          </header>
-
-          {pairGroups.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-line bg-surface px-4 py-8 text-center text-sm text-muted">
-              {t('publicLine.queue.empty')}
-            </div>
-          ) : (
-            <ol className="grid gap-2 sm:grid-cols-2 sm:gap-3">
-              {pairGroups.map((group) => {
-                const entries = group.entryIds
-                  .map((id) => entryById.get(id))
-                  .filter((entry): entry is QueueEntryView => entry !== undefined)
-                const isNext = group.pairIndex === 0 && group.hasPartner
-                const gamesAhead = group.gamesAhead + (liveMatch === null ? 0 : 1)
-                const etaMinutes = Math.ceil(group.etaSec / 60)
-                return (
-                  <li
-                    key={group.entryIds[0]}
-                    className={
-                      isNext
-                        ? 'overflow-hidden rounded-xl border border-accent bg-surface'
-                        : 'overflow-hidden rounded-xl border border-line bg-surface'
-                    }
-                  >
-                    <header className="flex items-center justify-between gap-3 border-b border-line bg-surface-2 px-3 py-2 sm:px-3.5 sm:py-2.5">
-                      <div className="flex min-w-0 flex-col gap-1">
-                        <span className={isNext ? 'text-[12.5px] font-bold text-accent sm:text-[13px]' : 'text-[12.5px] font-bold text-muted sm:text-[13px]'}>
-                          {gamesAhead === 0
-                            ? t('publicLine.pair.next')
-                            : gamesAhead === 1
-                              ? t('publicLine.pair.gamesAheadOne')
-                              : t('publicLine.pair.gamesAheadMany', { count: gamesAhead })}
-                        </span>
-                        {gamesAhead > 0 && (
-                          <span aria-hidden="true" className="flex gap-1">
-                            {Array.from({ length: Math.min(gamesAhead, 4) }, (_, dotIndex) => (
-                              <span
-                                key={dotIndex}
-                                className={
-                                  isNext ? 'h-1.5 w-1.5 rounded-full bg-accent' : 'h-1.5 w-1.5 rounded-full bg-accent-dim'
-                                }
-                              />
-                            ))}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-0.5">
-                        {group.etaSec === 0 ? (
-                          <span className="whitespace-nowrap text-[17px] font-bold text-accent sm:text-[19px]">
-                            {t('publicLine.pair.startsNow')}
-                          </span>
-                        ) : (
-                          <>
-                            <span className="flex items-baseline whitespace-nowrap text-ink">
-                              <span className="text-[13px] font-semibold sm:text-[14px]">
-                                {t('publicLine.pair.etaApproxPrefix')}
-                              </span>
-                              <bdi dir="ltr" className="tabular font-mono text-[19px] font-bold sm:text-[21px]">
-                                {etaMinutes}
-                              </bdi>
-                              <span className="ms-1 text-[12px] font-semibold sm:text-[13px]">
-                                {t('queue.pair.etaSuffixMinutes')}
-                              </span>
-                            </span>
-                            {liveMatch !== null && (
-                              <span className="flex items-baseline gap-1 whitespace-nowrap text-[11px] text-muted sm:text-[11.5px]">
-                                <span>{t('publicLine.pair.estimatedAt')}</span>
-                                <bdi dir="ltr" className="tabular font-mono">
-                                  {formatTimeOfDay(new Date(Date.now() + offsetMs + group.etaSec * 1000).toISOString())}
-                                </bdi>
-                              </span>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </header>
-                    <div className="grid min-h-[54px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 py-2 sm:min-h-[68px] sm:gap-3 sm:px-3.5 sm:py-3">
-                      {group.hasPartner ? (
-                        <>
-                          {entries[0] && <QueuedPlayer entry={entries[0]} />}
-                          <span className="text-[10.5px] font-semibold text-muted sm:text-[12px]">
-                            {t('match.vs')}
-                          </span>
-                          {entries[1] && <QueuedPlayer entry={entries[1]} />}
-                        </>
-                      ) : (
-                        entries[0] && (
-                          <div className="col-span-3 flex flex-col gap-0.5">
-                            <QueuedPlayer entry={entries[0]} />
-                            <p className="text-center text-[10px] text-muted sm:text-[11.5px]">
-                              {t('publicLine.pair.waitingForOpponent')}
-                            </p>
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </li>
-                )
-              })}
-            </ol>
-          )}
         </section>
       </main>
     </PublicLineShell>
@@ -539,13 +537,6 @@ function PlayerName({ name }: { name: string }) {
 
 function QueuedPlayer({ entry }: { entry: QueueEntryView }) {
   return (
-    <div className="min-w-0 text-center">
-      <div className="flex min-w-0 items-baseline justify-center gap-1.5">
-        <bdi dir="ltr" className="tabular shrink-0 font-mono text-[10.5px] text-muted sm:text-[12px]">
-          {t('publicLine.position', { position: entry.position })}
-        </bdi>
-        <p className="truncate text-[14.5px] font-semibold text-ink sm:text-[16px]">{entry.team.name}</p>
-      </div>
-    </div>
+    <p className="min-w-0 truncate text-[15.5px] font-bold text-ink sm:text-[17px]">{entry.team.name}</p>
   )
 }
