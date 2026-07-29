@@ -58,6 +58,7 @@ describe('publicLineHostGuard', () => {
     ['POST', '/fields/main-court/public-line-events'],
     ['GET', '/socket.io/'],
     ['GET', '/assets/index-abc123.js'],
+    ['GET', '/manifest-line.webmanifest'],
   ])('allows %s %s on the public host', (method, path) => {
     const guard = publicLineHostGuard(PUBLIC_HOST)
     const { req, res, next, status } = makeReqRes(PUBLIC_HOST, method, path)
@@ -98,6 +99,7 @@ describe('publicLineHostGuard', () => {
     ['POST', '/line/some-entry-id/cancel'],
     ['GET', '/anything-not-explicitly-public'],
     ['GET', '/admin'],
+    ['GET', '/manifest-manager.webmanifest'],
   ])('blocks %s %s on the public host with a 404', (method, path) => {
     const guard = publicLineHostGuard(PUBLIC_HOST)
     const { req, res, next, status, end } = makeReqRes(PUBLIC_HOST, method, path)
