@@ -210,16 +210,18 @@ describe('PublicLineScreen', () => {
     )
     expect(communityLink.getAttribute('target')).toBe('_blank')
     expect(communityLink.getAttribute('rel')).toBe('noopener noreferrer')
-    expect(communityLink.className).not.toContain('fixed')
-    expect(communityLink.className).not.toContain('sticky')
+    expect(communityLink.getAttribute('data-testid')).toBe('public-line-whatsapp-header')
+    const stickyHeader = communityLink.closest('header')
+    expect(stickyHeader).not.toBeNull()
+    expect(stickyHeader?.className).toContain('sticky')
+    expect(communityLink.className).toContain('size-[var(--touch-target-min)]')
     const currentSection = screen.getByRole('heading', { name: t('publicLine.current') }).closest('section')
-    const communitySection = screen.getByRole('heading', { name: t('publicLine.community.title') }).closest('section')
     const queueSection = screen.getByRole('heading', { name: t('publicLine.queue.title', { count: 2 }) }).closest('section')
-    if (currentSection === null || communitySection === null || queueSection === null) {
+    if (currentSection === null || queueSection === null) {
       throw new Error('expected public line sections')
     }
     expect(currentSection.compareDocumentPosition(queueSection) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
-    expect(queueSection.compareDocumentPosition(communitySection) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+    expect(screen.queryByRole('heading', { name: t('publicLine.community.title') })).toBeNull()
     expect(screen.queryByText(t('action.start'))).toBeNull()
     expect(screen.queryByText(t('queue.remove'))).toBeNull()
     const managerLinks = screen.queryAllByRole('link').filter((link) => {
