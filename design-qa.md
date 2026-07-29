@@ -24,10 +24,10 @@
 
 ## Sticky WhatsApp follow-up
 
-- implementation: `/Users/michaelmishayev/.codex/visualizations/2026/07/29/019fad59-d437-71d0-82d7-08c9d15703f5/public-line-whatsapp-sticky-local-390x844.png`
+- implementation: `/Users/michaelmishayev/.codex/visualizations/2026/07/29/019fad59-d437-71d0-82d7-08c9d15703f5/public-line-whatsapp-under-clock-local-390x844.png`
 - viewport: 390 × 844 CSS px at 1× density
-- The WhatsApp link is a visible 44 × 44 touch target inside the 84.5px sticky header.
-- The large lower community card was removed to avoid duplicate calls to action and preserve queue density.
-- The viewport remains exactly 390px wide with no horizontal overflow, and all six waiting pairs remain visible.
+- The full-width labeled WhatsApp button appears directly after the current-match card and before the queue.
+- The CTA retains the original community title, explanation, third-party link behavior, and 44px minimum touch target.
+- The CTA measures 340 × 44px at the narrow viewport; the page remains exactly 390px wide with no horizontal overflow.
 
 final result: passed
