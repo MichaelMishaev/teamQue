@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Manager queue logo">
+  <rect width="512" height="512" rx="112" fill="#07100b"/>
+  <rect x="44" y="177" width="424" height="158" rx="72" fill="#0d1a12" stroke="#246b45" stroke-width="10"/>
+  <circle cx="91" cy="256" r="36" fill="#35e58a"/>
+  <circle cx="201" cy="256" r="36" fill="#21683f"/>
+  <circle cx="311" cy="256" r="36" fill="#21683f"/>
+  <circle cx="421" cy="256" r="36" fill="#21683f"/>
+  <circle cx="401" cy="137" r="54" fill="#35e58a" stroke="#07100b" stroke-width="12"/>
+  <path d="M374 120h54M374 137h54M374 154h54" fill="none" stroke="#07100b" stroke-width="9" stroke-linecap="round"/>
+  <circle cx="391" cy="120" r="8" fill="#07100b"/>
+  <circle cx="414" cy="137" r="8" fill="#07100b"/>
+  <circle cx="385" cy="154" r="8" fill="#07100b"/>
+</svg>

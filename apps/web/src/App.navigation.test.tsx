@@ -31,6 +31,16 @@ function renderApp() {
   )
 }
 
+function exposeNativeInstallPrompt(): void {
+  const event = new Event('beforeinstallprompt', { cancelable: true }) as Event & {
+    prompt: () => void
+    userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+  }
+  event.prompt = vi.fn()
+  event.userChoice = Promise.resolve({ outcome: 'accepted' })
+  act(() => window.dispatchEvent(event))
+}
+
 describe('App top-level navigation', () => {
   beforeEach(() => {
     vi.stubGlobal('localStorage', fakeLocalStorage())
@@ -58,6 +68,15 @@ describe('App top-level navigation', () => {
     expect(settings.getAttribute('href')).toBe('/f/abc234?tab=settings')
     expect(main.getAttribute('aria-current')).toBe('page')
     expect(history.getAttribute('aria-current')).toBeNull()
+  })
+
+  it('keeps the manager PWA install action available across manager tabs', () => {
+    renderApp()
+    exposeNativeInstallPrompt()
+
+    expect(screen.getByRole('button', { name: 'התקן אפליקציה' })).toBeDefined()
+    fireEvent.click(screen.getByRole('link', { name: 'הגדרות' }))
+    expect(screen.getByRole('button', { name: 'התקן אפליקציה' })).toBeDefined()
   })
 
   it('switches secondary destinations in one entry and returns to Main on popstate without remounting the shell', () => {

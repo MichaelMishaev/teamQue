@@ -79,6 +79,8 @@
   "toast.newVersion": "גרסה חדשה זמינה",
   "app.install": "התקן אפליקציה",
   "app.install.short": "התקן",
+  "app.managerName": "ניהול מגרשים",
+  "app.lineName": "התור במגרש",
   "empty.noSession.title": "אין ערב פעיל",
   "empty.noSession.hint": "מנהל יכול לפתוח ערב משחקים חדש",
   "empty.noSession.staffHint": "ממתינים שמנהל יפתח ערב משחקים",

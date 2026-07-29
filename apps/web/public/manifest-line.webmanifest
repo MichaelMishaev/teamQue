@@ -1,0 +1,21 @@
+{
+  "id": "/line",
+  "name": "התור בכיכר העצמאות",
+  "short_name": "התור במגרש",
+  "description": "צפייה בזמן אמת במשחק ובתור של מגרש כיכר העצמאות",
+  "start_url": "/",
+  "scope": "/",
+  "launch_handler": { "client_mode": "navigate-existing" },
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B100D",
+  "theme_color": "#0B100D",
+  "dir": "rtl",
+  "lang": "he",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -3,6 +3,7 @@ import youthCityNetanya from '@/assets/youth-city-netanya-summer-2026.webp'
 import { CourtRow } from '@/components/CourtRow'
 import { CreateCourtSheet } from '@/components/CreateCourtSheet'
 import { EmptyState } from '@/components/EmptyState'
+import { InstallAppButton } from '@/components/InstallAppButton'
 import { PublicLineQrOverlay } from '@/components/PublicLineQrOverlay'
 import { showStatusToast, UndoToaster } from '@/components/UndoToast'
 import { Button } from '@/components/ui/button'
@@ -156,32 +157,35 @@ export function HomeScreen() {
     <div className="mx-auto flex min-h-dvh max-w-md flex-col gap-3 p-4">
       <header className="flex min-h-[var(--touch-target-min)] items-center justify-between gap-3">
         <h1 className="text-[19px] font-bold text-ink">{t('home.title')}</h1>
-        {hasPublicPlayerView && (
-          <button
-            type="button"
-            aria-label={t('publicLine.qr.dialogLabel')}
-            title={t('publicLine.qr.dialogLabel')}
-            onClick={() => void showPlayerViewQr()}
-            className="inline-flex min-h-[var(--touch-target-min)] shrink-0 items-center gap-1.5 rounded-lg border border-accent bg-accent-dim px-3 text-[12.5px] font-bold text-accent transition-colors hover:bg-surface-2 active:bg-surface"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              className="h-4 w-4 shrink-0"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+        <div className="flex min-w-0 items-center gap-2">
+          <InstallAppButton />
+          {hasPublicPlayerView && (
+            <button
+              type="button"
+              aria-label={t('publicLine.qr.dialogLabel')}
+              title={t('publicLine.qr.dialogLabel')}
+              onClick={() => void showPlayerViewQr()}
+              className="inline-flex min-h-[var(--touch-target-min)] shrink-0 items-center gap-1.5 rounded-lg border border-accent bg-accent-dim px-3 text-[12.5px] font-bold text-accent transition-colors hover:bg-surface-2 active:bg-surface"
             >
-              <rect x="3" y="3" width="6" height="6" rx="1" />
-              <rect x="15" y="3" width="6" height="6" rx="1" />
-              <rect x="3" y="15" width="6" height="6" rx="1" />
-              <path d="M15 15h2v2m4 0v.01M15 21h2m4-6v6h-2" />
-            </svg>
-            <span>{t('publicLine.openPlayerView')}</span>
-          </button>
-        )}
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                className="h-4 w-4 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="3" width="6" height="6" rx="1" />
+                <rect x="15" y="3" width="6" height="6" rx="1" />
+                <rect x="3" y="15" width="6" height="6" rx="1" />
+                <path d="M15 15h2v2m4 0v.01M15 21h2m4-6v6h-2" />
+              </svg>
+              <span>{t('publicLine.openPlayerView')}</span>
+            </button>
+          )}
+        </div>
       </header>
 
       <section className="relative aspect-[2/1] overflow-hidden rounded-xl border border-line bg-surface">
