@@ -70,6 +70,11 @@ describe('HistoryScreen', () => {
     expect(screen.getByText('משחקים')).toBeDefined()
   })
 
+  it('does not expose the manager names attached to match history', () => {
+    renderHistory([finishedMatch('m1', 'יוסי', 'רון')])
+    expect(screen.queryByText('שרה', { exact: false })).toBeNull()
+  })
+
   it('filters the match list (not the summary) by captain name', () => {
     renderHistory([finishedMatch('m1', 'יוסי', 'רון'), finishedMatch('m2', 'עומר', 'איתי')])
     fireEvent.change(screen.getByPlaceholderText('חיפוש לפי קפטן…'), { target: { value: 'עומר' } })

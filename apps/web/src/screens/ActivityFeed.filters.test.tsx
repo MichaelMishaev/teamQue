@@ -31,7 +31,7 @@ const exceptionEntry: ActivityEntry = {
 }
 
 describe('ActivityFeed full-log filters', () => {
-  it('filters exceptions server-side and exposes action, actor, status, and exact-time controls', async () => {
+  it('filters exceptions server-side without exposing manager names or an actor-name filter', async () => {
     const loadPage = vi.fn<ActivityLogSource['loadPage']>().mockImplementation(async (filters) => ({
       entries: filters.eventKind === 'exception' ? [exceptionEntry] : [actionEntry],
       nextCursor: null,
@@ -55,7 +55,8 @@ describe('ActivityFeed full-log filters', () => {
     expect(await screen.findByText(/פעולה נדחתה/)).toBeDefined()
     expect(screen.getByText('VALIDATION_FAILED')).toBeDefined()
     expect(screen.getByLabelText('סינון לפי פעולה')).toBeDefined()
-    expect(screen.getByLabelText('סינון לפי מבצע')).toBeDefined()
+    expect(screen.queryByLabelText('סינון לפי מבצע')).toBeNull()
+    expect(screen.queryByText('שרה')).toBeNull()
     expect(screen.getByLabelText('סינון לפי קוד מצב')).toBeDefined()
     expect(screen.getByLabelText('מתאריך ושעה')).toBeDefined()
     expect(screen.getByLabelText('עד תאריך ושעה')).toBeDefined()

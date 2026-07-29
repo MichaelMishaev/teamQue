@@ -289,6 +289,18 @@ describe('permission matrix (integration)', () => {
       expected: { anonymous: 401, centerOnly: 201, staff: 201, manager: 201 },
     },
     {
+      route: 'POST /auth/device',
+      method: 'post',
+      path: '/auth/device',
+      bodyFor: {
+        anonymous: () => ({}),
+        centerOnly: () => ({}),
+        staff: () => ({}),
+        manager: () => ({}),
+      },
+      expected: { anonymous: 401, centerOnly: 201, staff: 201, manager: 201 },
+    },
+    {
       route: 'GET /auth/me',
       method: 'get',
       path: '/auth/me',

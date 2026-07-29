@@ -6,7 +6,7 @@ import { apiPost } from '@/lib/api'
 const PIN_LENGTH = 4
 
 export interface CenterUnlockProps {
-  onSuccess: () => void
+  onSuccess: () => void | Promise<void>
 }
 
 /** Device-level center PIN gate for the manager application. */
@@ -19,7 +19,7 @@ export function CenterUnlock({ onSuccess }: CenterUnlockProps) {
     setSubmitting(true)
     try {
       await apiPost('/auth/center', { pin: candidate })
-      onSuccess()
+      await onSuccess()
     } catch {
       setPin('')
       setError(t('auth.center.wrongPin'))

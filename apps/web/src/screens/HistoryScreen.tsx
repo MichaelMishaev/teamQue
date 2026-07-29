@@ -87,12 +87,6 @@ function HistoryRow({ match }: { match: FinishedMatchView }) {
           {formatClock(match.actualDurationSec)}
         </bdi>
       </div>
-      {(match.startedByName || match.endedByName) && (
-        <div className="text-[12.5px] text-muted">
-          {match.startedByName && `${t('history.startedBy')} ${match.startedByName}`}
-          {match.endedByName && ` · ${t('history.endedBy')} ${match.endedByName}`}
-        </div>
-      )}
     </div>
   )
 }

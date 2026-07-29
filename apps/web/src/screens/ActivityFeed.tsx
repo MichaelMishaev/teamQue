@@ -67,7 +67,6 @@ export function ActivityFeed() {
   const [remoteEntries, setRemoteEntries] = useState<ActivityEntry[]>(source.entries)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [actions, setActions] = useState<Array<{ action: string; count: number }>>([])
-  const [actors, setActors] = useState<Array<{ staffId: string; staffName: string; count: number }>>([])
   const [loading, setLoading] = useState(source.local !== true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [loadError, setLoadError] = useState(false)
@@ -88,7 +87,6 @@ export function ActivityFeed() {
         setRemoteEntries(page.entries)
         setNextCursor(page.nextCursor)
         setActions(page.actions)
-        setActors(page.actors)
       })
       .catch(() => {
         if (!cancelled) setLoadError(true)
@@ -110,11 +108,6 @@ export function ActivityFeed() {
     () => (source.local ? buildActionFacets(source.entries) : actions),
     [actions, source.entries, source.local],
   )
-  const localActors = useMemo(
-    () => (source.local ? buildActorFacets(source.entries) : actors),
-    [actors, source.entries, source.local],
-  )
-
   async function loadMore(): Promise<void> {
     if (source.local || !nextCursor || loadingMore) return
     setLoadingMore(true)
@@ -169,22 +162,6 @@ export function ActivityFeed() {
                 {advancedOpen && localActions.map((facet) => (
                   <option key={facet.action} value={facet.action}>
                     {actionFacetLabel(facet.action)} ({facet.count})
-                  </option>
-                ))}
-              </select>
-            </FilterField>
-
-            <FilterField label={t('activity.filters.actor')}>
-              <select
-                aria-label={t('activity.filters.actor')}
-                value={filters.staffId}
-                onChange={(event) => setFilters((current) => ({ ...current, staffId: event.target.value }))}
-                className="min-h-[var(--touch-target-min)] w-full rounded-lg border border-line bg-surface-2 px-2 text-[14px] text-ink"
-              >
-                <option value="">{t('activity.filters.anyActor')}</option>
-                {advancedOpen && localActors.map((facet) => (
-                  <option key={facet.staffId} value={facet.staffId}>
-                    {facet.staffName} ({facet.count})
                   </option>
                 ))}
               </select>
@@ -309,7 +286,7 @@ function FilterField({ label, children }: { label: string; children: ReactNode }
 
 function ActivityRow({ entry }: { entry: ActivityEntry }) {
   const isException = (entry.eventKind ?? 'action') === 'exception'
-  const isAuto = entry.staffName === null
+  const isAuto = entry.staffId === null || (entry.staffId === undefined && entry.staffName === null)
   const date = new Intl.DateTimeFormat('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(new Date(entry.atIso))
 
   return (
@@ -324,7 +301,6 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
             {entry.outcome === 'failed' ? t('activity.exception.failed') : t('activity.exception.rejected')}
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted">
-            {entry.staffName && <span className="font-semibold text-ink">{entry.staffName}</span>}
             {entry.statusCode !== undefined && <bdi dir="ltr" className="tabular">{entry.statusCode}</bdi>}
             {entry.errorCode && <bdi dir="ltr" className="font-mono text-warn">{entry.errorCode}</bdi>}
           </div>
@@ -341,7 +317,6 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
         </div>
       ) : (
         <p className={cn('min-w-0', isAuto ? 'italic text-muted' : 'text-ink')}>
-          {!isAuto && <b className="font-bold">{entry.staffName} </b>}
           {activityMessage(entry)}
         </p>
       )}
@@ -375,17 +350,6 @@ function buildActionFacets(entries: ActivityEntry[]): Array<{ action: string; co
     counts.set(action, (counts.get(action) ?? 0) + 1)
   }
   return [...counts].map(([action, count]) => ({ action, count }))
-}
-
-function buildActorFacets(entries: ActivityEntry[]): Array<{ staffId: string; staffName: string; count: number }> {
-  const actors = new Map<string, { staffId: string; staffName: string; count: number }>()
-  for (const entry of entries) {
-    if (!entry.staffId || !entry.staffName) continue
-    const current = actors.get(entry.staffId) ?? { staffId: entry.staffId, staffName: entry.staffName, count: 0 }
-    current.count += 1
-    actors.set(entry.staffId, current)
-  }
-  return [...actors.values()]
 }
 
 function actionFacetLabel(rawAction: string): string {

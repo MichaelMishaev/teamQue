@@ -17,11 +17,11 @@ describe('ActivityFeed', () => {
     expect(screen.getByText('אין פעילות עדיין')).toBeDefined()
   })
 
-  it('renders a staff-attributed row with the staff name and action message', () => {
+  it('renders a staff-attributed action without exposing the manager name', () => {
     renderFeed([
-      { id: 'a1', atIso: '2026-07-10T18:42:00.000Z', action: 'match.start', staffName: 'שרה', captainA: 'דניאל', captainB: 'נועם', fieldName: 'מגרש ראשי' },
+      { id: 'a1', atIso: '2026-07-10T18:42:00.000Z', action: 'match.start', staffId: 'staff-1', staffName: 'שרה', captainA: 'דניאל', captainB: 'נועם', fieldName: 'מגרש ראשי' },
     ])
-    expect(screen.getByText('שרה', { exact: false })).toBeDefined()
+    expect(screen.queryByText('שרה', { exact: false })).toBeNull()
     expect(screen.getByText(/התחלת משחק: דניאל נגד נועם \(מגרש ראשי\)/)).toBeDefined()
   })
 

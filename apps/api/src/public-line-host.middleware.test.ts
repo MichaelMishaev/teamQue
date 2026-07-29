@@ -82,6 +82,7 @@ describe('publicLineHostGuard', () => {
   it.each([
     ['POST', '/'],
     ['GET', '/auth/me'],
+    ['POST', '/auth/device'],
     ['POST', '/auth/login'],
     ['GET', '/staff'],
     ['GET', '/captains'],
