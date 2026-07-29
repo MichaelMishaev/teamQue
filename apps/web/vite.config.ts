@@ -15,6 +15,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      scope: '/line',
       includeAssets: ['favicon.ico', 'favicon-16.png', 'favicon-32.png', 'apple-touch-icon.png'],
       manifest: {
         id: '/line',
@@ -22,7 +23,8 @@ export default defineConfig({
         short_name: 'התור במגרש',
         description: 'צפייה בזמן אמת במשחק ובתור של מגרש כיכר העצמאות',
         start_url: '/line',
-        scope: '/',
+        scope: '/line',
+        launch_handler: { client_mode: 'navigate-existing' },
         display: 'standalone',
         orientation: 'portrait',
         background_color: '#0B100D',

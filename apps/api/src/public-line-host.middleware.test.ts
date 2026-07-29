@@ -31,7 +31,7 @@ describe('publicLineHostGuard', () => {
     expect(status).not.toHaveBeenCalled()
   })
 
-  it('passes every request through untouched on the primary (staff) host', () => {
+  it('passes manager routes through untouched on the primary (staff) host', () => {
     const guard = publicLineHostGuard(PUBLIC_HOST)
     const { req, res, next, status } = makeReqRes('gate.netanya.club', 'GET', '/')
 
@@ -39,6 +39,16 @@ describe('publicLineHostGuard', () => {
 
     expect(next).toHaveBeenCalledOnce()
     expect(status).not.toHaveBeenCalled()
+  })
+
+  it('redirects /line on the primary host to the canonical public-line origin', () => {
+    const guard = publicLineHostGuard(PUBLIC_HOST)
+    const { req, res, next, redirect } = makeReqRes('gate.netanya.club', 'GET', '/line')
+
+    guard(req, res, next)
+
+    expect(redirect).toHaveBeenCalledWith(302, `https://${PUBLIC_HOST}/line`)
+    expect(next).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -85,6 +95,8 @@ describe('publicLineHostGuard', () => {
     ['POST', '/fields/main-court/close'],
     ['GET', '/line/some-entry-id'],
     ['POST', '/line/some-entry-id/cancel'],
+    ['GET', '/anything-not-explicitly-public'],
+    ['GET', '/admin'],
   ])('blocks %s %s on the public host with a 404', (method, path) => {
     const guard = publicLineHostGuard(PUBLIC_HOST)
     const { req, res, next, status, end } = makeReqRes(PUBLIC_HOST, method, path)

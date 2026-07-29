@@ -8,17 +8,14 @@ import { PublicLineScreen } from '@/screens/PublicLineScreen'
 import { parseRoute } from '@/lib/route'
 import { DemoProviders } from '@/state/mock/DemoProviders'
 import { RealProviders } from '@/state/real/RealProviders'
-import { VisitorProvider } from '@/state/VisitorContext'
 
 const root = document.getElementById('root')
 if (!root) throw new Error('missing #root element')
 
 /**
  * VITE_DEMO=1 mounts the mock-backed providers directly (mock data, switchable
- * via SwitchUser). Otherwise the URL decides: '/' is the public home (create
- * a field + browse the active-fields list, no provider stack needed), '/f/:slug'
- * mounts the AppGate/RealProviders/App stack, seeded and socket-joined to that
- * slug (RealProviders/App both take it as a prop).
+ * via SwitchUser). Otherwise the URL decides: the dedicated `/line` route is
+ * public and read-only; every manager route is mounted behind AppGate.
  */
 const isDemo = import.meta.env.VITE_DEMO === '1'
 const route = parseRoute(window.location.pathname, window.location.hostname)
@@ -34,14 +31,18 @@ export function Root() {
       </DemoProviders>
     )
   }
-  if (route.kind === 'home') return <HomeScreen />
+  if (route.kind === 'home') {
+    return (
+      <AppGate>
+        <HomeScreen />
+      </AppGate>
+    )
+  }
   return (
     <AppGate>
-      <VisitorProvider>
-        <RealProviders slug={route.slug}>
-          <App slug={route.slug} />
-        </RealProviders>
-      </VisitorProvider>
+      <RealProviders slug={route.slug}>
+        <App slug={route.slug} />
+      </RealProviders>
     </AppGate>
   )
 }

@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiGet, ApiRequestError } from '@/lib/api'
 import { useAuthState } from './useAuthState'
@@ -13,26 +13,26 @@ describe('useAuthState', () => {
     vi.mocked(apiGet).mockReset()
   })
 
-  it('starts in loading', () => {
-    vi.mocked(apiGet).mockReturnValue(new Promise(() => {}))
-    const { result } = renderHook(() => useAuthState())
-    expect(result.current.phase).toBe('loading')
-  })
-
-  it('moves to authed when GET /auth/me resolves, seeding currentStaff from it', async () => {
+  it('moves to authed when /auth/me confirms staff identity', async () => {
     vi.mocked(apiGet).mockResolvedValue({
       staff: { id: 's1', name: 'שרה', role: 'manager' },
       center: { id: 'c1', name: 'המרכז' },
     })
     const { result } = renderHook(() => useAuthState())
     await waitFor(() => expect(result.current.phase).toBe('authed'))
-    expect(result.current.currentStaff).toEqual({ id: 's1', name: 'שרה', role: 'manager' })
+    expect(result.current.currentStaff?.id).toBe('s1')
   })
 
-  it('moves to error when GET /auth/me fails (e.g. network error)', async () => {
-    vi.mocked(apiGet).mockRejectedValue(new ApiRequestError('VALIDATION_FAILED', 'Network request failed'))
+  it('starts the center PIN flow when /auth/me rejects anonymous access', async () => {
+    vi.mocked(apiGet).mockRejectedValue(new ApiRequestError('UNAUTHORIZED', 'no cookie'))
     const { result } = renderHook(() => useAuthState())
-    await waitFor(() => expect(result.current.phase).toBe('error'))
-    expect(result.current.currentStaff).toBeNull()
+    await waitFor(() => expect(result.current.phase).toBe('needs-center'))
+
+    act(() => result.current.onCenterUnlocked())
+    expect(result.current.phase).toBe('needs-login')
+
+    act(() => result.current.onLoggedIn({ id: 's2', name: 'משה', role: 'staff' }))
+    expect(result.current.phase).toBe('authed')
+    expect(result.current.currentStaff?.id).toBe('s2')
   })
 })

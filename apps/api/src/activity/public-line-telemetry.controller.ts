@@ -6,7 +6,7 @@ import { Body, Controller, HttpCode, Inject, Param, Post, Req, UseGuards } from 
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler'
 import { z } from 'zod'
 import { publicLineTelemetryEventSchema, type PublicLineTelemetryEvent } from 'shared'
-import { CenterGuard } from '../auth/guards/center.guard'
+import { PublicLineReadGuard } from '../auth/guards/public-line-read.guard'
 import type { CenterAuthenticatedRequest } from '../auth/request.types'
 import { ZodValidationPipe } from '../common/zod.pipe'
 import { SLUG_PATTERN } from '../fields/slug'
@@ -15,7 +15,7 @@ import { PublicLineTelemetryWriter } from './public-line-telemetry.writer'
 const slugParamSchema = z.string().regex(SLUG_PATTERN)
 
 @Controller('fields')
-@UseGuards(CenterGuard)
+@UseGuards(PublicLineReadGuard)
 export class PublicLineTelemetryController {
   constructor(@Inject(PublicLineTelemetryWriter) private readonly telemetry: PublicLineTelemetryWriter) {}
 

@@ -23,7 +23,6 @@ import { createRealSessionActions, type SessionIdHandle } from '@/state/real/rea
 import { SessionActionsContext } from '@/state/SessionActions'
 import { SnapshotContext, type SnapshotState } from '@/state/SnapshotContext'
 import { StaffDirectoryContext, type StaffRosterItem } from '@/state/StaffDirectoryContext'
-import { gateActions, useVisitor, VisitorRequiredError } from '@/state/VisitorContext'
 
 const EMPTY_HISTORY: HistoryState = { summary: null, matches: [] }
 const INITIAL_SNAPSHOT_STATE: SnapshotState = { snapshot: null, connection: 'offline', offsetMs: 0 }
@@ -84,11 +83,10 @@ export function RealProviders({ slug, children }: { slug: string; children: Reac
     [],
   )
 
-  const { ensureVisitor } = useVisitor()
   const actions = useMemo(() => {
-    const gated = gateActions(createRealSessionActions(sessionIdHandle), ensureVisitor)
+    const managerActions = createRealSessionActions(sessionIdHandle)
     return {
-      ...gated,
+      ...managerActions,
       // Public field links must close regardless of a live match (open-fields
       // spec §4) — the legacy /sessions/:id/close 409s on a live match, so
       // this bypasses realSessionActions.closeSession and hits the force-close
@@ -103,14 +101,12 @@ export function RealProviders({ slug, children }: { slug: string; children: Reac
       // UI goes straight from "live field" to "closed field" with no
       // intermediate `snapshot === null` ("field not found") flash.
       closeSession: async () => {
-        const ok = await ensureVisitor()
-        if (!ok) throw new VisitorRequiredError()
         await apiPost(`/fields/${slug}/close`, {})
         const closedSnapshot = await apiGet<SessionSnapshot>(`/fields/${slug}`)
         setSnapshotState((prev) => ({ ...prev, snapshot: closedSnapshot }))
       },
     }
-  }, [sessionIdHandle, ensureVisitor, slug])
+  }, [sessionIdHandle, slug])
 
   const loadActivityPage = useCallback(async (filters: ActivityLogFilters, cursor?: string) => {
     const params = new URLSearchParams({ limit: '50' })

@@ -37,6 +37,7 @@ describe('public line telemetry (integration)', () => {
     process.env.DATABASE_URL = pg.container.getConnectionUri()
     process.env.SESSION_SECRET = SESSION_SECRET
     process.env.WEB_ORIGIN = 'http://localhost:5173'
+    process.env.PUBLIC_LINE_HOST = 'line.maple-group.info'
     process.env.NODE_ENV = 'test'
 
     const [center] = await pg.db
@@ -85,6 +86,7 @@ describe('public line telemetry (integration)', () => {
   it('records an anonymous aggregate event in the activity log', async () => {
     await request(app.getHttpServer())
       .post(`/fields/${slug}/public-line-events`)
+      .set('Host', 'line.maple-group.info')
       .send(viewEvent)
       .expect(202, { recorded: true })
 
@@ -104,6 +106,7 @@ describe('public line telemetry (integration)', () => {
   it('rejects identity fields and does not create another view event', async () => {
     await request(app.getHttpServer())
       .post(`/fields/${slug}/public-line-events`)
+      .set('Host', 'line.maple-group.info')
       .send({ ...viewEvent, captainName: 'must not be stored' })
       .expect(400)
 

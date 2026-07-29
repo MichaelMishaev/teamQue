@@ -14,6 +14,7 @@ import { loadEnv } from '../config/env'
 import { AuthController } from './auth.controller'
 import { AuthService } from './auth.service'
 import { CenterGuard } from './guards/center.guard'
+import { PUBLIC_LINE_HOST_TOKEN, PublicLineReadGuard } from './guards/public-line-read.guard'
 import { RolesGuard } from './guards/roles.guard'
 import { StaffSessionGuard } from './guards/staff-session.guard'
 
@@ -23,7 +24,15 @@ import { StaffSessionGuard } from './guards/staff-session.guard'
     ThrottlerModule.forRoot([{ name: 'default', ttl: 15 * 60 * 1000, limit: 5 }]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, CenterGuard, StaffSessionGuard, RolesGuard, ThrottlerGuard],
-  exports: [JwtModule, CenterGuard, StaffSessionGuard, RolesGuard],
+  providers: [
+    AuthService,
+    CenterGuard,
+    StaffSessionGuard,
+    PublicLineReadGuard,
+    RolesGuard,
+    ThrottlerGuard,
+    { provide: PUBLIC_LINE_HOST_TOKEN, useFactory: () => process.env.PUBLIC_LINE_HOST },
+  ],
+  exports: [JwtModule, CenterGuard, StaffSessionGuard, PublicLineReadGuard, RolesGuard],
 })
 export class AuthModule {}
