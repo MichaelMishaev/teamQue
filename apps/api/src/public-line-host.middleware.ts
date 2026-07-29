@@ -14,6 +14,7 @@ const STATIC_PREFIXES = ['/assets/', '/icons/', '/media/']
 const STATIC_FILES = new Set([
   '/index.html',
   '/manifest.webmanifest',
+  '/manifest-line.webmanifest',
   '/registerSW.js',
   '/sw.js',
   '/favicon.ico',
