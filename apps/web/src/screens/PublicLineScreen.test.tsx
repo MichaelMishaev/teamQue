@@ -113,7 +113,7 @@ beforeEach(() => {
 })
 
 describe('PublicLineScreen', () => {
-  it('shows the live pair, every waiting pair, positions, and times from the default court', async () => {
+  it('shows the live pair and puts each games-remaining count inside its timeline marker', async () => {
     mockApiGet.mockResolvedValueOnce([defaultCourt()]).mockResolvedValueOnce(snapshot())
 
     render(<PublicLineScreen />)
@@ -128,13 +128,21 @@ describe('PublicLineScreen', () => {
     for (const name of ['גיא', 'נועם', 'דניאל', 'איתי', 'עומר']) {
       expect(screen.getByText(name)).toBeDefined()
     }
-    expect(screen.getByText(t('publicLine.pair.gamesAheadOne'))).toBeDefined()
-    expect(screen.getByText(t('publicLine.pair.gamesAheadMany', { count: 2 }))).toBeDefined()
-    expect(screen.getByText(t('publicLine.pair.gamesAheadMany', { count: 3 }))).toBeDefined()
+    expect(screen.getByText(t('publicLine.queue.gamesRemaining'))).toBeDefined()
+    expect(screen.getAllByTestId('public-line-games-remaining').map((marker) => marker.textContent)).toEqual([
+      '1',
+      '2',
+      '3',
+    ])
+    expect(screen.getByLabelText(t('publicLine.pair.gamesAheadOne')).textContent).toBe('1')
+    expect(screen.getByLabelText(t('publicLine.pair.gamesAheadMany', { count: 2 })).textContent).toBe('2')
+    expect(screen.getByLabelText(t('publicLine.pair.gamesAheadMany', { count: 3 })).textContent).toBe('3')
+    expect(screen.queryByText(t('publicLine.pair.gamesAheadOne'))).toBeNull()
+    expect(screen.queryByText(t('publicLine.pair.gamesAheadMany', { count: 2 }))).toBeNull()
     expect(screen.getAllByText(t('publicLine.pair.etaApproxPrefix'))).toHaveLength(3)
-    expect(screen.getAllByText(t('publicLine.pair.estimatedAt'))).toHaveLength(3)
+    expect(screen.queryByText(t('publicLine.pair.estimatedAt'))).toBeNull()
     expect(screen.getByText(t('publicLine.pair.waitingForOpponent'))).toBeDefined()
-    expect(screen.getAllByText(/^#\d$/)).toHaveLength(5)
+    expect(screen.queryByText(/^#\d$/)).toBeNull()
     expect(screen.queryByText(/משחקים היום/)).toBeNull()
 
     expect(mockApiGet).toHaveBeenNthCalledWith(1, '/fields')
@@ -142,6 +150,26 @@ describe('PublicLineScreen', () => {
     await waitFor(() =>
       expect(mockCreateSessionSocket).toHaveBeenCalledWith(expect.objectContaining({ slug: 'abc234' })),
     )
+  })
+
+  it('starts the marker count at zero when no match is currently playing', async () => {
+    const freeSnapshot = snapshot(['גיא', 'נועם', 'דניאל', 'איתי'])
+    mockApiGet
+      .mockResolvedValueOnce([{ ...defaultCourt(), hasLiveMatch: false }])
+      .mockResolvedValueOnce({
+        ...freeSnapshot,
+        fields: freeSnapshot.fields.map((field) => ({ ...field, liveMatch: null })),
+      })
+
+    render(<PublicLineScreen />)
+
+    await screen.findByText('גיא')
+    expect(screen.getAllByTestId('public-line-games-remaining').map((marker) => marker.textContent)).toEqual([
+      '0',
+      '1',
+    ])
+    expect(screen.getByLabelText(t('publicLine.pair.next')).textContent).toBe('0')
+    expect(screen.getByText(t('publicLine.pair.startsNow'))).toBeDefined()
   })
 
   it('plays the silent decorative match atmosphere behind a live match', async () => {
@@ -190,8 +218,8 @@ describe('PublicLineScreen', () => {
     if (currentSection === null || communitySection === null || queueSection === null) {
       throw new Error('expected public line sections')
     }
-    expect(currentSection.compareDocumentPosition(communitySection) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
-    expect(communitySection.compareDocumentPosition(queueSection) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+    expect(currentSection.compareDocumentPosition(queueSection) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+    expect(queueSection.compareDocumentPosition(communitySection) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
     expect(screen.queryByText(t('action.start'))).toBeNull()
     expect(screen.queryByText(t('queue.remove'))).toBeNull()
     const managerLinks = screen.queryAllByRole('link').filter((link) => {
