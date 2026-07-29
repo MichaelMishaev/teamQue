@@ -1,37 +1,56 @@
 import { useEffect, useState } from 'react'
-import { apiGet } from '@/lib/api'
+import { apiGet, apiPost } from '@/lib/api'
 import type { CurrentStaff } from '@/state/AuthContext'
 
-export type AuthPhase = 'loading' | 'needs-center' | 'needs-login' | 'authed'
+export type AuthPhase = 'loading' | 'needs-center' | 'authed'
 
 interface AuthMeResponse {
   staff: CurrentStaff
   center: { id: string; name: string }
 }
 
+interface TrustedDeviceResponse {
+  staffId: string
+  role: CurrentStaff['role']
+}
+
 export interface UseAuthStateResult {
   phase: AuthPhase
   currentStaff: CurrentStaff | null
-  onCenterUnlocked: () => void
-  onLoggedIn: (staff: CurrentStaff) => void
+  onCenterUnlocked: () => Promise<void>
 }
 
-/** Resolves the manager identity and starts the PIN flow on any failure. */
+function anonymousManager(staffId: string, role: CurrentStaff['role']): CurrentStaff {
+  return { id: staffId, name: '', role }
+}
+
+/** Restores a trusted manager device without exposing a personal identity. */
 export function useAuthState(): UseAuthStateResult {
   const [phase, setPhase] = useState<AuthPhase>('loading')
   const [currentStaff, setCurrentStaff] = useState<CurrentStaff | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    apiGet<AuthMeResponse>('/auth/me')
-      .then((me) => {
+
+    async function restore(): Promise<void> {
+      try {
+        const me = await apiGet<AuthMeResponse>('/auth/me')
         if (cancelled) return
-        setCurrentStaff(me.staff)
+        setCurrentStaff(anonymousManager(me.staff.id, me.staff.role))
         setPhase('authed')
-      })
-      .catch(() => {
-        if (!cancelled) setPhase('needs-center')
-      })
+      } catch {
+        try {
+          const device = await apiPost<TrustedDeviceResponse>('/auth/device')
+          if (cancelled) return
+          setCurrentStaff(anonymousManager(device.staffId, device.role))
+          setPhase('authed')
+        } catch {
+          if (!cancelled) setPhase('needs-center')
+        }
+      }
+    }
+
+    void restore()
     return () => {
       cancelled = true
     }
@@ -40,9 +59,9 @@ export function useAuthState(): UseAuthStateResult {
   return {
     phase,
     currentStaff,
-    onCenterUnlocked: () => setPhase('needs-login'),
-    onLoggedIn: (staff) => {
-      setCurrentStaff(staff)
+    onCenterUnlocked: async () => {
+      const device = await apiPost<TrustedDeviceResponse>('/auth/device')
+      setCurrentStaff(anonymousManager(device.staffId, device.role))
       setPhase('authed')
     },
   }

@@ -2,16 +2,15 @@ import type { ReactNode } from 'react'
 import { useAuthState } from '@/hooks/useAuthState'
 import { t } from '@/i18n'
 import { CenterUnlock } from '@/screens/CenterUnlock'
-import { StaffLogin } from '@/screens/StaffLogin'
 import { AuthProvider } from '@/state/AuthContext'
 
 /**
- * Top-level manager identity gate. It restores the center PIN followed by the
- * staff picker/PIN and renders manager surfaces only after /auth/me confirms
- * a staff or manager session.
+ * Top-level trusted-device gate. It renders manager surfaces only after the
+ * shared center credential has produced a manager session; personal staff
+ * names and PINs are intentionally absent.
  */
 export function AppGate({ children }: { children: ReactNode }) {
-  const { phase, currentStaff, onCenterUnlocked, onLoggedIn } = useAuthState()
+  const { phase, currentStaff, onCenterUnlocked } = useAuthState()
 
   if (phase === 'loading') {
     return (
@@ -21,6 +20,5 @@ export function AppGate({ children }: { children: ReactNode }) {
     )
   }
   if (phase === 'needs-center') return <CenterUnlock onSuccess={onCenterUnlocked} />
-  if (phase === 'needs-login') return <StaffLogin onSuccess={onLoggedIn} />
   return <AuthProvider currentStaff={currentStaff}>{children}</AuthProvider>
 }

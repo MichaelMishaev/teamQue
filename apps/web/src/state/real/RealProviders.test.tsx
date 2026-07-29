@@ -5,7 +5,6 @@ import { apiGet, apiPost, ApiRequestError } from '@/lib/api'
 import { createSessionSocket, type CreateSessionSocketOptions } from '@/lib/socket'
 import { useSessionActions } from '@/state/SessionActions'
 import { useSnapshot } from '@/state/SnapshotContext'
-import { useStaffDirectory } from '@/state/StaffDirectoryContext'
 import { VisitorProvider } from '@/state/VisitorContext'
 import { RealProviders } from './RealProviders'
 
@@ -30,13 +29,11 @@ function snapshot(sessionId: string): SessionSnapshot {
 
 function Probe() {
   const { snapshot: snap, connection } = useSnapshot()
-  const { roster } = useStaffDirectory()
   return (
     <div>
       <span data-testid="connection">{connection}</span>
       <span data-testid="session-id">{snap?.session.id ?? 'none'}</span>
       <span data-testid="session-status">{snap?.session.status ?? 'none'}</span>
-      <span data-testid="roster-count">{roster.length}</span>
     </div>
   )
 }
@@ -49,7 +46,6 @@ let disconnectSocket: ReturnType<typeof vi.fn>
 function mockApiGet(byField: () => Promise<unknown>): void {
   vi.mocked(apiGet).mockImplementation((path: string) => {
     if (path === `/fields/${SLUG}`) return byField()
-    if (path === '/staff') return Promise.resolve([{ id: 'staff-1', name: 'שרה', role: 'manager' }])
     if (path === '/visitors/me') return Promise.resolve({ visitorId: 'v1', nickname: 'אורח 7' })
     return Promise.reject(new Error(`unexpected apiGet path: ${path}`))
   })
@@ -160,7 +156,7 @@ describe('RealProviders', () => {
     expect(screen.getByTestId('connection').textContent).toBe('online')
   })
 
-  it('populates StaffDirectoryContext.roster from GET /staff', async () => {
+  it('does not request or expose the staff roster', async () => {
     mockApiGet(() => Promise.resolve(snapshot('s1')))
     render(
       <VisitorProvider>
@@ -169,7 +165,8 @@ describe('RealProviders', () => {
         </RealProviders>
       </VisitorProvider>,
     )
-    await waitFor(() => expect(screen.getByTestId('roster-count').textContent).toBe('1'))
+    await waitFor(() => expect(screen.getByTestId('session-id').textContent).toBe('s1'))
+    expect(apiGet).not.toHaveBeenCalledWith('/staff')
   })
 
   it('passes the slug into the session socket handshake', async () => {
@@ -198,7 +195,6 @@ describe('RealProviders', () => {
         const s = snapshot('s1')
         return Promise.resolve(fetchCount === 1 ? s : { ...s, session: { ...s.session, status: 'closed' as const } })
       }
-      if (path === '/staff') return Promise.resolve([{ id: 'staff-1', name: 'שרה', role: 'manager' }])
       if (path === '/visitors/me') return Promise.resolve({ visitorId: 'v1', nickname: 'אורח 7' })
       return Promise.reject(new Error(`unexpected apiGet path: ${path}`))
     })

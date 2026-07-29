@@ -16,6 +16,7 @@ import {
   CENTER_COOKIE_NAME,
   SESSION_COOKIE_MAX_AGE_MS,
   SESSION_COOKIE_NAME,
+  TRUSTED_DEVICE_SESSION_COOKIE_MAX_AGE_MS,
   cookieOptions,
 } from './token'
 
@@ -50,6 +51,22 @@ export class AuthController {
     const nodeEnv = loadEnv().NODE_ENV
     res.cookie(SESSION_COOKIE_NAME, result.token, cookieOptions(SESSION_COOKIE_MAX_AGE_MS, nodeEnv))
     return { staffId: result.staffId, name: result.name, role: result.role }
+  }
+
+  @UseGuards(CenterGuard)
+  @Post('device')
+  async loginTrustedDevice(
+    @Req() req: CenterAuthenticatedRequest,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ staffId: string; role: string }> {
+    const result = await this.authService.loginTrustedManagerDevice(req.centerId)
+    const nodeEnv = loadEnv().NODE_ENV
+    res.cookie(
+      SESSION_COOKIE_NAME,
+      result.token,
+      cookieOptions(TRUSTED_DEVICE_SESSION_COOKIE_MAX_AGE_MS, nodeEnv),
+    )
+    return { staffId: result.staffId, role: result.role }
   }
 
   @UseGuards(StaffSessionGuard)

@@ -7,16 +7,12 @@ vi.mock('@/hooks/useAuthState')
 vi.mock('@/screens/CenterUnlock', () => ({
   CenterUnlock: () => <div>center-unlock-stub</div>,
 }))
-vi.mock('@/screens/StaffLogin', () => ({
-  StaffLogin: () => <div>staff-login-stub</div>,
-}))
 
 function mockPhase(phase: AuthPhase) {
   vi.mocked(useAuthState).mockReturnValue({
     phase,
-    currentStaff: phase === 'authed' ? { id: 's1', name: 'שרה', role: 'manager' } : null,
+    currentStaff: phase === 'authed' ? { id: 's1', name: '', role: 'manager' } : null,
     onCenterUnlocked: vi.fn(),
-    onLoggedIn: vi.fn(),
   })
 }
 
@@ -35,16 +31,11 @@ describe('AppGate', () => {
     expect(screen.queryByText('manager-content')).toBeNull()
   })
 
-  it('renders the staff PIN gate after center unlock', () => {
-    mockPhase('needs-login')
-    render(<AppGate><div>manager-content</div></AppGate>)
-    expect(screen.getByText('staff-login-stub')).toBeDefined()
-    expect(screen.queryByText('manager-content')).toBeNull()
-  })
-
-  it('renders manager children only after authentication', () => {
+  it('renders manager children after device authentication without rendering a manager name or staff login', () => {
     mockPhase('authed')
     render(<AppGate><div>manager-content</div></AppGate>)
     expect(screen.getByText('manager-content')).toBeDefined()
+    expect(screen.queryByText('שרה')).toBeNull()
+    expect(screen.queryByText('staff-login-stub')).toBeNull()
   })
 })

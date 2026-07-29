@@ -22,7 +22,6 @@ import { toActivityEntry, toCaptainProfile, toFinishedMatchView } from '@/state/
 import { createRealSessionActions, type SessionIdHandle } from '@/state/real/realSessionActions'
 import { SessionActionsContext } from '@/state/SessionActions'
 import { SnapshotContext, type SnapshotState } from '@/state/SnapshotContext'
-import { StaffDirectoryContext, type StaffRosterItem } from '@/state/StaffDirectoryContext'
 
 const EMPTY_HISTORY: HistoryState = { summary: null, matches: [] }
 const INITIAL_SNAPSHOT_STATE: SnapshotState = { snapshot: null, connection: 'offline', offsetMs: 0 }
@@ -38,7 +37,7 @@ function socketUrl(): string {
  * AppGate's `children` — i.e. only once `phase === 'authed'` — so every
  * effect below runs with the center + staff session cookies StaffSessionGuard
  * requires already set (see main.tsx for why the nesting order matters: an
- * unauthed mount would 401 on /fields/:slug, /staff, and the socket).
+ * unauthed mount would 401 on /fields/:slug and the socket).
  *
  * Feeds SnapshotContext from the initial `GET /fields/:slug` fetch (open-
  * fields spec — `slug` comes from the `/f/:slug` route) plus a live session
@@ -51,7 +50,6 @@ function socketUrl(): string {
  */
 export function RealProviders({ slug, children }: { slug: string; children: ReactNode }) {
   const [snapshotState, setSnapshotState] = useState<SnapshotState>(INITIAL_SNAPSHOT_STATE)
-  const [roster, setRoster] = useState<StaffRosterItem[]>([])
   const [history, setHistory] = useState<HistoryState>(EMPTY_HISTORY)
   const [activity, setActivity] = useState<ActivityEntry[]>([])
   const [captainProfiles, setCaptainProfiles] = useState<CaptainProfile[]>([])
@@ -60,12 +58,6 @@ export function RealProviders({ slug, children }: { slug: string; children: Reac
   // broadcast room, so the socket must reconnect (rejoin the new session's
   // room) and the snapshot must be re-seeded — both effects depend on this.
   const [reseedNonce, setReseedNonce] = useState(0)
-
-  // Mirror the roster in a ref so the read-fetch effect can resolve activity
-  // staff names from the latest roster without depending on it (which would
-  // refetch history/activity every time the roster loads).
-  const rosterRef = useRef<StaffRosterItem[]>([])
-  rosterRef.current = roster
 
   const sessionIdRef = useRef<string | null>(null)
   const sessionIdHandle = useMemo<SessionIdHandle>(
@@ -217,8 +209,7 @@ export function RealProviders({ slug, children }: { slug: string; children: Reac
       const summary = summaryRes.status === 'fulfilled' ? summaryRes.value : null
       setHistory({ summary, matches })
       if (activityRes.status === 'fulfilled') {
-        const nameById = new Map(rosterRef.current.map((s) => [s.id, s.name]))
-        setActivity(activityRes.value.map((row) => toActivityEntry(row, (id) => nameById.get(id) ?? null)))
+        setActivity(activityRes.value.map((row) => toActivityEntry(row)))
       }
       if (captainsRes.status === 'fulfilled') setCaptainProfiles(captainsRes.value.map(toCaptainProfile))
     })
@@ -227,43 +218,12 @@ export function RealProviders({ slug, children }: { slug: string; children: Reac
     }
   }, [sessionId, snapshotStamp])
 
-  // Staff roster for SwitchUser (StaffLogin's own picker fetches this directly).
-  useEffect(() => {
-    let cancelled = false
-    apiGet<StaffRosterItem[]>('/staff')
-      .then((list) => {
-        if (!cancelled) setRoster(list)
-      })
-      .catch(() => {
-        // SwitchUser's picker degrades to empty — no retry loop for MVP.
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const staffDirectory = useMemo(
-    () => ({
-      roster,
-      async login(staffId: string, pin: string): Promise<StaffRosterItem> {
-        const result = await apiPost<{ staffId: string; name: string; role: StaffRosterItem['role'] }>('/auth/login', {
-          staffId,
-          pin,
-        })
-        return { id: result.staffId, name: result.name, role: result.role }
-      },
-    }),
-    [roster],
-  )
-
   return (
     <SnapshotContext.Provider value={snapshotState}>
       <SessionActionsContext.Provider value={actions}>
         <HistoryContext.Provider value={history}>
           <ActivityContext.Provider value={activitySource}>
-            <CaptainsContext.Provider value={captainProfiles}>
-              <StaffDirectoryContext.Provider value={staffDirectory}>{children}</StaffDirectoryContext.Provider>
-            </CaptainsContext.Provider>
+            <CaptainsContext.Provider value={captainProfiles}>{children}</CaptainsContext.Provider>
           </ActivityContext.Provider>
         </HistoryContext.Provider>
       </SessionActionsContext.Provider>

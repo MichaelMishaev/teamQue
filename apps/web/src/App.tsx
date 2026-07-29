@@ -9,7 +9,6 @@ import { ClosedFieldScreen } from '@/screens/ClosedFieldScreen'
 import { HistoryScreen } from '@/screens/HistoryScreen'
 import { MainScreen } from '@/screens/MainScreen'
 import { SettingsScreen } from '@/screens/SettingsScreen'
-import { SwitchUser } from '@/screens/SwitchUser'
 import { t, type MessageKey } from '@/i18n'
 import { APP_TABS, type AppTab } from '@/lib/app-tab-route'
 import { cn } from '@/lib/cn'
@@ -18,9 +17,9 @@ import { formatTimeOfDay } from '@/lib/time'
 import { useSnapshot } from '@/state/SnapshotContext'
 
 /**
- * Single responsibility: the app shell — top bar (user chip, tabs, clock,
- * ConnectivityBanner) shared by every tab, plus the SwitchUser overlay and
- * the global UndoToaster (client-prd §3.1). Which screen renders per tab is
+ * Single responsibility: the app shell — tabs, clock and ConnectivityBanner
+ * shared by every tab, plus the global UndoToaster (client-prd §3.1).
+ * Which screen renders per tab is
  * the only thing that changes below the header. useAppTabNavigation owns the
  * URL-backed destination and one-entry Android/browser Back contract (US-074).
  */
@@ -38,7 +37,6 @@ function isUnmodifiedPrimaryClick(event: ReactMouseEvent<HTMLAnchorElement>): bo
 export default function App({ slug = '' }: { slug?: string }) {
   const { snapshot, connection, offsetMs } = useSnapshot()
   const { tab, hrefFor, selectTab } = useAppTabNavigation()
-  const [switchUserOpen, setSwitchUserOpen] = useState(false)
   const [qrOpen, setQrOpen] = useState(false)
   const [nowMs, setNowMs] = useState(() => Date.now())
 
@@ -159,7 +157,6 @@ export default function App({ slug = '' }: { slug?: string }) {
         )}
       </main>
 
-      <SwitchUser open={switchUserOpen} onClose={() => setSwitchUserOpen(false)} />
       {qrOpen && <PublicLineQrOverlay onClose={() => setQrOpen(false)} />}
       <UndoToaster />
     </div>

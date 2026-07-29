@@ -251,6 +251,61 @@ describe('auth (integration)', () => {
     })
   })
 
+  describe('POST /auth/device', () => {
+    let app: INestApplication
+    let jwtService: ReturnType<typeof makeTestJwtService>
+
+    beforeAll(async () => {
+      app = await buildApp()
+      jwtService = makeTestJwtService(SESSION_SECRET)
+    })
+
+    afterAll(async () => {
+      await app.close()
+    })
+
+    it('creates a long-lived manager session from the trusted center cookie without a name or personal PIN', async () => {
+      const centerCookie = centerCookieHeader(jwtService, centerId)
+      const res = await request(app.getHttpServer()).post('/auth/device').set('Cookie', [centerCookie]).send({})
+
+      expect(res.status).toBe(201)
+      expect(res.body).toEqual({ staffId: happyStaffId, role: 'manager' })
+
+      const setCookie = res.headers['set-cookie'] as unknown as string[]
+      const sessionCookie = setCookie.find((cookie) => cookie.startsWith('qlm_session='))
+      expect(sessionCookie).toBeDefined()
+      expect(sessionCookie).toMatch(/HttpOnly/i)
+      expect(sessionCookie).toMatch(/SameSite=Lax/i)
+      expect(sessionCookie).toMatch(/Max-Age=7776000/i)
+    })
+
+    it('fails closed without the trusted center cookie', async () => {
+      const res = await request(app.getHttpServer()).post('/auth/device').send({})
+
+      expect(res.status).toBe(401)
+    })
+
+    it('fails closed when the trusted center has no active manager', async () => {
+      const [centerWithoutManager] = await pg.db
+        .insert(centers)
+        .values({ name: 'No Manager Center', pinHash: await hash('5555') })
+        .returning()
+      if (!centerWithoutManager) throw new Error('center insert returned no row')
+      await pg.db.insert(staff).values({
+        centerId: centerWithoutManager.id,
+        name: 'Inactive Manager',
+        role: 'manager',
+        pinHash: await hash('5555'),
+        active: false,
+      })
+
+      const centerCookie = centerCookieHeader(jwtService, centerWithoutManager.id)
+      const res = await request(app.getHttpServer()).post('/auth/device').set('Cookie', [centerCookie]).send({})
+
+      expect(res.status).toBe(401)
+    })
+  })
+
   describe('GET /staff', () => {
     let app: INestApplication
     let jwtService: ReturnType<typeof makeTestJwtService>

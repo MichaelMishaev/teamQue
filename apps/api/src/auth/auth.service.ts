@@ -16,17 +16,18 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { verify } from '@node-rs/argon2'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, sql } from 'drizzle-orm'
 import type { StaffRole } from 'shared'
 import { UnauthorizedError } from '../common/errors'
 import { DRIZZLE, type Database } from '../db/db.module'
 import { centers, staff } from '../db/schema'
 import { PinLockedError } from './errors'
 import { lockoutDurationSec } from './lockout'
-import { signCenterToken, signSessionToken } from './token'
+import { signCenterToken, signSessionToken, signTrustedDeviceSessionToken } from './token'
 
 export type UnlockCenterResult = { centerId: string; name: string; token: string }
 export type LoginResult = { staffId: string; name: string; role: StaffRole; token: string }
+export type TrustedDeviceLoginResult = { staffId: string; role: StaffRole; token: string }
 export type MeResult = {
   staff: { id: string; name: string; role: StaffRole }
   center: { id: string; name: string }
@@ -79,6 +80,25 @@ export class AuthService {
     const role = member.role as StaffRole
     const token = signSessionToken(this.jwtService, { staffId: member.id, centerId, role })
     return { staffId: member.id, name: member.name, role, token }
+  }
+
+  /**
+   * A valid center cookie marks a device that already passed the shared
+   * center PIN. Bind that trusted device to the center's active manager
+   * account without exposing names or requiring a personal staff PIN.
+   */
+  async loginTrustedManagerDevice(centerId: string): Promise<TrustedDeviceLoginResult> {
+    const [manager] = await this.db
+      .select({ id: staff.id, role: staff.role })
+      .from(staff)
+      .where(and(eq(staff.centerId, centerId), eq(staff.role, 'manager'), eq(staff.active, true)))
+      .orderBy(asc(staff.createdAt), asc(staff.id))
+      .limit(1)
+    if (!manager) throw new UnauthorizedError()
+
+    const role = manager.role as StaffRole
+    const token = signTrustedDeviceSessionToken(this.jwtService, { staffId: manager.id, centerId, role })
+    return { staffId: manager.id, role, token }
   }
 
   async me(staffId: string, centerId: string): Promise<MeResult> {
