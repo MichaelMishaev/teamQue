@@ -146,4 +146,25 @@ describe('createSessionSocket', () => {
 
     client.disconnect()
   })
+
+  it('connects directly over WebSocket instead of relying on a polling upgrade', async () => {
+    const sessionNs = io.of('/session')
+    let initialTransport: string | undefined
+    sessionNs.on('connection', (socket) => {
+      initialTransport = socket.conn.transport.name
+      socket.emit('session:hello', { serverNow: '2026-07-10T12:00:00.000Z' })
+    })
+
+    const onSnapshot = vi.fn()
+    const onConnect = vi.fn()
+    const onDisconnect = vi.fn()
+
+    const client = createSessionSocket({ url, onSnapshot, onConnect, onDisconnect })
+
+    await waitFor(() => onConnect.mock.calls.length > 0)
+
+    expect(initialTransport).toBe('websocket')
+
+    client.disconnect()
+  })
 })

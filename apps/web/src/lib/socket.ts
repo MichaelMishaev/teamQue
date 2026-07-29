@@ -33,6 +33,8 @@ function helloServerNow(payload: unknown): string | null {
 export function createSessionSocket(opts: CreateSessionSocketOptions): SessionSocket {
   const socket: Socket = io(`${opts.url}/session`, {
     withCredentials: true,
+    transports: ['websocket', 'polling'],
+    tryAllTransports: true,
     ...(opts.slug !== undefined ? { query: { slug: opts.slug } } : {}),
   })
   let helloReceived = false
