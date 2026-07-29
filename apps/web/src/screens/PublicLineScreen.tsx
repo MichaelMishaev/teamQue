@@ -22,6 +22,7 @@ import type { ConnectionStatus } from '@/state/SnapshotContext'
  * observable here and cannot be mutated here.
  */
 const DEFAULT_COURT_NAME = t('home.create.nameDefault')
+const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/KuBIAtFiMMOEbVMByJzywJ?s=cl&p=a&ilr=0&amv=0'
 
 function socketUrl(): string {
   return (import.meta.env.VITE_API_URL as string | undefined) ?? window.location.origin
@@ -300,6 +301,42 @@ export function PublicLineScreen() {
               <p className="text-center text-[15px] font-semibold text-muted">{t('publicLine.current.empty')}</p>
             )}
           </div>
+        </section>
+
+        <section
+          aria-labelledby="public-line-community-title"
+          className="flex flex-col gap-3 rounded-xl border border-accent/50 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4"
+        >
+          <div className="min-w-0">
+            <h2 id="public-line-community-title" className="text-[15px] font-bold text-ink sm:text-[16px]">
+              {t('publicLine.community.title')}
+            </h2>
+            <p id="public-line-community-description" className="mt-1 text-[12.5px] leading-relaxed text-muted sm:text-[13px]">
+              {t('publicLine.community.description')}
+            </p>
+          </div>
+          <a
+            href={WHATSAPP_GROUP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-describedby="public-line-community-description"
+            className="inline-flex min-h-[var(--touch-target-min)] w-full shrink-0 items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-4 text-[14px] font-bold text-on-accent transition-colors hover:bg-accent/90 active:bg-accent-dim sm:w-auto"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              className="h-5 w-5 shrink-0"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M20 11.5a8 8 0 0 1-11.8 7L4 20l1.5-4.1A8 8 0 1 1 20 11.5Z" />
+              <path d="M8.5 9.5h7M8.5 13h4.5" />
+            </svg>
+            <span>{t('publicLine.community.cta')}</span>
+          </a>
         </section>
 
         <section aria-labelledby="public-line-queue-title" className="flex flex-col gap-2 sm:gap-3">
