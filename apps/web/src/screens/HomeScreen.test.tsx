@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { t } from '@/i18n'
 import { ApiRequestError, apiGet, apiPost } from '@/lib/api'
@@ -40,6 +40,16 @@ function typeNewCourtName(name: string): void {
   fireEvent.change(screen.getByLabelText(t('home.create.nameLabel')), { target: { value: name } })
 }
 
+function exposeNativeInstallPrompt(): void {
+  const event = new Event('beforeinstallprompt', { cancelable: true }) as Event & {
+    prompt: () => void
+    userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+  }
+  event.prompt = vi.fn()
+  event.userChoice = Promise.resolve({ outcome: 'accepted' })
+  act(() => window.dispatchEvent(event))
+}
+
 beforeEach(() => {
   resetHomeScreenOpenGuardForTests()
   mockApiGet.mockReset()
@@ -59,6 +69,16 @@ describe('HomeScreen', () => {
     expect(screen.getByRole('button', { name: t('publicLine.qr.dialogLabel') })).toBeDefined()
     expect(mockNavigateToField).not.toHaveBeenCalled()
     expect(mockApiPost).not.toHaveBeenCalled()
+  })
+
+  it('offers the native PWA install action from the manager home header', async () => {
+    mockApiGet.mockResolvedValueOnce([court()])
+    render(<HomeScreen />)
+    await screen.findByText(DEFAULT_NAME)
+
+    exposeNativeInstallPrompt()
+
+    expect(screen.getByRole('button', { name: t('app.install') })).toBeDefined()
   })
 
   it('player-view button copies the public URL and shows the QR overlay instead of navigating', async () => {

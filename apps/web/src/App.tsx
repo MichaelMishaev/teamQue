@@ -1,5 +1,6 @@
 import { useEffect, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { ConnectivityBanner } from '@/components/ConnectivityBanner'
+import { InstallAppButton } from '@/components/InstallAppButton'
 import { IntroSplash } from '@/components/IntroSplash'
 import { PublicLineQrOverlay } from '@/components/PublicLineQrOverlay'
 import { showStatusToast, UndoToaster } from '@/components/UndoToast'
@@ -141,6 +142,7 @@ export default function App({ slug = '' }: { slug?: string }) {
             </bdi>
           </div>
         </div>
+        <InstallAppButton />
         <ConnectivityBanner status={connection} />
       </header>
 

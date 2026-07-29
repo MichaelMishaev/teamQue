@@ -6,11 +6,14 @@ import { AppGate } from '@/screens/AppGate'
 import { HomeScreen } from '@/screens/HomeScreen'
 import { PublicLineScreen } from '@/screens/PublicLineScreen'
 import { parseRoute } from '@/lib/route'
+import { applyPwaIdentity } from '@/lib/pwaIdentity'
 import { DemoProviders } from '@/state/mock/DemoProviders'
 import { RealProviders } from '@/state/real/RealProviders'
 
 const root = document.getElementById('root')
 if (!root) throw new Error('missing #root element')
+
+applyPwaIdentity(window.location.hostname, window.location.pathname)
 
 /**
  * VITE_DEMO=1 mounts the mock-backed providers directly (mock data, switchable
