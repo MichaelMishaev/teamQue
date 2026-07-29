@@ -521,7 +521,7 @@ function PublicLineShell({
               </svg>
               <span aria-live="polite">{shareLabel}</span>
             </button>
-            <InstallAppButton />
+            <InstallAppButton showWhenInstalled />
           </div>
         </div>
         <div className="mt-2">

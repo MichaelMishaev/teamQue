@@ -6,6 +6,22 @@ import { InstallAppButton } from './InstallAppButton'
 
 vi.mock('./UndoToast', () => ({ showStatusToast: vi.fn() }))
 
+function installDisplayMode(matches: boolean): void {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: vi.fn((query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(() => false),
+    })),
+  })
+}
+
 function fireBeforeInstallPrompt() {
   const event = new Event('beforeinstallprompt', { cancelable: true }) as Event & {
     prompt: () => void
@@ -22,6 +38,7 @@ function fireBeforeInstallPrompt() {
 describe('InstallAppButton', () => {
   beforeEach(() => {
     vi.mocked(showStatusToast).mockClear()
+    installDisplayMode(false)
   })
 
   it('always renders in a normal browser and explains the browser-menu fallback when no native prompt is available', async () => {
@@ -46,5 +63,13 @@ describe('InstallAppButton', () => {
     })
 
     expect(event.prompt).toHaveBeenCalled()
+  })
+
+  it('can remain visible in a browser header even when an installed copy also exists', () => {
+    installDisplayMode(true)
+
+    render(<InstallAppButton showWhenInstalled />)
+
+    expect(screen.getByRole('button', { name: 'התקן אפליקציה' })).toBeDefined()
   })
 })
