@@ -12,11 +12,17 @@ interface BeforeInstallPromptEvent extends Event {
 
 export interface UsePwaInstallResult {
   canInstall: boolean
-  promptInstall: () => Promise<void>
+  isInstalled: boolean
+  promptInstall: () => Promise<boolean>
 }
 
 export function usePwaInstall(): UsePwaInstallResult {
   const [canInstall, setCanInstall] = useState(false)
+  const [isInstalled, setIsInstalled] = useState(
+    () =>
+      (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) ||
+      Reflect.get(navigator, 'standalone') === true,
+  )
   const deferredEvent = useRef<BeforeInstallPromptEvent | null>(null)
 
   useEffect(() => {
@@ -28,6 +34,7 @@ export function usePwaInstall(): UsePwaInstallResult {
     function onAppInstalled() {
       deferredEvent.current = null
       setCanInstall(false)
+      setIsInstalled(true)
     }
 
     window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt)
@@ -40,12 +47,13 @@ export function usePwaInstall(): UsePwaInstallResult {
 
   async function promptInstall() {
     const event = deferredEvent.current
-    if (!event) return
+    if (!event) return false
     event.prompt()
     await event.userChoice
     deferredEvent.current = null
     setCanInstall(false)
+    return true
   }
 
-  return { canInstall, promptInstall }
+  return { canInstall, isInstalled, promptInstall }
 }

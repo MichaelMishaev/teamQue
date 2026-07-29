@@ -1,7 +1,10 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { fireEvent } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { showStatusToast } from './UndoToast'
 import { InstallAppButton } from './InstallAppButton'
+
+vi.mock('./UndoToast', () => ({ showStatusToast: vi.fn() }))
 
 function fireBeforeInstallPrompt() {
   const event = new Event('beforeinstallprompt', { cancelable: true }) as Event & {
@@ -17,9 +20,16 @@ function fireBeforeInstallPrompt() {
 }
 
 describe('InstallAppButton', () => {
-  it('renders nothing when no install prompt is available', () => {
+  beforeEach(() => {
+    vi.mocked(showStatusToast).mockClear()
+  })
+
+  it('always renders in a normal browser and explains the browser-menu fallback when no native prompt is available', async () => {
     render(<InstallAppButton />)
-    expect(screen.queryByRole('button')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'התקן אפליקציה' }))
+
+    await waitFor(() => expect(showStatusToast).toHaveBeenCalledWith('app.install.fallback'))
   })
 
   it('renders an accessible button once beforeinstallprompt fires, and triggers the native prompt on click', async () => {
