@@ -2,10 +2,15 @@ import { usePwaInstall } from '@/hooks/usePwaInstall'
 import { t } from '@/i18n'
 import { showStatusToast } from './UndoToast'
 
+interface InstallAppButtonProps {
+  /** Keeps the browser affordance visible when another installed copy already exists. */
+  showWhenInstalled?: boolean
+}
+
 /** Single responsibility: header control that triggers the native PWA install prompt when the browser makes one available. */
-export function InstallAppButton() {
+export function InstallAppButton({ showWhenInstalled = false }: InstallAppButtonProps) {
   const { isInstalled, promptInstall } = usePwaInstall()
-  if (isInstalled) return null
+  if (isInstalled && !showWhenInstalled) return null
 
   return (
     <button

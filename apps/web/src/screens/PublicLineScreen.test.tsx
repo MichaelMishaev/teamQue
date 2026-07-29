@@ -166,6 +166,8 @@ describe('PublicLineScreen', () => {
 
     await screen.findByText('רועי')
     expect(screen.queryByTestId('public-line-match-atmosphere')).toBeNull()
+    const installButton = screen.getByRole('button', { name: t('app.install') })
+    expect(installButton.closest('header')).not.toBeNull()
   })
 
   it('is operationally read-only and replaces the snapshot from realtime updates', async () => {
