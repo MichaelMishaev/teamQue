@@ -1,31 +1,22 @@
 /**
- * Socket.IO '/session' namespace gateway (technical-prd §5).
+ * Socket.IO '/session' namespace gateway.
  *
- * Auth mechanism — MANDATORY: authentication happens INSIDE
- * handleConnection, not via `io.use()` middleware. The web client
- * (apps/web/src/lib/socket.ts) has no `connect_error` listener; a
- * handshake-level middleware rejection emits `connect_error`, which the
- * client silently ignores and the UI hangs forever. Accepting the
- * transport and calling `client.disconnect(true)` from inside
- * handleConnection instead DOES fire the client's native `disconnect`
- * handler. Only the `qlm_session` cookie is checked (not `qlm_center`) —
- * `SessionTokenPayload` already embeds `centerId`, a deliberate
- * simplification versus the HTTP StaffSessionGuard's dual-cookie check.
+ * Manager-origin sockets require a valid non-visitor qlm_session. Anonymous
+ * sockets are accepted only from the exact configured public-line origin and
+ * must request a valid field slug; that branch is snapshot-only.
  *
- * Auth removed from prod (mirrors CenterGuard/StaffSessionGuard): a missing
- * or invalid `qlm_session` cookie falls back to the single seeded center
- * instead of disconnecting. Only disconnects when there's no center row at
- * all to fall back to.
+ * Authentication stays inside handleConnection so rejected clients receive
+ * the native disconnect event expected by the web client.
  */
 import { Inject, Injectable } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { OnGatewayConnection, OnGatewayInit, WebSocketGateway, WebSocketServer } from '@nestjs/websockets'
+import { and, eq } from 'drizzle-orm'
 import { SOCKET_EVENTS } from 'shared'
-import { and, asc, eq } from 'drizzle-orm'
 import type { Server, Socket } from 'socket.io'
 import { SESSION_COOKIE_NAME, verifySessionToken, type SessionTokenPayload } from '../auth/token'
 import { DRIZZLE, type Database } from '../db/db.module'
-import { centers, sessions } from '../db/schema'
+import { sessions } from '../db/schema'
 import { SnapshotService } from '../sessions/snapshot.service'
 import { parseCookie } from './parse-cookie'
 import { SessionEventsService, sessionRoom } from './session-events.service'
@@ -36,14 +27,10 @@ const HELLO_EVENT = 'session:hello'
 @WebSocketGateway({
   namespace: '/session',
   cors: {
-    // Read WEB_ORIGIN lazily, inside the function Socket.IO invokes per
-    // handshake — NOT at decorator-evaluation time (module import time).
-    // Reading it eagerly here would run before tests (and, in principle,
-    // any lazy env setup) have a chance to set it, mirroring why
-    // AuthModule's JwtModule uses registerAsync's factory instead of a
-    // static secret.
-    origin: (_origin: string | undefined, callback: (err: Error | null, origin?: string | boolean) => void) => {
-      callback(null, process.env.WEB_ORIGIN ?? false)
+    origin: (origin: string | undefined, callback: (err: Error | null, origin?: boolean) => void) => {
+      const publicOrigin = process.env.PUBLIC_LINE_HOST ? `https://${process.env.PUBLIC_LINE_HOST}` : null
+      const allowed = origin === undefined || origin === process.env.WEB_ORIGIN || origin === publicOrigin
+      callback(allowed ? null : new Error('origin not allowed'), allowed)
     },
     credentials: true,
   },
@@ -63,17 +50,40 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection {
   }
 
   async handleConnection(client: Socket): Promise<void> {
-    const token = parseCookie(client.handshake.headers.cookie, SESSION_COOKIE_NAME) ?? null
-    const centerId = await this.resolveCenterId(token)
-    if (!centerId) {
+    const requestedSlug = firstQueryValue(client.handshake.query['slug'])
+
+    if (this.isPublicLineOrigin(client)) {
+      const publicSessionId = requestedSlug ? await this.findSessionIdBySlug(requestedSlug) : null
+      if (!publicSessionId) {
+        client.disconnect(true)
+        return
+      }
+      await this.joinAndEmitSnapshot(client, publicSessionId)
+      return
+    }
+
+    const token = parseCookie(client.handshake.headers.cookie, SESSION_COOKIE_NAME)
+    if (!token) {
       client.disconnect(true)
       return
     }
 
-    client.emit(HELLO_EVENT, { serverNow: new Date().toISOString() })
+    let payload: SessionTokenPayload
+    try {
+      payload = verifySessionToken(this.jwtService, token)
+    } catch {
+      client.disconnect(true)
+      return
+    }
+    if (!payload.staffId || payload.role === 'visitor') {
+      client.disconnect(true)
+      return
+    }
 
-    const requestedSlug = firstQueryValue(client.handshake.query['slug'])
-    const sessionId = requestedSlug ? await this.findSessionIdBySlug(requestedSlug, centerId) : await this.findActiveSessionId(centerId)
+    const sessionId = requestedSlug
+      ? await this.findSessionIdBySlug(requestedSlug, payload.centerId)
+      : await this.findActiveSessionId(payload.centerId)
+    client.emit(HELLO_EVENT, { serverNow: new Date().toISOString() })
     if (!sessionId) return
 
     await client.join(sessionRoom(sessionId))
@@ -81,22 +91,16 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection {
     client.emit(SOCKET_EVENTS.snapshot, snapshot)
   }
 
-  private async resolveCenterId(token: string | null): Promise<string | null> {
-    if (token) {
-      const centerId = this.tryReadCenterId(token)
-      if (centerId) return centerId
-    }
-    const [center] = await this.db.select({ id: centers.id }).from(centers).orderBy(asc(centers.createdAt)).limit(1)
-    return center?.id ?? null
+  private isPublicLineOrigin(client: Socket): boolean {
+    const publicLineHost = process.env.PUBLIC_LINE_HOST
+    return Boolean(publicLineHost && client.handshake.headers.origin === `https://${publicLineHost}`)
   }
 
-  private tryReadCenterId(token: string): string | null {
-    try {
-      const payload: SessionTokenPayload = verifySessionToken(this.jwtService, token)
-      return payload.centerId
-    } catch {
-      return null
-    }
+  private async joinAndEmitSnapshot(client: Socket, sessionId: string): Promise<void> {
+    client.emit(HELLO_EVENT, { serverNow: new Date().toISOString() })
+    await client.join(sessionRoom(sessionId))
+    const snapshot = await this.snapshotService.buildSnapshotBySessionId(sessionId)
+    client.emit(SOCKET_EVENTS.snapshot, snapshot)
   }
 
   private async findActiveSessionId(centerId: string): Promise<string | null> {
@@ -108,11 +112,11 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection {
     return row?.id ?? null
   }
 
-  private async findSessionIdBySlug(slug: string, centerId: string): Promise<string | null> {
+  private async findSessionIdBySlug(slug: string, centerId?: string): Promise<string | null> {
     const [row] = await this.db
       .select({ id: sessions.id })
       .from(sessions)
-      .where(and(eq(sessions.slug, slug), eq(sessions.centerId, centerId)))
+      .where(centerId ? and(eq(sessions.slug, slug), eq(sessions.centerId, centerId)) : eq(sessions.slug, slug))
       .limit(1)
     return row?.id ?? null
   }

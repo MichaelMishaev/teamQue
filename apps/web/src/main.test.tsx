@@ -7,9 +7,7 @@ import { createSessionSocket } from '@/lib/socket'
 
 /**
  * Regression coverage for main.tsx's Root composition: navigating to a field
- * route (VITE_DEMO unset, pathname '/f/<slug>') mounts AppGate/RealProviders/
- * App. RealProviders calls useVisitor() unconditionally, which throws unless a
- * VisitorProvider ancestor exists — main.tsx must render one around it.
+ * route mounts AppGate/RealProviders/App without the anonymous visitor layer.
  *
  * This imports the real main.tsx module (not a hand-rolled copy of its JSX)
  * so it exercises the actual composition. main.tsx's bottom-of-file bootstrap
@@ -60,6 +58,8 @@ describe('main.tsx Root — field route', () => {
     vi.mocked(useAuthState).mockReturnValue({
       phase: 'authed',
       currentStaff: { id: 'staff-1', name: 'שרה', role: 'manager' },
+      onCenterUnlocked: vi.fn(),
+      onLoggedIn: vi.fn(),
     })
     vi.mocked(apiGet).mockRejectedValue(new Error('not found'))
     vi.mocked(apiPost).mockResolvedValue({ visitorId: 'v1', nickname: 'אורח 7' })
@@ -74,7 +74,7 @@ describe('main.tsx Root — field route', () => {
     window.history.pushState({}, '', '/')
   })
 
-  it('mounts without throwing (RealProviders.useVisitor() needs a VisitorProvider ancestor)', async () => {
+  it('mounts the authenticated manager route without throwing', async () => {
     let threw: unknown = undefined
     try {
       await act(async () => {

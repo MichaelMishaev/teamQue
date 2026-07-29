@@ -2,14 +2,7 @@ import { useEffect, useState } from 'react'
 import { apiGet } from '@/lib/api'
 import type { CurrentStaff } from '@/state/AuthContext'
 
-/**
- * Resolves the current identity for AppGate. GET /auth/me now always returns a
- * real identity — the API falls back to the seeded center + its manager when no
- * cookies are present (auth is open, no PIN gate), or to a real staff member if
- * a session cookie exists from SwitchUser. `error` covers only the pathological
- * cases where /auth/me itself can't resolve (network failure, empty database).
- */
-export type AuthPhase = 'loading' | 'authed' | 'error'
+export type AuthPhase = 'loading' | 'needs-center' | 'needs-login' | 'authed'
 
 interface AuthMeResponse {
   staff: CurrentStaff
@@ -19,8 +12,11 @@ interface AuthMeResponse {
 export interface UseAuthStateResult {
   phase: AuthPhase
   currentStaff: CurrentStaff | null
+  onCenterUnlocked: () => void
+  onLoggedIn: (staff: CurrentStaff) => void
 }
 
+/** Resolves the manager identity and starts the PIN flow on any failure. */
 export function useAuthState(): UseAuthStateResult {
   const [phase, setPhase] = useState<AuthPhase>('loading')
   const [currentStaff, setCurrentStaff] = useState<CurrentStaff | null>(null)
@@ -34,12 +30,20 @@ export function useAuthState(): UseAuthStateResult {
         setPhase('authed')
       })
       .catch(() => {
-        if (!cancelled) setPhase('error')
+        if (!cancelled) setPhase('needs-center')
       })
     return () => {
       cancelled = true
     }
   }, [])
 
-  return { phase, currentStaff }
+  return {
+    phase,
+    currentStaff,
+    onCenterUnlocked: () => setPhase('needs-login'),
+    onLoggedIn: (staff) => {
+      setCurrentStaff(staff)
+      setPhase('authed')
+    },
+  }
 }

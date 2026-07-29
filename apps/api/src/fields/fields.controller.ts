@@ -8,7 +8,8 @@ import { Throttle, ThrottlerGuard } from '@nestjs/throttler'
 import { z } from 'zod'
 import { createFieldSchema, type CreateFieldBody, type FieldListItem, type SessionSnapshot } from 'shared'
 import { StaffSessionGuard } from '../auth/guards/staff-session.guard'
-import type { StaffAuthenticatedRequest } from '../auth/request.types'
+import { PublicLineReadGuard } from '../auth/guards/public-line-read.guard'
+import type { CenterAuthenticatedRequest, StaffAuthenticatedRequest } from '../auth/request.types'
 import { ZodValidationPipe } from '../common/zod.pipe'
 import { FieldsService } from './fields.service'
 import { SLUG_PATTERN } from './slug'
@@ -16,11 +17,11 @@ import { SLUG_PATTERN } from './slug'
 const slugParamSchema = z.string().regex(SLUG_PATTERN)
 
 @Controller('fields')
-@UseGuards(StaffSessionGuard)
 export class FieldsController {
   constructor(@Inject(FieldsService) private readonly fieldsService: FieldsService) {}
 
   @UseGuards(ThrottlerGuard)
+  @UseGuards(StaffSessionGuard)
   @Throttle({ default: { ttl: 60 * 60 * 1000, limit: 5 } })
   @Post()
   async create(
@@ -31,13 +32,15 @@ export class FieldsController {
   }
 
   @Get()
-  async list(@Req() req: StaffAuthenticatedRequest): Promise<FieldListItem[]> {
+  @UseGuards(PublicLineReadGuard)
+  async list(@Req() req: CenterAuthenticatedRequest): Promise<FieldListItem[]> {
     return this.fieldsService.list(req.centerId)
   }
 
   @Get(':slug')
+  @UseGuards(PublicLineReadGuard)
   async resolve(
-    @Req() req: StaffAuthenticatedRequest,
+    @Req() req: CenterAuthenticatedRequest,
     @Param('slug', new ZodValidationPipe(slugParamSchema)) slug: string,
   ): Promise<SessionSnapshot> {
     return this.fieldsService.resolve(slug, req.centerId)
@@ -45,6 +48,7 @@ export class FieldsController {
 
   @HttpCode(200)
   @Post(':slug/close')
+  @UseGuards(StaffSessionGuard)
   async close(
     @Req() req: StaffAuthenticatedRequest,
     @Param('slug', new ZodValidationPipe(slugParamSchema)) slug: string,

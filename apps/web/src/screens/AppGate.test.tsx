@@ -1,45 +1,50 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { useAuthState, type AuthPhase } from '@/hooks/useAuthState'
-import type { CurrentStaff } from '@/state/AuthContext'
 import { AppGate } from './AppGate'
 
 vi.mock('@/hooks/useAuthState')
+vi.mock('@/screens/CenterUnlock', () => ({
+  CenterUnlock: () => <div>center-unlock-stub</div>,
+}))
+vi.mock('@/screens/StaffLogin', () => ({
+  StaffLogin: () => <div>staff-login-stub</div>,
+}))
 
-function mockState(phase: AuthPhase, currentStaff: CurrentStaff | null = null) {
-  vi.mocked(useAuthState).mockReturnValue({ phase, currentStaff })
+function mockPhase(phase: AuthPhase) {
+  vi.mocked(useAuthState).mockReturnValue({
+    phase,
+    currentStaff: phase === 'authed' ? { id: 's1', name: 'שרה', role: 'manager' } : null,
+    onCenterUnlocked: vi.fn(),
+    onLoggedIn: vi.fn(),
+  })
 }
 
 describe('AppGate', () => {
-  it('renders a loading indicator in the loading phase', () => {
-    mockState('loading')
-    render(
-      <AppGate>
-        <div>children</div>
-      </AppGate>,
-    )
+  it('does not render manager children while loading', () => {
+    mockPhase('loading')
+    render(<AppGate><div>manager-content</div></AppGate>)
     expect(screen.getByRole('status')).toBeDefined()
-    expect(screen.queryByText('children')).toBeNull()
+    expect(screen.queryByText('manager-content')).toBeNull()
   })
 
-  it('renders an error state when /auth/me fails, without rendering children', () => {
-    mockState('error')
-    render(
-      <AppGate>
-        <div>children</div>
-      </AppGate>,
-    )
-    expect(screen.getByRole('alert')).toBeDefined()
-    expect(screen.queryByText('children')).toBeNull()
+  it('renders the center PIN gate before manager children', () => {
+    mockPhase('needs-center')
+    render(<AppGate><div>manager-content</div></AppGate>)
+    expect(screen.getByText('center-unlock-stub')).toBeDefined()
+    expect(screen.queryByText('manager-content')).toBeNull()
   })
 
-  it('renders children in the authed phase', () => {
-    mockState('authed', { id: 's1', name: 'שרה', role: 'manager' })
-    render(
-      <AppGate>
-        <div>children</div>
-      </AppGate>,
-    )
-    expect(screen.getByText('children')).toBeDefined()
+  it('renders the staff PIN gate after center unlock', () => {
+    mockPhase('needs-login')
+    render(<AppGate><div>manager-content</div></AppGate>)
+    expect(screen.getByText('staff-login-stub')).toBeDefined()
+    expect(screen.queryByText('manager-content')).toBeNull()
+  })
+
+  it('renders manager children only after authentication', () => {
+    mockPhase('authed')
+    render(<AppGate><div>manager-content</div></AppGate>)
+    expect(screen.getByText('manager-content')).toBeDefined()
   })
 })

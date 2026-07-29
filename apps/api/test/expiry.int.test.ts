@@ -17,11 +17,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { AppModule } from '../src/app.module'
 import { centers, staff } from '../src/db/schema'
 import { ExpiryService } from '../src/fields/expiry.service'
+import { centerCookieHeader, makeTestJwtService, sessionCookieHeader } from './helpers/auth-cookies'
 import { startTestPg, type TestPg } from './helpers/pg'
 
 describe('expiry sweep (integration)', () => {
   let pg: TestPg
   let app: INestApplication
+  let managerCookies: string[]
 
   beforeAll(async () => {
     pg = await startTestPg()
@@ -42,6 +44,11 @@ describe('expiry sweep (integration)', () => {
       .values({ centerId: center.id, name: 'Manager', role: 'manager', pinHash: await hash('6666') })
       .returning()
     if (!managerMember) throw new Error('staff insert returned no row')
+    const jwtService = makeTestJwtService('e'.repeat(32))
+    managerCookies = [
+      centerCookieHeader(jwtService, center.id),
+      sessionCookieHeader(jwtService, { staffId: managerMember.id, centerId: center.id, role: 'manager' }),
+    ]
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile()
     app = moduleRef.createNestApplication()
@@ -55,8 +62,8 @@ describe('expiry sweep (integration)', () => {
   })
 
   it('expireStale closes fields idle >18h and leaves fresh ones alone', async () => {
-    const stale = await request(app.getHttpServer()).post('/fields').send({ name: 'ישן', matchDurationSec: 300 }).expect(201)
-    const fresh = await request(app.getHttpServer()).post('/fields').send({ name: 'חדש', matchDurationSec: 300 }).expect(201)
+    const stale = await request(app.getHttpServer()).post('/fields').set('Cookie', managerCookies).send({ name: 'ישן', matchDurationSec: 300 }).expect(201)
+    const fresh = await request(app.getHttpServer()).post('/fields').set('Cookie', managerCookies).send({ name: 'חדש', matchDurationSec: 300 }).expect(201)
     const staleId = stale.body.snapshot.session.id
 
     // backdate the stale field's heartbeat 19h
@@ -65,18 +72,18 @@ describe('expiry sweep (integration)', () => {
     const closed = await app.get(ExpiryService).expireStale()
     expect(closed).toBe(1)
 
-    const list = await request(app.getHttpServer()).get('/fields').expect(200)
+    const list = await request(app.getHttpServer()).get('/fields').set('Cookie', managerCookies).expect(200)
     const slugs = list.body.map((row: { slug: string }) => row.slug)
     expect(slugs).not.toContain(stale.body.slug)
     expect(slugs).toContain(fresh.body.slug)
   })
 
   it('mutations refresh last_activity_at (heartbeat via broadcast)', async () => {
-    const created = await request(app.getHttpServer()).post('/fields').send({ name: 'פעיל', matchDurationSec: 300 }).expect(201)
+    const created = await request(app.getHttpServer()).post('/fields').set('Cookie', managerCookies).send({ name: 'פעיל', matchDurationSec: 300 }).expect(201)
     const sessionId = created.body.snapshot.session.id
     await pg.db.execute(sql`UPDATE sessions SET last_activity_at = now() - interval '19 hours' WHERE id = ${sessionId}`)
 
-    await request(app.getHttpServer()).post(`/sessions/${sessionId}/line`).send({ team: { newName: 'קבוצה' } }).expect(201)
+    await request(app.getHttpServer()).post(`/sessions/${sessionId}/line`).set('Cookie', managerCookies).send({ team: { newName: 'קבוצה' } }).expect(201)
 
     const closed = await app.get(ExpiryService).expireStale()
     expect(closed).toBe(0) // the line mutation touched the heartbeat

@@ -2,12 +2,8 @@
  * Realtime gateway integration test (technical-prd §5): a real in-process
  * Nest app (listening on a real port, not just supertest's virtual server)
  * + real socket.io-client sockets + a real Postgres (Testcontainers).
- * Covers the auth mechanism (handleConnection resolves a center — from the
- * qlm_session cookie, else the single-seeded-center fallback — and only
- * client.disconnect(true)s when NO center row exists; auth was removed from
- * prod, so a missing/invalid cookie now CONNECTS instead of disconnecting),
- * snapshot-on-connect, and broadcast-after-mutation for both a single client
- * and two clients sharing a session room.
+ * Covers strict manager-socket auth, anonymous read-only public-line sockets
+ * on the exact configured public origin, snapshot-on-connect, and broadcasts.
  */
 import type { AddressInfo } from 'node:net'
 import { INestApplication } from '@nestjs/common'
@@ -42,6 +38,7 @@ describe('realtime gateway (integration)', () => {
     process.env.DATABASE_URL = pg.container.getConnectionUri()
     process.env.SESSION_SECRET = SESSION_SECRET
     process.env.WEB_ORIGIN = 'http://localhost:5173'
+    process.env.PUBLIC_LINE_HOST = 'line.maple-group.info'
     process.env.NODE_ENV = 'test'
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile()
@@ -63,9 +60,10 @@ describe('realtime gateway (integration)', () => {
     await pg.stop()
   })
 
-  function connectSocket(cookieHeader?: string): Socket {
+  function connectSocket(cookieHeader?: string, origin?: string, slug?: string): Socket {
     const socket = io(`${baseUrl}/session`, {
-      extraHeaders: { Cookie: cookieHeader ?? '' },
+      extraHeaders: { Cookie: cookieHeader ?? '', ...(origin ? { Origin: origin } : {}) },
+      ...(slug ? { query: { slug } } : {}),
       transports: ['websocket'],
       forceNew: true,
       reconnection: false,
@@ -91,6 +89,7 @@ describe('realtime gateway (integration)', () => {
     staffCookies: string[]
     sessionCookieHeader: string
     sessionId: string
+    slug: string
   }> {
     centerCounter += 1
     const [center] = await pg.db
@@ -122,6 +121,7 @@ describe('realtime gateway (integration)', () => {
       ],
       sessionCookieHeader: sessionCookieHeader(jwtService, { staffId: staffMember.id, centerId: center.id, role: 'staff' }),
       sessionId: session.id,
+      slug: session.slug,
     }
   }
 
@@ -145,21 +145,23 @@ describe('realtime gateway (integration)', () => {
       expect(snapshot.session.id).toBe(fixture.sessionId)
     })
 
-    it('a socket with no cookie now falls back to the seeded center and receives session:hello (no longer disconnected)', async () => {
+    it('a manager-origin socket with no cookie is disconnected', async () => {
       const socket = connectSocket(undefined)
-      const hello = await waitForEvent<{ serverNow: string }>(socket, HELLO_EVENT)
-      expect(typeof hello.serverNow).toBe('string')
-      // Give the fallback a beat; it must NOT disconnect (a center row exists).
-      await new Promise((resolve) => setTimeout(resolve, 300))
-      expect(socket.connected).toBe(true)
+      await expect(waitForEvent(socket, 'disconnect')).resolves.toBeDefined()
     })
 
-    it('a socket with an invalid/garbage session cookie also falls back and receives session:hello', async () => {
+    it('a manager-origin socket with an invalid session cookie is disconnected', async () => {
       const socket = connectSocket(`${SESSION_COOKIE_NAME}=not-a-real-jwt`)
-      const hello = await waitForEvent<{ serverNow: string }>(socket, HELLO_EVENT)
-      expect(typeof hello.serverNow).toBe('string')
-      await new Promise((resolve) => setTimeout(resolve, 300))
-      expect(socket.connected).toBe(true)
+      await expect(waitForEvent(socket, 'disconnect')).resolves.toBeDefined()
+    })
+
+    it('the exact public-line origin can subscribe anonymously to a slug', async () => {
+      const fixture = await seedCenterWithActiveSession()
+      const socket = connectSocket(undefined, 'https://line.maple-group.info', fixture.slug)
+
+      await expect(waitForEvent(socket, HELLO_EVENT)).resolves.toBeDefined()
+      const snapshot = await waitForEvent<SessionSnapshot>(socket, SOCKET_EVENTS.snapshot)
+      expect(snapshot.session.id).toBe(fixture.sessionId)
     })
 
     it('a valid cookie but no active session for the center connects successfully and gets no snapshot', async () => {
