@@ -10,8 +10,6 @@ import { NotFoundError } from '../common/errors'
 import { DRIZZLE, type Database } from '../db/db.module'
 import { activityLog, fields, sessions } from '../db/schema'
 
-const PUBLIC_COURT_NAME = 'כיכר העצמאות, מגרש 1'
-
 @Injectable()
 export class PublicLineTelemetryWriter {
   constructor(@Inject(DRIZZLE) private readonly db: Database) {}
@@ -26,8 +24,6 @@ export class PublicLineTelemetryWriter {
           eq(sessions.centerId, centerId),
           eq(sessions.slug, slug),
           eq(sessions.status, 'active'),
-          eq(fields.position, 0),
-          eq(fields.name, PUBLIC_COURT_NAME),
         ),
       )
       .limit(1)

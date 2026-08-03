@@ -68,8 +68,8 @@ describe('public line telemetry (integration)', () => {
     await pg.db.insert(fields).values({
       sessionId,
       centerId: center.id,
-      name: 'כיכר העצמאות, מגרש 1',
-      position: 0,
+      name: 'מגרש קהילתי נוסף',
+      position: 3,
     })
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile()
@@ -83,7 +83,7 @@ describe('public line telemetry (integration)', () => {
     await pg.stop()
   })
 
-  it('records an anonymous aggregate event in the activity log', async () => {
+  it('records an anonymous aggregate event for any active field-scoped public queue', async () => {
     await request(app.getHttpServer())
       .post(`/fields/${slug}/public-line-events`)
       .set('Host', 'line.maple-group.info')
