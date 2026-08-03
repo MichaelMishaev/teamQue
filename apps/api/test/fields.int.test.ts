@@ -81,36 +81,18 @@ describe('fields (integration)', () => {
     expect(res.body.snapshot.queue).toEqual([])
   })
 
-  it('password-protected field blocks the staff console until its four-digit password is verified', async () => {
+  it('field passwords are disabled — staff console opens without an access cookie', async () => {
     const created = await request(app.getHttpServer())
       .post('/fields')
       .set('Cookie', managerCookies)
       .send({ name: 'מגרש מוגן', matchDurationSec: 360, password: '4829' })
       .expect(201)
     const slug: string = created.body.slug
-    const accessCookie = created.headers['set-cookie']
-    expect(accessCookie).toBeUndefined()
 
-    await request(app.getHttpServer()).get(`/fields/${slug}`).set('Cookie', managerCookies).expect(403)
-    await request(app.getHttpServer()).post(`/fields/${slug}/access`).set('Cookie', managerCookies).send({ password: '0000' }).expect(403)
+    const access = await request(app.getHttpServer()).get(`/fields/${slug}/access`).set('Cookie', managerCookies).expect(200)
+    expect(access.body).toEqual({ passwordRequired: false, granted: true })
 
-    const unlocked = await request(app.getHttpServer())
-      .post(`/fields/${slug}/access`)
-      .set('Cookie', managerCookies)
-      .send({ password: '4829' })
-      .expect(201)
-    const unlockedCookie = unlocked.headers['set-cookie']
-    if (unlockedCookie === undefined) throw new Error('password unlock did not set an access cookie')
-    const unlockedCookieHeader = Array.isArray(unlockedCookie) ? unlockedCookie[0] : unlockedCookie
-    if (unlockedCookieHeader === undefined) throw new Error('password unlock returned an empty access-cookie header')
-    expect(unlockedCookieHeader).toContain(`qlm_field_access_${slug}=`)
-    const [unlockedCookieValue] = unlockedCookieHeader.split(';')
-    if (unlockedCookieValue === undefined) throw new Error('access cookie is malformed')
-
-    await request(app.getHttpServer())
-      .get(`/fields/${slug}`)
-      .set('Cookie', [...managerCookies, unlockedCookieValue])
-      .expect(200)
+    await request(app.getHttpServer()).get(`/fields/${slug}`).set('Cookie', managerCookies).expect(200)
   })
 
   it('GET /fields lists active fields newest-first with queue length + live flag', async () => {
@@ -143,7 +125,7 @@ describe('fields (integration)', () => {
     )
   })
 
-  it('POST /fields/lock-all anonymously expires every field-access cookie so a protected field locks again', async () => {
+  it('POST /fields/lock-all anonymously expires field-access cookies without re-locking the console', async () => {
     const lockApp = await buildApp()
     try {
       const created = await request(lockApp.getHttpServer())
@@ -165,11 +147,6 @@ describe('fields (integration)', () => {
       const [accessCookie] = accessCookieHeader.split(';')
       if (accessCookie === undefined) throw new Error('access cookie is malformed')
 
-      await request(lockApp.getHttpServer())
-        .get(`/fields/${slug}`)
-        .set('Cookie', [...managerCookies, accessCookie])
-        .expect(200)
-
       const locked = await request(lockApp.getHttpServer())
         .post('/fields/lock-all')
         .set('Cookie', [accessCookie, 'qlm_field_access_abc234=fake', 'qlm_field_access_other=preserve', 'unrelated=keep'])
@@ -178,16 +155,9 @@ describe('fields (integration)', () => {
       const deletedCookies = locked.headers['set-cookie']
       if (!Array.isArray(deletedCookies)) throw new Error('lock-all did not return cookie deletions')
       expect(deletedCookies).toHaveLength(2)
-      expect(deletedCookies).toEqual(
-        expect.arrayContaining([
-          expect.stringMatching(new RegExp(`^qlm_field_access_${slug}=;`)),
-          expect.stringMatching(/^qlm_field_access_abc234=;/),
-        ]),
-      )
-      expect(deletedCookies.every((cookie: string) => cookie.includes('Expires=Thu, 01 Jan 1970 00:00:00 GMT'))).toBe(true)
-      expect(deletedCookies.some((cookie: string) => cookie.startsWith('qlm_field_access_other='))).toBe(false)
 
-      await request(lockApp.getHttpServer()).get(`/fields/${slug}`).set('Cookie', managerCookies).expect(403)
+      // Passwords disabled: clearing access cookies must not block the console.
+      await request(lockApp.getHttpServer()).get(`/fields/${slug}`).set('Cookie', managerCookies).expect(200)
     } finally {
       await lockApp.close()
     }

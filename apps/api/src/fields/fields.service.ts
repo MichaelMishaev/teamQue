@@ -6,7 +6,6 @@
  * reuses the same clear-line + close shape as SessionsService.close.
  */
 import { Inject, Injectable } from '@nestjs/common'
-import { hash, verify } from '@node-rs/argon2'
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { CreateFieldBody, FieldListItem, SessionSnapshot } from 'shared'
 import { ActivityWriter } from '../activity/activity.writer'
@@ -32,7 +31,8 @@ export class FieldsService {
   ) {}
 
   async create(centerId: string, staffId: string, body: CreateFieldBody): Promise<{ slug: string; snapshot: SessionSnapshot }> {
-    const accessPinHash = body.password === undefined ? null : await hash(body.password)
+    // Field passwords are disabled product-wide — never persist an access PIN.
+    const accessPinHash = null
     let lastError: unknown = null
     for (let attempt = 0; attempt < CREATE_RETRIES; attempt += 1) {
       const slug = generateSlug()
@@ -110,13 +110,13 @@ export class FieldsService {
     return this.snapshotService.buildSnapshotBySessionId(sessionId)
   }
 
-  async isPasswordProtected(slug: string, centerId: string): Promise<boolean> {
-    return (await this.accessPinHashBySlug(slug, centerId)) !== null
+  /** Field passwords are disabled — existing hashes are ignored. */
+  async isPasswordProtected(_slug: string, _centerId: string): Promise<boolean> {
+    return false
   }
 
-  async verifyPassword(slug: string, centerId: string, password: string): Promise<boolean> {
-    const accessPinHash = await this.accessPinHashBySlug(slug, centerId)
-    return accessPinHash !== null && (await verify(accessPinHash, password))
+  async verifyPassword(_slug: string, _centerId: string, _password: string): Promise<boolean> {
+    return true
   }
 
   async closeBySlug(slug: string, centerId: string, staffId: string): Promise<{ slug: string; status: 'closed' }> {
@@ -189,16 +189,6 @@ export class FieldsService {
       .limit(1)
     if (!row) throw new NotFoundError('Field not found')
     return row.id
-  }
-
-  private async accessPinHashBySlug(slug: string, centerId: string): Promise<string | null> {
-    const [row] = await this.db
-      .select({ accessPinHash: sessions.accessPinHash })
-      .from(sessions)
-      .where(and(eq(sessions.slug, slug), eq(sessions.centerId, centerId)))
-      .limit(1)
-    if (!row) throw new NotFoundError('Field not found')
-    return row.accessPinHash
   }
 }
 
