@@ -96,9 +96,9 @@ Staff administration is not exposed in the current manager UI baseline; see Defe
 
 | ID | Requirement and QA oracle |
 |---|---|
-| MGR-AUTH-001 | A new device MUST show Center Unlock before manager content. A correct center PIN unlocks the device for the configured long-lived period; a wrong PIN shows an inline Hebrew error and stays on the screen. |
+| MGR-AUTH-001 | A new device MAY view the public `/` field list without Center Unlock. Creating a field or opening any manager field route MUST show Center Unlock before manager data or controls. A correct center PIN unlocks the device for the configured long-lived period; a wrong PIN shows an inline Hebrew error and stays on the screen. |
 | MGR-AUTH-002 | Center-PIN abuse protection MUST reject the sixth attempt in the configured 5-attempt/15-minute window without revealing secrets. |
-| MGR-AUTH-003 | After center unlock, the user MUST select an active staff identity and enter its 4-digit PIN. Successful login creates the staff session and opens the manager landing page. |
+| MGR-AUTH-003 | After center unlock, the user MUST select an active staff identity and enter its 4-digit PIN. Successful login creates the staff session and continues the requested authenticated creation or field-management flow. |
 | MGR-AUTH-004 | Five wrong staff PINs MUST trigger the progressive lockout contract. Remaining lockout time MUST be communicated inline. |
 | MGR-AUTH-005 | Switching user MUST require the newly selected staff member’s PIN and MUST attribute subsequent actions to that identity. |
 | MGR-AUTH-006 | Manager routes and manager sockets MUST fail closed for missing, invalid, expired, visitor, or wrong-center credentials. |
@@ -115,6 +115,7 @@ Staff administration is not exposed in the current manager UI baseline; see Defe
 | MGR-ACCESS-005 | A grant for field A MUST NOT unlock field B. |
 | MGR-ACCESS-006 | Creating a protected field MUST navigate to its password gate. The creator, like every later entrant without an existing field grant, MUST enter the four-digit code before field state renders. |
 | MGR-ACCESS-007 | The stored password MUST be an Argon2id hash. The clear four digits MUST never be persisted or returned. |
+| MGR-ACCESS-008 | Loading `/` MUST revoke all field-access grants on that browser. Re-entering any protected field from the landing list MUST therefore ask for its four-digit password again. Device and staff authentication remain unchanged. |
 
 ## 3. Domain and isolation rules
 
@@ -146,7 +147,7 @@ Staff administration is not exposed in the current manager UI baseline; see Defe
 
 | Route | Purpose | Required behavior |
 |---|---|---|
-| `/` | Manager landing | List active fields, guarantee the default field, create/open fields, PWA install, player-view handoff. |
+| `/` | Public field landing | List active fields without a device/staff PIN. Creating a field and opening manager field routes remain authenticated. Loading the route revokes remembered field-access grants. |
 | `/f/:slug` | Field Main | Field-scoped live match, line, quick add, and referee entry. |
 | `/f/:slug?tab=history` | History | Field/session summary and finished matches. |
 | `/f/:slug?tab=activity` | Activity | Filterable operational and exception history. |
@@ -169,13 +170,14 @@ Staff administration is not exposed in the current manager UI baseline; see Defe
 
 | ID | Requirement and QA oracle |
 |---|---|
-| MGR-HOME-001 | `/` MUST render a manager landing page, not auto-redirect to a field. |
+| MGR-HOME-001 | `/` MUST render the field landing page without Center Unlock or Staff Login and MUST NOT auto-redirect to a field. |
 | MGR-HOME-002 | Each active-field card MUST show name, queue count, free/live status, and an explicit enter action. |
-| MGR-HOME-003 | The default field `home.create.nameDefault` MUST exist. If absent, the client attempts to create it, pins it first, and retains other fields if default creation fails. |
+| MGR-HOME-003 | Anonymous landing loads MUST be read-only and MUST NOT auto-create a missing default field. An authenticated creation flow MAY restore the default field; when present, the client pins it first. |
 | MGR-HOME-004 | A field-list load failure MUST show a dedicated inline error. Loading MUST have an announced status. |
 | MGR-HOME-005 | The landing header MUST expose PWA install when the browser reports installation is available. |
 | MGR-HOME-006 | When the default field-line player view exists, the landing header MUST expose its QR action. It copies the stable read-only field-line URL and opens the QR overlay without navigating the staff device away. |
 | MGR-HOME-007 | Active non-default fields remain ordered newest-first after the default field. |
+| MGR-HOME-008 | The anonymous landing read MUST expose only the existing field-list card contract. Field creation and every field-management read or mutation remain protected by the existing device/staff authentication guards. |
 
 ### 5.2 Create field
 
@@ -469,7 +471,7 @@ These dialogs are required and are not violations of the live-flow policy:
 | Journey ID | Steps and assertions |
 |---|---|
 | MGR-E2E-001 | Unlock center → select staff → enter PIN → landing renders. Covers MGR-AUTH-001..006. |
-| MGR-E2E-002 | Create unprotected field A → verify name/empty state → return landing → create protected field B → wrong password rejected → correct password enters. |
+| MGR-E2E-002 | Open `/` without device/staff PIN → authenticate to create unprotected field A → verify name/empty state → return landing → create protected field B → wrong password rejected → correct password enters → return landing → re-enter B → password gate is shown again. |
 | MGR-E2E-003 | Add teams only to A → verify B stays empty → mutate/start A in a second context → both A contexts sync while B receives nothing. Covers all MGR-ISO IDs. |
 | MGR-E2E-004 | Existing captain add (<3s) → new captain add (<5s) → duplicate soft warning → front-two Start. |
 | MGR-E2E-005 | Pause → lock/wake device simulation → Resume → Extend → standard Finish cancel → confirm Finish. |

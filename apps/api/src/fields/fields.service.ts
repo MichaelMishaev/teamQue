@@ -7,13 +7,13 @@
  */
 import { Inject, Injectable } from '@nestjs/common'
 import { hash, verify } from '@node-rs/argon2'
-import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { CreateFieldBody, FieldListItem, SessionSnapshot } from 'shared'
 import { ActivityWriter } from '../activity/activity.writer'
 import { NotFoundError } from '../common/errors'
 import { lockSessionLine } from '../common/session-lock'
 import { DRIZZLE, type Database } from '../db/db.module'
-import { fields, matches, queueEntries, sessions } from '../db/schema'
+import { centers, fields, matches, queueEntries, sessions } from '../db/schema'
 import { SessionEventsService } from '../realtime/session-events.service'
 import { SnapshotService } from '../sessions/snapshot.service'
 import { todayInJerusalem } from '../sessions/date'
@@ -98,6 +98,11 @@ export class FieldsService {
       queueLength: Number(row.queueLength),
       hasLiveMatch: row.hasLiveMatch,
     }))
+  }
+
+  async listForConfiguredCenter(): Promise<FieldListItem[]> {
+    const [center] = await this.db.select({ id: centers.id }).from(centers).orderBy(asc(centers.createdAt)).limit(1)
+    return center === undefined ? [] : this.list(center.id)
   }
 
   async resolve(slug: string, centerId: string): Promise<SessionSnapshot> {

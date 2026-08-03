@@ -27,8 +27,8 @@ applyPwaIdentity(window.location.hostname, window.location.pathname)
 
 /**
  * VITE_DEMO=1 mounts the mock-backed providers directly (mock data, switchable
- * via SwitchUser). Otherwise the URL decides: the dedicated `/line` route is
- * public and read-only; every manager route is mounted behind AppGate.
+ * via SwitchUser). Otherwise the URL decides: `/` is the public field list,
+ * `/line` is public and read-only, and field manager routes stay behind AppGate.
  */
 const isDemo = import.meta.env.VITE_DEMO === '1'
 const route = parseRoute(window.location.pathname, window.location.hostname)
@@ -70,11 +70,7 @@ export function Root() {
     )
   }
   if (route.kind === 'home') {
-    return (
-      <AppGate>
-        <HomeScreen />
-      </AppGate>
-    )
+    return <HomeScreen />
   }
   return (
     <AppGate>

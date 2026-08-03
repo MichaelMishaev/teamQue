@@ -34,6 +34,11 @@ function court(overrides: Partial<FieldListItem> = {}): FieldListItem {
   }
 }
 
+function mockPublicLanding(courts: FieldListItem[]): void {
+  mockApiPost.mockResolvedValueOnce({})
+  mockApiGet.mockResolvedValueOnce(courts)
+}
+
 /** Open the create sheet and type a name into it. */
 function typeNewCourtName(name: string): void {
   fireEvent.click(screen.getByRole('button', { name: t('home.create.action') }))
@@ -65,8 +70,20 @@ describe('HomeScreen', () => {
     expect(mockApiGet).not.toHaveBeenCalled()
   })
 
-  it('lists the active courts without navigating anywhere', async () => {
+  it('revokes remembered field access before loading the public field list', async () => {
+    mockApiPost.mockResolvedValueOnce({})
     mockApiGet.mockResolvedValueOnce([court()])
+
+    render(<HomeScreen />)
+
+    expect(await screen.findByText(DEFAULT_NAME)).toBeDefined()
+    expect(mockApiPost).toHaveBeenCalledWith('/fields/lock-all')
+    expect(mockApiGet).toHaveBeenCalledWith('/fields/landing')
+    expect(mockApiPost.mock.invocationCallOrder[0]).toBeLessThan(mockApiGet.mock.invocationCallOrder[0] ?? 0)
+  })
+
+  it('lists the active courts without navigating anywhere', async () => {
+    mockPublicLanding([court()])
     render(<HomeScreen />)
 
     expect(await screen.findByText(DEFAULT_NAME)).toBeDefined()
@@ -75,11 +92,12 @@ describe('HomeScreen', () => {
     expect(screen.getByRole('img', { name: t('home.hero.alt') })).toBeDefined()
     expect(screen.getByRole('button', { name: t('publicLine.qr.dialogLabel') })).toBeDefined()
     expect(mockNavigateToField).not.toHaveBeenCalled()
-    expect(mockApiPost).not.toHaveBeenCalled()
+    expect(mockApiPost).toHaveBeenCalledTimes(1)
+    expect(mockApiPost).toHaveBeenCalledWith('/fields/lock-all')
   })
 
   it('offers the native PWA install action from the manager home header', async () => {
-    mockApiGet.mockResolvedValueOnce([court()])
+    mockPublicLanding([court()])
     render(<HomeScreen />)
     await screen.findByText(DEFAULT_NAME)
 
@@ -91,7 +109,7 @@ describe('HomeScreen', () => {
   it('player-view button copies the public URL and shows the QR overlay instead of navigating', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.assign(navigator, { clipboard: { writeText } })
-    mockApiGet.mockResolvedValueOnce([court()])
+    mockPublicLanding([court()])
     render(<HomeScreen />)
 
     fireEvent.click(await screen.findByRole('button', { name: t('publicLine.qr.dialogLabel') }))
@@ -103,24 +121,19 @@ describe('HomeScreen', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('creates the default court when no active court carries its name', async () => {
-    mockApiGet.mockResolvedValueOnce([]).mockResolvedValueOnce([court({ slug: 'xyz789' })])
-    mockApiPost.mockResolvedValueOnce({ slug: 'xyz789', snapshot: {} })
+  it('does not create a field when the public landing list is empty', async () => {
+    mockPublicLanding([])
     render(<HomeScreen />)
 
-    await waitFor(() =>
-      expect(mockApiPost).toHaveBeenCalledWith('/fields', {
-        name: DEFAULT_NAME,
-        matchDurationSec: 360,
-      }),
-    )
-    expect(await screen.findByText(DEFAULT_NAME)).toBeDefined()
+    expect(await screen.findByText(t('home.empty.title'))).toBeDefined()
+    expect(mockApiPost).toHaveBeenCalledTimes(1)
+    expect(mockApiPost).toHaveBeenCalledWith('/fields/lock-all')
     expect(mockNavigateToField).not.toHaveBeenCalled()
   })
 
   it('pins the default court above newer courts', async () => {
     // GET /fields returns createdAt DESC, so the default arrives last.
-    mockApiGet.mockResolvedValueOnce([
+    mockPublicLanding([
       court({ slug: 'new111', name: 'מגרש 2', createdAt: '2026-07-17T10:00:00.000Z' }),
       court(),
     ])
@@ -133,7 +146,7 @@ describe('HomeScreen', () => {
   })
 
   it('opens a court when its row is tapped', async () => {
-    mockApiGet.mockResolvedValueOnce([court({ slug: 'tap123' })])
+    mockPublicLanding([court({ slug: 'tap123' })])
     render(<HomeScreen />)
 
     fireEvent.click(await screen.findByRole('button', { name: new RegExp(DEFAULT_NAME) }))
@@ -141,7 +154,7 @@ describe('HomeScreen', () => {
   })
 
   it('creates a court and goes straight into it', async () => {
-    mockApiGet.mockResolvedValueOnce([court()])
+    mockPublicLanding([court()])
     mockApiPost.mockResolvedValueOnce({ slug: 'fresh1', snapshot: {} })
     render(<HomeScreen />)
     await screen.findByText(DEFAULT_NAME)
@@ -156,7 +169,7 @@ describe('HomeScreen', () => {
   })
 
   it('sends an optional four-digit password only when the creator entered one', async () => {
-    mockApiGet.mockResolvedValueOnce([court()])
+    mockPublicLanding([court()])
     mockApiPost.mockResolvedValueOnce({ slug: 'fresh1', snapshot: {} })
     render(<HomeScreen />)
     await screen.findByText(DEFAULT_NAME)
@@ -184,7 +197,7 @@ describe('HomeScreen', () => {
   })
 
   it('shows a throttle error inline and keeps the sheet open', async () => {
-    mockApiGet.mockResolvedValueOnce([court()])
+    mockPublicLanding([court()])
     mockApiPost.mockRejectedValueOnce(new ApiRequestError('RATE_LIMITED', 'too many'))
     render(<HomeScreen />)
     await screen.findByText(DEFAULT_NAME)
@@ -198,21 +211,31 @@ describe('HomeScreen', () => {
     expect(screen.getByLabelText(t('home.create.nameLabel')).getAttribute('value')).toBe('מגרש 7')
   })
 
-  it('still renders the existing courts when the default cannot be re-created', async () => {
-    mockApiGet.mockResolvedValueOnce([court({ slug: 'other1', name: 'מגרש 2' })])
-    mockApiPost.mockRejectedValueOnce(new ApiRequestError('RATE_LIMITED', 'too many'))
+  it('renders non-default fields without trying to create the default from the public screen', async () => {
+    mockPublicLanding([court({ slug: 'other1', name: 'מגרש 2' })])
     render(<HomeScreen />)
 
     expect(await screen.findByText('מגרש 2')).toBeDefined()
-    expect(screen.getByText(t('home.default.error'))).toBeDefined()
+    expect(mockApiPost).toHaveBeenCalledTimes(1)
+    expect(mockApiPost).toHaveBeenCalledWith('/fields/lock-all')
     expect(screen.queryByRole('button', { name: t('publicLine.qr.dialogLabel') })).toBeNull()
   })
 
   it('shows an error when the court list fails to load', async () => {
+    mockApiPost.mockResolvedValueOnce({})
     mockApiGet.mockRejectedValueOnce(new Error('network'))
     render(<HomeScreen />)
 
     expect(await screen.findByRole('alert')).toBeDefined()
     expect(screen.getByText(t('home.load.error'))).toBeDefined()
+  })
+
+  it('fails closed without loading field cards when access revocation fails', async () => {
+    mockApiPost.mockRejectedValueOnce(new Error('network'))
+
+    render(<HomeScreen />)
+
+    expect(await screen.findByRole('alert')).toBeDefined()
+    expect(mockApiGet).not.toHaveBeenCalled()
   })
 })
