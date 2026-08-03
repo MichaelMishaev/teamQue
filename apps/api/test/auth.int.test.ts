@@ -279,11 +279,25 @@ describe('auth (integration)', () => {
       expect(sessionCookie).toMatch(/Max-Age=7776000/i)
     })
 
-    it('opens a manager session with no center cookie and no PIN', async () => {
+    it('opens a manager session with no center cookie and no PIN, setting both center and session cookies', async () => {
       const res = await request(app.getHttpServer()).post('/auth/device').send({})
 
       expect(res.status).toBe(201)
       expect(res.body).toEqual({ staffId: happyStaffId, role: 'manager' })
+
+      const setCookie = res.headers['set-cookie'] as unknown as string[]
+      expect(setCookie.some((cookie) => cookie.startsWith('qlm_center='))).toBe(true)
+      expect(setCookie.some((cookie) => cookie.startsWith('qlm_session='))).toBe(true)
+
+      // StaffSessionGuard needs both cookies — prove /auth/me works immediately after.
+      const center = setCookie.find((cookie) => cookie.startsWith('qlm_center='))
+      const session = setCookie.find((cookie) => cookie.startsWith('qlm_session='))
+      if (center === undefined || session === undefined) throw new Error('missing auth cookies')
+      const me = await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Cookie', [center.split(';')[0] ?? center, session.split(';')[0] ?? session])
+      expect(me.status).toBe(200)
+      expect(me.body.staff.id).toBe(happyStaffId)
     })
 
     it('fails closed when the trusted center has no active manager', async () => {

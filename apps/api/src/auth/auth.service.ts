@@ -27,7 +27,13 @@ import { signCenterToken, signSessionToken, signTrustedDeviceSessionToken } from
 
 export type UnlockCenterResult = { centerId: string; name: string; token: string }
 export type LoginResult = { staffId: string; name: string; role: StaffRole; token: string }
-export type TrustedDeviceLoginResult = { staffId: string; role: StaffRole; token: string }
+export type TrustedDeviceLoginResult = {
+  staffId: string
+  role: StaffRole
+  token: string
+  centerId: string
+  centerToken: string
+}
 export type MeResult = {
   staff: { id: string; name: string; role: StaffRole }
   center: { id: string; name: string }
@@ -111,7 +117,10 @@ export class AuthService {
       centerId: resolvedCenterId,
       role,
     })
-    return { staffId: manager.id, role, token }
+    // StaffSessionGuard still requires qlm_center — issue it alongside the
+    // open session so subsequent /fields/* calls don't 401 after device boot.
+    const centerToken = signCenterToken(this.jwtService, { centerId: resolvedCenterId })
+    return { staffId: manager.id, role, token, centerId: resolvedCenterId, centerToken }
   }
 
   async me(staffId: string, centerId: string): Promise<MeResult> {

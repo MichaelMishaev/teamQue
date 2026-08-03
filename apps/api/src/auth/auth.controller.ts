@@ -67,6 +67,8 @@ export class AuthController {
     // multi-center fixtures; otherwise the sole center row is used.
     const result = await this.authService.loginTrustedManagerDevice(optionalCenterId(this.jwtService, req))
     const nodeEnv = loadEnv().NODE_ENV
+    // Both cookies: StaffSessionGuard extends CenterGuard and requires qlm_center.
+    res.cookie(CENTER_COOKIE_NAME, result.centerToken, cookieOptions(CENTER_COOKIE_MAX_AGE_MS, nodeEnv))
     res.cookie(
       SESSION_COOKIE_NAME,
       result.token,
