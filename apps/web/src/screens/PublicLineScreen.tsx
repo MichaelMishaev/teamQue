@@ -15,9 +15,10 @@ import { formatTimeOfDay, matchCountdownInput, timerState, type RunningStatus } 
 import type { ConnectionStatus } from '@/state/SnapshotContext'
 
 /**
- * Single responsibility: the QR destination for players at Independence
- * Square. It resolves the fixed public court, reads its snapshot, and replaces
- * that snapshot from realtime events. It deliberately mounts no visitor,
+ * Single responsibility: the QR destination for a field's players. A scoped
+ * URL resolves its exact slug; the legacy `/line` alias resolves the default
+ * court. It reads that snapshot and replaces it from realtime events. It
+ * deliberately mounts no visitor,
  * auth, SessionActions, drag, menu, or match-control surface: queue state is
  * observable here and cannot be mutated here.
  */
@@ -54,7 +55,15 @@ function useMatchAtmosphere(): boolean {
   return enabled
 }
 
-export function PublicLineScreen() {
+export function PublicLineScreen({
+  slug: requestedSlug,
+  initialSnapshot,
+  connectRealtime = true,
+}: {
+  slug?: string
+  initialSnapshot?: SessionSnapshot | null
+  connectRealtime?: boolean
+}) {
   const [telemetry] = useState(createPublicLineTelemetryTracker)
   const [snapshot, setSnapshot] = useState<SessionSnapshot | null>(null)
   const [slug, setSlug] = useState<string | null>(null)
@@ -86,13 +95,32 @@ export function PublicLineScreen() {
 
   useEffect(() => {
     let cancelled = false
-    void apiGet<FieldListItem[]>('/fields')
-      .then(async (courts) => {
-        const court = courts.find((candidate) => candidate.name === DEFAULT_COURT_NAME)
-        if (!court) throw new Error('default court unavailable')
-        const initialSnapshot = await apiGet<SessionSnapshot>(`/fields/${court.slug}`)
-        return { resolvedSlug: court.slug, initialSnapshot }
-      })
+    if (initialSnapshot !== undefined) {
+      if (initialSnapshot === null) {
+        setUnavailable(true)
+      } else {
+        setSlug(initialSnapshot.session.slug)
+        setSnapshot(initialSnapshot)
+        setOffsetMs(computeOffsetMs(initialSnapshot.serverNow, Date.now()))
+        setConnection('online')
+      }
+      return () => {
+        cancelled = true
+      }
+    }
+    const initialLoad = requestedSlug === undefined
+      ? apiGet<FieldListItem[]>('/fields').then(async (courts) => {
+          const court = courts.find((candidate) => candidate.name === DEFAULT_COURT_NAME)
+          if (!court) throw new Error('default court unavailable')
+          const initialSnapshot = await apiGet<SessionSnapshot>(`/fields/${court.slug}`)
+          return { resolvedSlug: court.slug, initialSnapshot }
+        })
+      : apiGet<SessionSnapshot>(`/fields/${requestedSlug}`).then((initialSnapshot) => ({
+          resolvedSlug: requestedSlug,
+          initialSnapshot,
+        }))
+
+    void initialLoad
       .then(({ resolvedSlug, initialSnapshot }) => {
         if (cancelled) return
         setSlug(resolvedSlug)
@@ -106,10 +134,10 @@ export function PublicLineScreen() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [initialSnapshot, requestedSlug])
 
   useEffect(() => {
-    if (slug === null) return
+    if (slug === null || !connectRealtime) return
     let connectedOnce = false
     let resyncTimer: ReturnType<typeof setTimeout> | undefined
     const socket = createSessionSocket({
@@ -135,7 +163,7 @@ export function PublicLineScreen() {
       clearTimeout(resyncTimer)
       socket.disconnect()
     }
-  }, [slug])
+  }, [connectRealtime, slug])
 
   useEffect(() => {
     telemetry.observeConnection(connection)
@@ -147,7 +175,9 @@ export function PublicLineScreen() {
     return () => clearTimeout(timer)
   }, [shareState])
 
-  const field = snapshot?.fields.find((candidate) => candidate.name === DEFAULT_COURT_NAME) ?? snapshot?.fields[0] ?? null
+  const field = requestedSlug === undefined
+    ? snapshot?.fields.find((candidate) => candidate.name === DEFAULT_COURT_NAME) ?? snapshot?.fields[0] ?? null
+    : snapshot?.fields[0] ?? null
   const candidateMatch = field?.liveMatch ?? null
   const liveMatch =
     candidateMatch !== null && (candidateMatch.status === 'live' || candidateMatch.status === 'paused')
@@ -180,7 +210,8 @@ export function PublicLineScreen() {
   }, [slug, snapshot, telemetry])
 
   async function handleShare(): Promise<void> {
-    const url = `${window.location.origin}/line`
+    const shareSlug = requestedSlug ?? slug
+    const url = shareSlug === null ? `${window.location.origin}/line` : `${window.location.origin}/line/${shareSlug}`
     try {
       if (typeof navigator.share === 'function') {
         await navigator.share({
@@ -234,7 +265,13 @@ export function PublicLineScreen() {
   }
 
   return (
-    <PublicLineShell connection={connection} onShare={() => void handleShare()} shareLabel={shareLabel} shareState={shareState}>
+    <PublicLineShell
+      connection={connection}
+      onShare={() => void handleShare()}
+      shareLabel={shareLabel}
+      shareState={shareState}
+      fieldName={field.name}
+    >
       <main className="flex flex-col gap-3 px-3 py-3 sm:gap-5 sm:px-6 sm:py-5">
         <section
           aria-labelledby="public-line-current-title"
@@ -450,18 +487,22 @@ export function PublicLineScreen() {
   )
 }
 
-function PublicLineShell({
+export function PublicLineShell({
   connection,
   children,
   onShare,
   shareLabel,
   shareState,
+  title = t('publicLine.title'),
+  fieldName = DEFAULT_COURT_NAME,
 }: {
   connection: ConnectionStatus
   children: ReactNode
   onShare: () => void
   shareLabel: string
   shareState: 'idle' | 'shared' | 'copied' | 'failed'
+  title?: string
+  fieldName?: string
 }) {
   const shareClass =
     shareState === 'shared' || shareState === 'copied'
@@ -484,10 +525,10 @@ function PublicLineShell({
           <div className="min-w-0">
             <div className="mb-1 flex items-center gap-2">
               <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />
-              <h1 className="truncate text-[18px] font-bold tracking-tight">{t('publicLine.title')}</h1>
+              <h1 className="truncate text-[18px] font-bold tracking-tight">{title}</h1>
             </div>
             <div className="flex min-w-0 items-center gap-2">
-              <p className="truncate text-[12px] font-semibold text-muted">{DEFAULT_COURT_NAME}</p>
+              <p className="truncate text-[12px] font-semibold text-muted">{fieldName}</p>
               <Badge state="free" className="shrink-0">
                 {t('publicLine.readOnly')}
               </Badge>

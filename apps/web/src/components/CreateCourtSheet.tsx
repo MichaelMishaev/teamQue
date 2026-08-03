@@ -11,11 +11,12 @@ import { t } from '@/i18n'
 
 /** Mirrors createFieldSchema's cap (packages/shared/src/requests.ts). */
 const NAME_MAX_LENGTH = 40
+const PASSWORD_LENGTH = 4
 
 export interface CreateCourtSheetProps {
   open: boolean
   onClose: () => void
-  onSubmit: (name: string) => void
+  onSubmit: (name: string, password?: string) => void
   /** Pre-formatted message from the parent; null when the last attempt was clean. */
   error: string | null
   busy: boolean
@@ -23,10 +24,13 @@ export interface CreateCourtSheetProps {
 
 export function CreateCourtSheet({ open, onClose, onSubmit, error, busy }: CreateCourtSheetProps) {
   const [name, setName] = useState('')
+  const [password, setPassword] = useState('')
   const trimmed = name.trim()
+  const passwordValid = password === '' || /^\d{4}$/.test(password)
 
   function close(): void {
     setName('')
+    setPassword('')
     onClose()
   }
 
@@ -36,7 +40,7 @@ export function CreateCourtSheet({ open, onClose, onSubmit, error, busy }: Creat
         className="flex flex-col gap-4"
         onSubmit={(e) => {
           e.preventDefault()
-          if (trimmed !== '' && !busy) onSubmit(trimmed)
+          if (trimmed !== '' && passwordValid && !busy) onSubmit(trimmed, password === '' ? undefined : password)
         }}
       >
         <label className="flex flex-col gap-1 text-[13px] text-muted">
@@ -50,13 +54,31 @@ export function CreateCourtSheet({ open, onClose, onSubmit, error, busy }: Creat
           />
         </label>
 
+        <label htmlFor="field-password" className="flex flex-col gap-1 text-[13px] text-muted">
+          {t('home.create.passwordLabel')}
+        </label>
+        <input
+          id="field-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value.replace(/\D/g, '').slice(0, PASSWORD_LENGTH))}
+          inputMode="numeric"
+          autoComplete="off"
+          aria-describedby="field-password-hint"
+          maxLength={PASSWORD_LENGTH}
+          type="password"
+          dir="ltr"
+          className="min-h-[var(--touch-target-min)] rounded-xl border border-line bg-surface-2 px-3 text-[15px] text-ink outline-none"
+        />
+        <span id="field-password-hint" className="-mt-3 text-[13px] text-muted">{t('home.create.passwordHint')}</span>
+        {!passwordValid && <span role="alert" className="-mt-3 text-[13px] font-semibold text-danger">{t('home.create.passwordInvalid')}</span>}
+
         {error !== null && (
           <p role="alert" className="text-[13px] font-semibold text-danger">
             {error}
           </p>
         )}
 
-        <Button type="submit" variant="primary" size="big" disabled={trimmed === '' || busy}>
+        <Button type="submit" variant="primary" size="big" disabled={trimmed === '' || !passwordValid || busy}>
           {t('home.create.submit')}
         </Button>
       </form>

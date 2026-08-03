@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { EmptyState } from '@/components/EmptyState'
 import { FieldCard } from '@/components/FieldCard'
 import { FinishMatchConfirmDialog } from '@/components/FinishMatchConfirmDialog'
+import { RefereeMode } from '@/components/RefereeMode'
 import { QueueList } from '@/components/QueueList'
 import { QuickAddBar } from '@/components/QuickAddBar'
 import { showStatusToast } from '@/components/UndoToast'
@@ -30,6 +31,11 @@ export function MainScreen() {
   const [error, setError] = useState<string | null>(null)
   const [finishMatchId, setFinishMatchId] = useState<string | null>(null)
   const [finishing, setFinishing] = useState(false)
+  const [refereeOpen, setRefereeOpen] = useState(false)
+  const [refereeActing, setRefereeActing] = useState(false)
+  const [refereeFinishMatchId, setRefereeFinishMatchId] = useState<string | null>(null)
+  const hadRefereeModeOpen = useRef(false)
+  const refereeActionInFlight = useRef(false)
 
   const field = snapshot?.fields[0] ?? null
   const liveMatch = field?.liveMatch ?? null
@@ -42,6 +48,24 @@ export function MainScreen() {
     status: liveMatch?.status ?? 'finished',
     secondsLeft,
   })
+
+  useEffect(() => {
+    if (!isRunning) {
+      setRefereeOpen(false)
+      setRefereeFinishMatchId(null)
+    }
+  }, [isRunning])
+
+  useEffect(() => {
+    if (refereeOpen) {
+      hadRefereeModeOpen.current = true
+      return
+    }
+    if (!hadRefereeModeOpen.current) return
+
+    document.querySelector<HTMLButtonElement>('[data-referee-trigger="true"]')?.focus()
+    hadRefereeModeOpen.current = false
+  }, [refereeOpen])
 
   if (!snapshot) {
     return (
@@ -91,8 +115,66 @@ export function MainScreen() {
     }
   }
 
+  async function confirmRefereeFinish(): Promise<void> {
+    if (refereeFinishMatchId === null) return
+
+    const finished = await withRefereeAction(() => actions.finish(refereeFinishMatchId))
+    if (!finished) {
+      setRefereeFinishMatchId(null)
+      return
+    }
+
+    showStatusToast('toast.matchFinished')
+    setRefereeFinishMatchId(null)
+    setRefereeOpen(false)
+  }
+
+  async function withRefereeAction(action: () => Promise<unknown>): Promise<boolean> {
+    if (refereeActionInFlight.current) return false
+
+    refereeActionInFlight.current = true
+    setRefereeActing(true)
+    try {
+      await action()
+      return true
+    } catch {
+      setError(t('queue.actions.error'))
+      return false
+    } finally {
+      refereeActionInFlight.current = false
+      setRefereeActing(false)
+    }
+  }
+
   const frontTwo = snapshot.queue.slice(0, 2)
   const nextTwo = frontTwo.length === 2 ? { teamA: frontTwo[0]!.team.name, teamB: frontTwo[1]!.team.name } : undefined
+
+  if (refereeOpen && isRunning && liveMatch) {
+    return (
+      <>
+        <RefereeMode
+          fieldName={field.name}
+          captainA={liveMatch.captainA.name}
+          captainB={liveMatch.captainB.name}
+          secondsLeft={secondsLeft}
+          status={liveMatch.status as RunningStatus}
+          onClose={() => setRefereeOpen(false)}
+          onPause={() => void withRefereeAction(() => actions.pause(liveMatch.id))}
+          onResume={() => void withRefereeAction(() => actions.resume(liveMatch.id))}
+          onExtend={() => void withRefereeAction(() => actions.extend(liveMatch.id))}
+          onFinish={() => setRefereeFinishMatchId(liveMatch.id)}
+          busy={refereeActing}
+          error={error}
+        />
+        <FinishMatchConfirmDialog
+          open={refereeFinishMatchId === liveMatch.id}
+          submitting={refereeActing}
+          onConfirm={() => void confirmRefereeFinish()}
+          onCancel={() => setRefereeFinishMatchId(null)}
+        />
+      </>
+    )
+  }
 
   return (
     <>
@@ -117,6 +199,10 @@ export function MainScreen() {
             onExtend={() => void withErrorHandling(() => actions.extend(liveMatch.id))}
             onFinish={() => setFinishMatchId(liveMatch.id)}
             onFinishAndNext={() => void handleFinishAndNext(liveMatch.id)}
+            onOpenReferee={() => {
+              setError(null)
+              setRefereeOpen(true)
+            }}
           />
         ) : (
           <FieldCard

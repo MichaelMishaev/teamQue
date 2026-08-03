@@ -40,6 +40,8 @@ interface ActiveProps {
   /** Finish the current match and immediately kick off nextTwo (finishing state, one tap). */
   onFinishAndNext?: () => void
   onExtend?: () => void
+  /** Opens the temporary full-viewport referee control surface. */
+  onOpenReferee?: (trigger: HTMLButtonElement) => void
 }
 
 export type FieldCardProps = FreeProps | ActiveProps
@@ -136,6 +138,31 @@ export function FieldCard(props: FieldCardProps) {
           <Button className="flex-1" onClick={props.onExtend}>{t('action.extendMinute')}</Button>
           <Button variant="danger" className="flex-1" onClick={props.onFinish}>{t('action.finish')}</Button>
         </div>
+      )}
+      {props.onOpenReferee && (
+        <Button
+          variant="secondary"
+          className="referee-attention mt-2 w-full border-accent-dim bg-surface-2 text-[14px] font-bold text-ink"
+          data-referee-trigger="true"
+          onClick={(event) => props.onOpenReferee?.(event.currentTarget)}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            className="size-[18px] shrink-0 text-accent"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+            <path d="M16 3h3a2 2 0 0 1 2 2v3" />
+            <path d="M8 21H5a2 2 0 0 1-2-2v-3" />
+            <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+          </svg>
+          <span>{t('referee.open')}</span>
+        </Button>
       )}
     </section>
   )

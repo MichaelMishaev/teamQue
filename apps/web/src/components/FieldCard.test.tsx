@@ -28,6 +28,25 @@ describe('FieldCard', () => {
     expect(screen.queryByText(/השהה/)).toBeNull()
   })
 
+  it('offers a dedicated entry to referee mode for an active match', () => {
+    const onOpenReferee = vi.fn()
+    render(
+      <FieldCard
+        status="live"
+        fieldName="מגרש"
+        captainA="א"
+        captainB="ב"
+        secondsLeft={120}
+        onOpenReferee={onOpenReferee}
+      />,
+    )
+
+    const refereeButton = screen.getByRole('button', { name: 'מצב שופט' })
+    expect(refereeButton.classList.contains('referee-attention')).toBe(true)
+    fireEvent.click(refereeButton)
+    expect(onOpenReferee).toHaveBeenCalledTimes(1)
+  })
+
   it('plays the end-flash animation when alerting', () => {
     const { container } = render(
       <FieldCard status="live" fieldName="מגרש" captainA="א" captainB="ב" secondsLeft={0} alerting />,

@@ -89,6 +89,8 @@ export const sessions = pgTable(
     // "field" (docs/superpowers/specs/2026-07-16-open-fields-design.md).
     // `slug` is its share-URL code; `lastActivityAt` drives auto-expiry.
     slug: text('slug').notNull(),
+    /** Optional Argon2id hash for the field-console access code; never returned in reads. */
+    accessPinHash: text('access_pin_hash'),
     lastActivityAt: timestamp('last_activity_at', { withTimezone: true }).notNull().defaultNow(),
     matchDurationSec: integer('match_duration_sec').notNull(),
     status: sessionStatusEnum('status').notNull(),

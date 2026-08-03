@@ -73,8 +73,14 @@ export function resetHomeScreenOpenGuardForTests(): void {
   loadPromise = null
 }
 
-export function HomeScreen() {
-  const [courts, setCourts] = useState<FieldListItem[] | null>(null)
+interface HomeScreenProps {
+  /** Local-demo courts let the '/' route stay usable without an API server. */
+  initialCourts?: FieldListItem[]
+  createDemoField?: (name: string, password?: string) => Promise<string>
+}
+
+export function HomeScreen({ initialCourts, createDemoField }: HomeScreenProps) {
+  const [courts, setCourts] = useState<FieldListItem[] | null>(() => initialCourts ?? null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [defaultFailed, setDefaultFailed] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -95,6 +101,7 @@ export function HomeScreen() {
   }
 
   useEffect(() => {
+    if (initialCourts !== undefined) return
     let cancelled = false
     void loadCourtsOnce()
       .then((result) => {
@@ -108,15 +115,20 @@ export function HomeScreen() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [initialCourts])
 
-  async function createCourt(name: string): Promise<void> {
+  async function createCourt(name: string, password?: string): Promise<void> {
     setCreating(true)
     setCreateError(null)
     try {
+      if (createDemoField !== undefined) {
+        navigateToField(await createDemoField(name, password))
+        return
+      }
       const created = await apiPost<{ slug: string; snapshot: SessionSnapshot }>('/fields', {
         name,
         matchDurationSec: DEFAULT_MATCH_DURATION_SEC,
+        ...(password === undefined ? {} : { password }),
       })
       // Straight into the court just created — it was made to be used. Navigation
       // is a full page load, so `creating` deliberately stays true.
@@ -237,7 +249,7 @@ export function HomeScreen() {
           setSheetOpen(false)
           setCreateError(null)
         }}
-        onSubmit={(name) => void createCourt(name)}
+        onSubmit={(name, password) => void createCourt(name, password)}
         error={createError}
         busy={creating}
       />

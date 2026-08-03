@@ -12,17 +12,25 @@ import type { StaffRole } from 'shared'
 
 export const CENTER_COOKIE_NAME = 'qlm_center'
 export const SESSION_COOKIE_NAME = 'qlm_session'
+export const FIELD_ACCESS_COOKIE_PREFIX = 'qlm_field_access_'
 
 const CENTER_TOKEN_TTL = '90d'
 const SESSION_TOKEN_TTL = '12h'
 const TRUSTED_DEVICE_SESSION_TOKEN_TTL = '90d'
+const FIELD_ACCESS_TOKEN_TTL = '12h'
 
 export const CENTER_COOKIE_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000
 export const SESSION_COOKIE_MAX_AGE_MS = 12 * 60 * 60 * 1000
 export const TRUSTED_DEVICE_SESSION_COOKIE_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000
+export const FIELD_ACCESS_COOKIE_MAX_AGE_MS = 12 * 60 * 60 * 1000
 
 export type CenterTokenPayload = { centerId: string }
 export type SessionTokenPayload = { staffId: string; centerId: string; role: StaffRole }
+export type FieldAccessTokenPayload = { centerId: string; slug: string; scope: 'field-access' }
+
+export function fieldAccessCookieName(slug: string): string {
+  return `${FIELD_ACCESS_COOKIE_PREFIX}${slug}`
+}
 
 export function signCenterToken(jwtService: JwtService, payload: CenterTokenPayload): string {
   return jwtService.sign(payload, { expiresIn: CENTER_TOKEN_TTL })
@@ -36,12 +44,20 @@ export function signTrustedDeviceSessionToken(jwtService: JwtService, payload: S
   return jwtService.sign(payload, { expiresIn: TRUSTED_DEVICE_SESSION_TOKEN_TTL })
 }
 
+export function signFieldAccessToken(jwtService: JwtService, payload: FieldAccessTokenPayload): string {
+  return jwtService.sign(payload, { expiresIn: FIELD_ACCESS_TOKEN_TTL })
+}
+
 export function verifyCenterToken(jwtService: JwtService, token: string): CenterTokenPayload {
   return jwtService.verify<CenterTokenPayload>(token)
 }
 
 export function verifySessionToken(jwtService: JwtService, token: string): SessionTokenPayload {
   return jwtService.verify<SessionTokenPayload>(token)
+}
+
+export function verifyFieldAccessToken(jwtService: JwtService, token: string): FieldAccessTokenPayload {
+  return jwtService.verify<FieldAccessTokenPayload>(token)
 }
 
 const VISITOR_TOKEN_TTL = '365d'

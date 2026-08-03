@@ -1,5 +1,7 @@
 # Technical PRD — Football Match Queue Manager
 
+> **Architecture reference only.** Manager product behavior and QA acceptance are authoritative in [manager-app-prd.md](./manager-app-prd.md). Where this older technical narrative describes a different product model, the manager PRD wins.
+
 Status: Approved design (2026-07-10)
 Companion docs: [features-prd.md](./features-prd.md), [client-prd.md](./client-prd.md)
 Source product spec: [./prd.md](./prd.md)
@@ -249,6 +251,7 @@ NestJS modules: `auth`, `staff`, `captains`, `sessions` (owns fields, matches, q
 | `GET  /sessions/:id/summary` | End-of-session report: match count, unique captains, total play time, first/last match, avg actual duration, top captains, extend + manual/auto finish counts (single aggregate query) |
 | `GET  /sessions?from=&to=` | Past sessions list |
 | `GET  /activity?sessionId=` | Staff activity log |
+The canonical field-queue player URL is `https://line.maple-group.info/line/:slug`. It uses the existing unique session slug, so creating a field immediately creates its stable public identity without a schema change or external QR service. The web client renders the URL as a QR code locally. `GET /fields/:slug` and the existing slug-scoped read-only socket provide the snapshot and realtime updates. `/line` remains the default-field alias.
 
 ### Match state machine
 

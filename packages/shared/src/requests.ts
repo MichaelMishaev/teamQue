@@ -73,6 +73,7 @@ export type UpdateCaptainBody = z.infer<typeof updateCaptainSchema>
 export const createFieldSchema = z.object({
   name: z.string().min(1).max(40),
   matchDurationSec: z.number().int().min(60).max(3600),
+  password: z.string().regex(/^\d{4}$/).optional(),
 })
 export type CreateFieldBody = z.infer<typeof createFieldSchema>
 

@@ -1,18 +1,25 @@
 /**
  * Single responsibility: the full-screen QR handoff surface — the staff
  * member taps the player-view button, holds the phone up, a teen scans the
- * code and lands on the read-only public line. The QR is a committed static
- * asset (see the spec: the public URL is a fixed constant). Two actions:
+ * code and lands on that field's read-only public line. The QR is generated
+ * locally from the exact displayed stable URL; no external QR service or
+ * stored image is involved. Two actions:
  * close (back button / Escape) and share (native sheet, clipboard fallback)
  * so the link can also be sent remotely, not only shown in person.
  */
 import { useEffect, useRef } from 'react'
-import publicLineQr from '@/assets/public-line-qr.svg'
+import { QRCodeSVG } from 'qrcode.react'
 import { showStatusToast } from '@/components/UndoToast'
 import { t } from '@/i18n'
 import { PUBLIC_LINE_URL } from '@/lib/route'
 
-export function PublicLineQrOverlay({ onClose }: { onClose: () => void }) {
+export function PublicLineQrOverlay({
+  onClose,
+  url = PUBLIC_LINE_URL,
+}: {
+  onClose: () => void
+  url?: string
+}) {
   const backRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -30,11 +37,11 @@ export function PublicLineQrOverlay({ onClose }: { onClose: () => void }) {
         await navigator.share({
           title: t('publicLine.share.title'),
           text: t('publicLine.share.text'),
-          url: PUBLIC_LINE_URL,
+          url,
         })
         return
       }
-      await navigator.clipboard.writeText(PUBLIC_LINE_URL)
+      await navigator.clipboard.writeText(url)
       showStatusToast('publicLine.share.copied')
     } catch {
       // user dismissed the native share sheet — nothing to report
@@ -101,12 +108,12 @@ export function PublicLineQrOverlay({ onClose }: { onClose: () => void }) {
           <p className="mt-1 text-[24px] font-bold text-ink">{t('publicLine.qr.instruction')}</p>
         </div>
 
-        <div className="rounded-3xl bg-white p-5 shadow-lg">
-          <img src={publicLineQr} alt="" className="block h-64 w-64 max-w-full" />
+        <div data-testid="public-view-qr" data-qr-value={url} className="rounded-3xl bg-white p-5 shadow-lg">
+          <QRCodeSVG value={url} size={256} level="M" className="block h-64 w-64 max-w-full" aria-hidden="true" />
         </div>
 
         <bdi dir="ltr" className="text-[13px] text-muted tabular-nums">
-          {PUBLIC_LINE_URL}
+          {url}
         </bdi>
 
         <span className="rounded-full border border-accent/50 bg-accent-dim px-4 py-1.5 text-[13px] font-semibold text-accent">

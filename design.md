@@ -1,6 +1,6 @@
 # design.md — Queue Manager Design System
 
-Source of truth for visual + interaction design. Implements [docs/prds/client-prd.md](./docs/prds/client-prd.md); mock reference: the "Shared UI Kit" artifact (2026-07-10).
+Source of truth for visual implementation tokens and RTL/accessibility rules. Product behavior and QA acceptance are authoritative in [docs/prds/manager-app-prd.md](./docs/prds/manager-app-prd.md); where older interaction examples conflict, that PRD wins. Historical visual basis: [docs/prds/client-prd.md](./docs/prds/client-prd.md) and the "Shared UI Kit" artifact (2026-07-10).
 Tokens live in [`apps/web/src/index.css`](./apps/web/src/index.css). Components in [`apps/web/src/components/`](./apps/web/src/components/).
 
 **One deliberate constraint:** single dark theme. This app is used outdoors, in the evening, at a football pitch — dark high-contrast is the product decision, not a preference toggle (client-prd §2). The token hierarchy still exists so a second theme is a token override away, never a component change.

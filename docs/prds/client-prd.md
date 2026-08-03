@@ -1,5 +1,7 @@
 # Client PRD — Football Match Queue Manager (Mobile-First PWA)
 
+> **Superseded for manager behavior and QA.** Use [manager-app-prd.md](./manager-app-prd.md) as the single source of truth. This file is retained as historical design rationale.
+
 Status: Approved design (2026-07-10)
 Companion docs: [technical-prd.md](./technical-prd.md), [features-prd.md](./features-prd.md)
 

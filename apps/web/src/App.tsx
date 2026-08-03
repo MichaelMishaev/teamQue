@@ -13,7 +13,7 @@ import { SettingsScreen } from '@/screens/SettingsScreen'
 import { t, type MessageKey } from '@/i18n'
 import { APP_TABS, type AppTab } from '@/lib/app-tab-route'
 import { cn } from '@/lib/cn'
-import { fieldUrl, PUBLIC_LINE_URL } from '@/lib/route'
+import { publicLineUrl } from '@/lib/route'
 import { formatTimeOfDay } from '@/lib/time'
 import { useSnapshot } from '@/state/SnapshotContext'
 
@@ -47,29 +47,35 @@ export default function App({ slug = '' }: { slug?: string }) {
   }, [])
 
   const clock = formatTimeOfDay(new Date(nowMs + offsetMs).toISOString())
-  const hasPublicPlayerView = tab === 'main' && snapshot?.fields[0]?.name === t('home.create.nameDefault')
+  const currentFieldName = snapshot?.fields[0]?.name
+  const currentPublicLineUrl = slug === '' ? null : publicLineUrl(slug)
+  const hasPublicPlayerView = tab === 'main' && snapshot?.session.status === 'active' && currentPublicLineUrl !== null
 
   async function handleShare(): Promise<void> {
-    const url = window.location.origin + fieldUrl(slug)
+    if (currentPublicLineUrl === null) return
     try {
       if (typeof navigator.share === 'function') {
-        await navigator.share({ url })
+        await navigator.share({
+          title: t('publicLine.share.title'),
+          text: t('publicLine.share.text'),
+          url: currentPublicLineUrl,
+        })
         return
       }
-      await navigator.clipboard.writeText(url)
+      await navigator.clipboard.writeText(currentPublicLineUrl)
       showStatusToast('field.share.copied')
     } catch {
       // user dismissed the share sheet — nothing to report
     }
   }
 
-  // Copy-then-show, not navigate: the staff device must stay in its session
-  // while the teen scans (spec: docs/superpowers/specs/2026-07-23-qr-handoff-
-  // overlay-design.md). Always the public URL, never the staff origin.
+  // Copy-then-show, not navigate: the staff device stays in its session while
+  // the teen scans. The field slug keeps this QR stable across every match.
   async function showPlayerViewQr(): Promise<void> {
+    if (currentPublicLineUrl === null) return
     setQrOpen(true)
     try {
-      await navigator.clipboard.writeText(PUBLIC_LINE_URL)
+      await navigator.clipboard.writeText(currentPublicLineUrl)
       showStatusToast('publicLine.openPlayerView.copied')
     } catch {
       showStatusToast('publicLine.openPlayerView.copyFailed')
@@ -80,6 +86,16 @@ export default function App({ slug = '' }: { slug?: string }) {
     <div className="mx-auto flex min-h-dvh max-w-md flex-col">
       <IntroSplash />
       <header className="sticky top-0 z-20 flex flex-col gap-2 border-b border-line bg-bg/95 p-3 backdrop-blur">
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          {currentFieldName !== undefined && (
+            <h1 className="min-w-0 truncate text-[15px] font-bold text-ink" title={currentFieldName}>
+              {currentFieldName}
+            </h1>
+          )}
+          <bdi dir="ltr" className="ms-auto shrink-0 tabular text-[13.5px] font-semibold text-muted">
+            {clock}
+          </bdi>
+        </div>
         <div className="flex items-center justify-between gap-2">
           <nav aria-label={t('tabs.navigationLabel')} className="flex items-center gap-1">
             {APP_TABS.map((id) => (
@@ -130,16 +146,14 @@ export default function App({ slug = '' }: { slug?: string }) {
             {slug !== '' && (
               <button
                 type="button"
-                aria-label={t('field.share')}
+                aria-label={t('publicLine.shareQueue')}
+                title={t('publicLine.shareQueue')}
                 onClick={() => void handleShare()}
                 className="flex min-h-[var(--touch-target-min)] min-w-[var(--touch-target-min)] items-center justify-center rounded-lg text-muted"
               >
                 ↗
               </button>
             )}
-            <bdi dir="ltr" className="tabular text-[13.5px] font-semibold text-muted">
-              {clock}
-            </bdi>
           </div>
         </div>
         <InstallAppButton />
@@ -159,7 +173,9 @@ export default function App({ slug = '' }: { slug?: string }) {
         )}
       </main>
 
-      {qrOpen && <PublicLineQrOverlay onClose={() => setQrOpen(false)} />}
+      {qrOpen && currentPublicLineUrl !== null && (
+        <PublicLineQrOverlay url={currentPublicLineUrl} onClose={() => setQrOpen(false)} />
+      )}
       <UndoToaster />
     </div>
   )

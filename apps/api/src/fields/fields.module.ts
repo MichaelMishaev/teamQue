@@ -17,12 +17,13 @@ import { AuthModule } from '../auth/auth.module'
 import { RealtimeModule } from '../realtime/realtime.module'
 import { SnapshotModule } from '../sessions/snapshot.module'
 import { ExpiryService } from './expiry.service'
+import { FieldAccessGuard } from './field-access.guard'
 import { FieldsController } from './fields.controller'
 import { FieldsService } from './fields.service'
 
 @Module({
   imports: [AuthModule, ActivityModule, SnapshotModule, RealtimeModule],
-  providers: [FieldsService, ExpiryService, ThrottlerGuard],
+  providers: [FieldsService, FieldAccessGuard, ExpiryService, ThrottlerGuard],
   controllers: [FieldsController],
   exports: [FieldsService],
 })

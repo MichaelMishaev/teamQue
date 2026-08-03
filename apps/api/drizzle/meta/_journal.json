@@ -29,6 +29,13 @@
       "when": 1784276920851,
       "tag": "0003_white_polaris",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785696300000,
+      "tag": "0004_field_access_pin",
+      "breakpoints": true
     }
   ]
 }

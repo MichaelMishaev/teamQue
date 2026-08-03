@@ -27,8 +27,8 @@ import type { CaptainProfile } from '@/state/CaptainsContext'
 import type { FinishedMatchView, HistoryState } from '@/state/HistoryContext'
 import { t } from '@/i18n'
 
-const FIELD_ID = 'field-main'
-const FIELD_NAME = t('home.create.nameDefault')
+const DEFAULT_FIELD_ID = 'field-main'
+const DEFAULT_FIELD_NAME = t('home.create.nameDefault')
 const DEFAULT_DURATION_SEC = 360
 
 export interface StaffRosterItem {
@@ -142,6 +142,12 @@ export interface MockSessionInstance {
 export interface CreateMockSessionOptions {
   /** Who mutations are attributed to; read at call time so SwitchUser works without re-creating the store. */
   getActorName?: () => string | null
+  /** Route identity for this demo field. */
+  slug?: string | undefined
+  /** Display name belonging to this field. */
+  fieldName?: string | undefined
+  /** Only the built-in demo field receives showcase match and queue data. */
+  seedDemoData?: boolean | undefined
 }
 
 const STAFF_SEED: Array<StaffRosterItem & { pin: string }> = [
@@ -167,6 +173,8 @@ const CAPTAIN_SEED: Array<{ name: string; nickname: string | null; tags: string[
 
 export function createMockSession(opts: CreateMockSessionOptions = {}): MockSessionInstance {
   const getActorName = opts.getActorName ?? (() => 'שרה')
+  const fieldName = opts.fieldName ?? DEFAULT_FIELD_NAME
+  const fieldId = opts.slug === undefined ? DEFAULT_FIELD_ID : `field-${opts.slug}`
 
   let idSeq = 0
   const newId = (prefix: string): string => `${prefix}-${(idSeq += 1)}`
@@ -297,7 +305,7 @@ export function createMockSession(opts: CreateMockSessionOptions = {}): MockSess
 
     session = {
       id: newId('session'),
-      slug: newId('slug'),
+      slug: opts.slug ?? newId('slug'),
       date: new Date().toISOString().slice(0, 10),
       location: null,
       matchDurationSec: DEFAULT_DURATION_SEC,
@@ -324,7 +332,7 @@ export function createMockSession(opts: CreateMockSessionOptions = {}): MockSess
         actualDurationSec,
       }
       matches.set(m.id, m)
-      logActivity(endReason === 'auto' ? 'match.finish.auto' : 'match.finish.manual', { captainA: nameOf(aId), captainB: nameOf(bId), fieldName: FIELD_NAME }, endReason === 'auto')
+      logActivity(endReason === 'auto' ? 'match.finish.auto' : 'match.finish.manual', { captainA: nameOf(aId), captainB: nameOf(bId), fieldName }, endReason === 'auto')
     }
 
     seedFinished(c3, c5, 70 * 60, 350, 'auto', 'שרה')
@@ -352,7 +360,7 @@ export function createMockSession(opts: CreateMockSessionOptions = {}): MockSess
     }
     matches.set(live.id, live)
     liveMatchId = live.id
-    logActivity('match.start', { captainA: nameOf(c1), captainB: nameOf(c2), fieldName: FIELD_NAME })
+    logActivity('match.start', { captainA: nameOf(c1), captainB: nameOf(c2), fieldName })
 
     // A line of 5 single teams, waiting their turn.
     for (const captainId of [c4, c6, c8, c10, c12]) {
@@ -378,7 +386,19 @@ export function createMockSession(opts: CreateMockSessionOptions = {}): MockSess
       requestPath: '/sessions/:id/line',
     })
   }
-  seed()
+  if (opts.seedDemoData === false) {
+    session = {
+      id: newId('session'),
+      slug: opts.slug ?? newId('slug'),
+      date: new Date().toISOString().slice(0, 10),
+      location: null,
+      matchDurationSec: DEFAULT_DURATION_SEC,
+      status: 'active',
+    }
+    logActivity('session.open', {})
+  } else {
+    seed()
+  }
 
   // ── Read models ────────────────────────────────────────────────────────
   function computeSnapshotState(): SnapshotState {
@@ -386,7 +406,7 @@ export function createMockSession(opts: CreateMockSessionOptions = {}): MockSess
     const emittedAt = nowIso()
     const snapshot: SessionSnapshot = {
       session: { id: session.id, slug: session.slug, date: session.date, location: session.location, matchDurationSec: session.matchDurationSec, status: session.status },
-      fields: [{ id: FIELD_ID, name: FIELD_NAME, position: 0, liveMatch: liveMatchId ? toMatchView(matches.get(liveMatchId)!) : null }],
+      fields: [{ id: fieldId, name: fieldName, position: 0, liveMatch: liveMatchId ? toMatchView(matches.get(liveMatchId)!) : null }],
       queue: lineOrder.map((entryId, i) => toQueueEntryView(entryId, i + 1)),
       emittedAt,
       serverNow: emittedAt,
@@ -402,7 +422,7 @@ export function createMockSession(opts: CreateMockSessionOptions = {}): MockSess
       id: m.id,
       captainA: toCaptainView(m.captainAId),
       captainB: toCaptainView(m.captainBId),
-      fieldName: FIELD_NAME,
+      fieldName,
       startedAt: m.startedAt ?? m.endedAt ?? nowIso(),
       endedAt: m.endedAt ?? nowIso(),
       plannedDurationSec: m.plannedDurationSec,
@@ -549,7 +569,7 @@ export function createMockSession(opts: CreateMockSessionOptions = {}): MockSess
       }
       matches.set(m.id, m)
       liveMatchId = m.id
-      logActivity('match.start', { captainA: nameOf(a.captainId), captainB: nameOf(b.captainId), fieldName: FIELD_NAME })
+      logActivity('match.start', { captainA: nameOf(a.captainId), captainB: nameOf(b.captainId), fieldName })
       notify()
     },
 
@@ -587,7 +607,7 @@ export function createMockSession(opts: CreateMockSessionOptions = {}): MockSess
       m.pausedAt = null
       m.actualDurationSec = Math.max(0, elapsedWallSec - totalPauseSec)
       liveMatchId = null
-      const entry = logActivity('match.finish.manual', { captainA: nameOf(m.captainAId), captainB: nameOf(m.captainBId), fieldName: FIELD_NAME })
+      const entry = logActivity('match.finish.manual', { captainA: nameOf(m.captainAId), captainB: nameOf(m.captainBId), fieldName })
       entry.undo = { type: 'finish', match: before }
       notify()
       return { activityId: entry.id }
@@ -635,7 +655,7 @@ export function createMockSession(opts: CreateMockSessionOptions = {}): MockSess
       if (session) throw new Error('one active session per center')
       session = {
         id: newId('session'),
-        slug: newId('slug'),
+        slug: opts.slug ?? newId('slug'),
         date: new Date().toISOString().slice(0, 10),
         location: cfg.location ?? null,
         matchDurationSec: cfg.matchDurationSec,
@@ -647,7 +667,9 @@ export function createMockSession(opts: CreateMockSessionOptions = {}): MockSess
 
     async closeSession() {
       if (!session) throw new Error('no active session')
-      if (liveMatchId) throw new Error('live match in progress')
+      // Match the field-close endpoint: an explicitly confirmed field close
+      // cancels any live match rather than rejecting the close request.
+      liveMatchId = null
       lineOrder = []
       lineEntries.clear()
       logActivity('session.close', {})

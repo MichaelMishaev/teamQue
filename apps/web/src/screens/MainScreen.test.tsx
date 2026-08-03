@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { SessionSnapshot } from 'shared'
 import { MainScreen } from './MainScreen'
@@ -215,6 +215,114 @@ describe('MainScreen — active session, field live', () => {
     renderMain({ snapshot, connection: 'online', offsetMs: 0 }, 'staff')
     expect(screen.getByText('משחק פעיל')).toBeDefined()
     expect(screen.queryByText('הבא במגרש')).toBeNull()
+  })
+
+  it('opens referee mode from the live field card and returns focus to queue management', async () => {
+    const snapshot = activeSnapshot({
+      fields: [
+        {
+          id: 'f1',
+          name: 'מגרש ראשי',
+          position: 0,
+          liveMatch: {
+            id: 'm1',
+            captainA: team('ca', 'א'),
+            captainB: team('cb', 'ב'),
+            status: 'live',
+            plannedDurationSec: 360,
+            startedAt: new Date().toISOString(),
+            pausedAt: null,
+            accumulatedPauseSec: 0,
+            endsAt: new Date(Date.now() + 360_000).toISOString(),
+          },
+        },
+      ],
+    })
+    renderMain({ snapshot, connection: 'online', offsetMs: 0 }, 'staff')
+
+    const trigger = screen.getByRole('button', { name: 'מצב שופט' })
+    fireEvent.click(trigger)
+    expect(screen.getByRole('timer', { name: 'זמן נותר במשחק' })).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: 'חזרה לתור' }))
+    expect(screen.getByRole('button', { name: 'מצב שופט' })).toBeDefined()
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'מצב שופט' })))
+  })
+
+  it('requires confirmation after a referee holds finish, then keeps the match active when cancelled', () => {
+    vi.useFakeTimers()
+    const snapshot = activeSnapshot({
+      fields: [
+        {
+          id: 'f1',
+          name: 'מגרש ראשי',
+          position: 0,
+          liveMatch: {
+            id: 'm1',
+            captainA: team('ca', 'א'),
+            captainB: team('cb', 'ב'),
+            status: 'live',
+            plannedDurationSec: 360,
+            startedAt: new Date().toISOString(),
+            pausedAt: null,
+            accumulatedPauseSec: 0,
+            endsAt: new Date(Date.now() + 360_000).toISOString(),
+          },
+        },
+      ],
+    })
+    const actions = renderMain({ snapshot, connection: 'online', offsetMs: 0 }, 'staff')
+
+    fireEvent.click(screen.getByRole('button', { name: 'מצב שופט' }))
+    const finish = screen.getByRole('button', { name: 'לחצו והחזיקו לסיום' })
+    fireEvent.pointerDown(finish)
+    act(() => vi.advanceTimersByTime(1200))
+
+    expect(screen.getByRole('dialog', { name: 'לסיים את המשחק?' })).toBeDefined()
+    expect(actions.finish).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'ביטול' }))
+    expect(screen.queryByRole('dialog', { name: 'לסיים את המשחק?' })).toBeNull()
+    expect(screen.getByRole('timer', { name: 'זמן נותר במשחק' })).toBeDefined()
+    expect(actions.finish).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('finishes only after the referee confirms the held finish action', async () => {
+    vi.useFakeTimers()
+    const snapshot = activeSnapshot({
+      fields: [
+        {
+          id: 'f1',
+          name: 'מגרש ראשי',
+          position: 0,
+          liveMatch: {
+            id: 'm1',
+            captainA: team('ca', 'א'),
+            captainB: team('cb', 'ב'),
+            status: 'live',
+            plannedDurationSec: 360,
+            startedAt: new Date().toISOString(),
+            pausedAt: null,
+            accumulatedPauseSec: 0,
+            endsAt: new Date(Date.now() + 360_000).toISOString(),
+          },
+        },
+      ],
+    })
+    const actions = renderMain({ snapshot, connection: 'online', offsetMs: 0 }, 'staff')
+
+    fireEvent.click(screen.getByRole('button', { name: 'מצב שופט' }))
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'לחצו והחזיקו לסיום' }))
+    act(() => vi.advanceTimersByTime(1200))
+    fireEvent.click(screen.getByRole('button', { name: 'כן, סיים' }))
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(actions.finish).toHaveBeenCalledWith('m1')
+    expect(showStatusToast).toHaveBeenCalledWith('toast.matchFinished')
+    vi.useRealTimers()
   })
 
   it('marks a trailing odd queue entry as waiting for a pair while a match is live', () => {

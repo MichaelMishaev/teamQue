@@ -96,4 +96,5 @@ describe('HistoryScreen', () => {
     expect(actions.replay).toHaveBeenCalledWith('m1')
     await waitFor(() => expect(screen.queryByText('ליצור משחק חוזר?')).toBeNull())
   })
+
 })

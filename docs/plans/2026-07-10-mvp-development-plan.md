@@ -1,5 +1,7 @@
 # MVP Development Plan — Football Match Queue Manager
 
+> **Historical sequencing and gate evidence.** Current manager behavior and all future QA acceptance criteria are defined in [../prds/manager-app-prd.md](../prds/manager-app-prd.md). This plan must not override that PRD.
+
 > **For agentic workers:** This is the MASTER phase plan. Each phase gets its own detailed
 > bite-sized implementation plan (superpowers:writing-plans format, full code per step) written
 > at phase start, then executed via superpowers:subagent-driven-development or executing-plans.

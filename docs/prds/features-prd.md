@@ -1,5 +1,7 @@
 # Features PRD — Football Match Queue Manager
 
+> **Superseded for manager behavior and QA.** Use [manager-app-prd.md](./manager-app-prd.md) as the single source of truth. This file is retained for historical US-ID rationale only.
+
 Status: Approved design (2026-07-10)
 Companion docs: [technical-prd.md](./technical-prd.md), [client-prd.md](./client-prd.md)
 

@@ -26,6 +26,27 @@ describe('mockSession seed', () => {
     expect(daniels).toHaveLength(2)
     expect(daniels.some((c) => c.nickname === 'הקטן')).toBe(true)
   })
+
+  it('starts a newly created field with its own empty queue and no live match', () => {
+    const session = createMockSession({ fieldName: 'מגרש חדש', slug: 'new234', seedDemoData: false })
+    const snap = session.getSnapshotState().snapshot
+
+    expect(snap?.session.slug).toBe('new234')
+    expect(snap?.fields[0]?.name).toBe('מגרש חדש')
+    expect(snap?.fields[0]?.liveMatch).toBeNull()
+    expect(snap?.queue).toEqual([])
+    expect(session.getCaptainsState()).toEqual([])
+  })
+})
+
+describe('mockSession closeSession', () => {
+  it('force-closes an active field even while a match is live', async () => {
+    const session = createMockSession()
+
+    await session.actions.closeSession()
+
+    expect(session.getSnapshotState().snapshot).toBeNull()
+  })
 })
 
 describe('mockSession addToLine', () => {

@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { AllFieldsLink } from '@/components/AllFieldsLink'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { SessionSetupDialog } from '@/components/SessionSetupDialog'
 import { t } from '@/i18n'
+import { navigateHome } from '@/lib/route'
 import { useSessionActions } from '@/state/SessionActions'
 import { useSnapshot } from '@/state/SnapshotContext'
 
@@ -41,7 +43,7 @@ export function SettingsScreen() {
   async function handleClose(): Promise<void> {
     try {
       await actions.closeSession()
-      setCloseConfirmOpen(false)
+      navigateHome()
     } catch {
       setError(t('settings.session.error'))
     }
@@ -55,6 +57,8 @@ export function SettingsScreen() {
 
   return (
     <div className="flex flex-col gap-6 p-4">
+      <AllFieldsLink />
+
       {error && (
         <p role="alert" className="text-[13.5px] font-semibold text-danger">
           {error}

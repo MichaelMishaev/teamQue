@@ -23,7 +23,10 @@ const LINE_IDENTITY: PwaIdentity = {
 
 /** Selects the install identity before React mounts so each origin is a distinct PWA. */
 export function getPwaIdentity(hostname: string, pathname: string): PwaIdentity {
-  const isLine = hostname === 'line.maple-group.info' || pathname === '/line' || pathname.startsWith('/line/')
+  const isLine =
+    hostname === 'line.maple-group.info' ||
+    pathname === '/line' ||
+    pathname.startsWith('/line/')
   return isLine ? LINE_IDENTITY : MANAGER_IDENTITY
 }
 

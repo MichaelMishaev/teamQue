@@ -51,8 +51,20 @@ describe('publicLineHostGuard', () => {
     expect(next).not.toHaveBeenCalled()
   })
 
+  it('redirects a field queue page on the primary host to the same path on the public origin', () => {
+    const guard = publicLineHostGuard(PUBLIC_HOST)
+    const path = '/line/abc234'
+    const { req, res, next, redirect } = makeReqRes('gate.netanya.club', 'GET', path)
+
+    guard(req, res, next)
+
+    expect(redirect).toHaveBeenCalledWith(302, `https://${PUBLIC_HOST}${path}`)
+    expect(next).not.toHaveBeenCalled()
+  })
+
   it.each([
     ['GET', '/line'],
+    ['GET', '/line/abc234'],
     ['GET', '/fields'],
     ['GET', '/fields/main-court'],
     ['POST', '/fields/main-court/public-line-events'],
@@ -95,7 +107,7 @@ describe('publicLineHostGuard', () => {
     ['GET', '/health'],
     ['POST', '/fields'],
     ['POST', '/fields/main-court/close'],
-    ['GET', '/line/some-entry-id'],
+    ['GET', '/line/invalid-slug'],
     ['POST', '/line/some-entry-id/cancel'],
     ['GET', '/anything-not-explicitly-public'],
     ['GET', '/admin'],

@@ -5,6 +5,11 @@ import { SettingsScreen } from './SettingsScreen'
 import { AuthProvider } from '@/state/AuthContext'
 import { SessionActionsContext, type SessionActions } from '@/state/SessionActions'
 import { SnapshotContext, type SnapshotState } from '@/state/SnapshotContext'
+import { navigateHome } from '@/lib/route'
+
+vi.mock('@/lib/route', () => ({
+  navigateHome: vi.fn(),
+}))
 
 function actionsStub(overrides: Partial<SessionActions> = {}): SessionActions {
   return {
@@ -94,11 +99,14 @@ describe('SettingsScreen', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.clearAllMocks()
   })
 
   it('renders the normal settings UI for a non-manager identity (open-fields: no role gate)', () => {
     renderSettings('staff', { snapshot: activeSnapshot(false), connection: 'online', offsetMs: 0 })
     expect(screen.getByText('סגור ערב')).toBeDefined()
+    expect(screen.getByRole('link', { name: 'כל המגרשים' }).getAttribute('href')).toBe('/')
+    expect(screen.getByText('חזרה לבחירת מגרש')).toBeDefined()
   })
 
   it('renders the normal settings UI for a visitor identity', () => {
@@ -106,7 +114,7 @@ describe('SettingsScreen', () => {
     expect(screen.getByText('סגור ערב')).toBeDefined()
   })
 
-  it('manager can close the session when the field is free, after confirming', async () => {
+  it('manager can close the session when the field is free, after confirming, then returns to the landing screen', async () => {
     const { actions } = renderSettings('manager', { snapshot: activeSnapshot(false), connection: 'online', offsetMs: 0 })
     const closeButton = screen.getByText('סגור ערב') as HTMLButtonElement
     expect(closeButton.disabled).toBe(false)
@@ -115,6 +123,7 @@ describe('SettingsScreen', () => {
 
     fireEvent.click(screen.getByText('סגור מגרש'))
     await waitFor(() => expect(actions.closeSession).toHaveBeenCalled())
+    expect(navigateHome).toHaveBeenCalledOnce()
   })
 
   it('cancelling the close confirmation does not call closeSession', () => {
@@ -135,6 +144,7 @@ describe('SettingsScreen', () => {
 
     fireEvent.click(screen.getByText('סגור מגרש'))
     await waitFor(() => expect(actions.closeSession).toHaveBeenCalled())
+    expect(navigateHome).toHaveBeenCalledOnce()
   })
 
   it('does not show the live-match warning in the confirm dialog when the field is free', () => {

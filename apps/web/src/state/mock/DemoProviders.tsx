@@ -16,9 +16,19 @@ import { StaffDirectoryContext, type StaffRosterItem } from '@/state/StaffDirect
  * authenticate against in demo mode, so the app starts already "signed in"
  * as the seeded manager, switchable via the SwitchUser overlay (StaffDirectoryContext).
  */
-export function DemoProviders({ children }: { children: ReactNode }) {
+interface DemoProvidersProps {
+  children: ReactNode
+  slug?: string
+  fieldName?: string | undefined
+  seedDemoData?: boolean
+}
+
+export function DemoProviders({ children, slug, fieldName, seedDemoData }: DemoProvidersProps) {
   const actorRef = useRef<CurrentStaff | null>(null)
-  const mock = useMemo(() => createMockSession({ getActorName: () => actorRef.current?.name ?? null }), [])
+  const mock = useMemo(
+    () => createMockSession({ getActorName: () => actorRef.current?.name ?? null, slug, fieldName, seedDemoData }),
+    [fieldName, seedDemoData, slug],
+  )
 
   const roster = useMemo<StaffRosterItem[]>(() => mock.listStaff(), [mock])
   const initialStaff = useMemo<CurrentStaff>(() => {

@@ -81,6 +81,36 @@ describe('fields (integration)', () => {
     expect(res.body.snapshot.queue).toEqual([])
   })
 
+  it('password-protected field blocks the staff console until its four-digit password is verified', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/fields')
+      .set('Cookie', managerCookies)
+      .send({ name: 'מגרש מוגן', matchDurationSec: 360, password: '4829' })
+      .expect(201)
+    const slug: string = created.body.slug
+    const accessCookie = created.headers['set-cookie']
+    expect(accessCookie).toContain(`qlm_field_access_${slug}=`)
+
+    await request(app.getHttpServer()).get(`/fields/${slug}`).set('Cookie', managerCookies).expect(403)
+    await request(app.getHttpServer()).post(`/fields/${slug}/access`).set('Cookie', managerCookies).send({ password: '0000' }).expect(403)
+
+    const unlocked = await request(app.getHttpServer())
+      .post(`/fields/${slug}/access`)
+      .set('Cookie', managerCookies)
+      .send({ password: '4829' })
+      .expect(201)
+    const unlockedCookie = unlocked.headers['set-cookie']
+    expect(unlockedCookie).toContain(`qlm_field_access_${slug}=`)
+    if (unlockedCookie === undefined) throw new Error('password unlock did not set an access cookie')
+    const [unlockedCookieValue] = unlockedCookie.split(';')
+    if (unlockedCookieValue === undefined) throw new Error('access cookie is malformed')
+
+    await request(app.getHttpServer())
+      .get(`/fields/${slug}`)
+      .set('Cookie', [...managerCookies, unlockedCookieValue])
+      .expect(200)
+  })
+
   it('GET /fields lists active fields newest-first with queue length + live flag', async () => {
     const a = await request(app.getHttpServer()).post('/fields').set('Cookie', managerCookies).send({ name: 'א', matchDurationSec: 300 }).expect(201)
     const b = await request(app.getHttpServer()).post('/fields').set('Cookie', managerCookies).send({ name: 'ב', matchDurationSec: 300 }).expect(201)

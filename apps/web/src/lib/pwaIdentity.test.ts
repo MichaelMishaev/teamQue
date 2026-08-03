@@ -29,6 +29,7 @@ describe('getPwaIdentity', () => {
 
     expect(getPwaIdentity('line.maple-group.info', '/')).toEqual(expected)
     expect(getPwaIdentity('localhost', '/line')).toEqual(expected)
+    expect(getPwaIdentity('localhost', '/line/abc234')).toEqual(expected)
   })
 
   it('applies one host-specific manifest link and safely updates it on repeat calls', () => {

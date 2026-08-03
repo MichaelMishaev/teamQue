@@ -7,11 +7,11 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 **Football Match Queue Manager** — mobile-first RTL-Hebrew PWA for youth-center staff running live football queues. Captains (team leaders) only are tracked, never individual players. **The queue is the hero surface — the match timer is a status readout, never the centerpiece.** Single center, single field/court at MVP (schema is multi-center and multi-field ready).
 
 Authoritative specs (read before feature work):
-- `docs/plans/2026-07-10-mvp-development-plan.md` — **master phase plan**: implementation is strictly phased (Phase 0 → 9), each gated by a QA checklist that must be checked off before the next phase starts. Check its status tracker before doing implementation work to see which phase is active.
-- `docs/prds/technical-prd.md` — architecture, DB schema, API table, timer algorithm, adapted dev rules
-- `docs/prds/features-prd.md` — user stories US-XXX (these ARE the acceptance criteria; E2E specs reference them)
-- `docs/prds/client-prd.md` — UI/UX spec
-- `design.md` — design system: token hierarchy (primitive → semantic → component), RTL rules, component inventory
+- `docs/prds/manager-app-prd.md` — **single source of truth for manager product behavior and all future QA acceptance criteria; it wins when older product docs conflict**
+- `docs/prds/technical-prd.md` — architecture, DB schema, API contracts, timer algorithm, adapted dev rules; product behavior defers to the manager PRD
+- `design.md` — visual implementation system: token hierarchy, RTL rules, accessibility, component inventory; product behavior defers to the manager PRD
+- `docs/plans/2026-07-10-mvp-development-plan.md` — historical phase plan and gate evidence; not the current product-behavior authority
+- `docs/prds/features-prd.md`, `docs/prds/client-prd.md`, `docs/prds/prd.md` — superseded product history; consult only for rationale not covered by the manager PRD
 
 ## Commands
 

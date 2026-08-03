@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { showStatusToast } from '@/components/UndoToast'
@@ -23,9 +23,9 @@ function fakeLocalStorage(): Storage {
   } as Storage
 }
 
-function renderApp() {
+function renderApp(fieldName?: string) {
   render(
-    <DemoProviders>
+    <DemoProviders fieldName={fieldName}>
       <App slug="abc234" />
     </DemoProviders>,
   )
@@ -68,6 +68,17 @@ describe('App top-level navigation', () => {
     expect(settings.getAttribute('href')).toBe('/f/abc234?tab=settings')
     expect(main.getAttribute('aria-current')).toBe('page')
     expect(history.getAttribute('aria-current')).toBeNull()
+  })
+
+  it('keeps the current field name visible in the header across tabs', () => {
+    renderApp('מגרש אלונים')
+
+    const header = screen.getByRole('navigation', { name: 'ניווט במגרש' }).closest('header')
+    if (header === null) throw new Error('app header not found')
+    expect(within(header).getByRole('heading', { name: 'מגרש אלונים' })).toBeDefined()
+
+    fireEvent.click(screen.getByRole('link', { name: 'הגדרות' }))
+    expect(within(header).getByRole('heading', { name: 'מגרש אלונים' })).toBeDefined()
   })
 
   it('keeps the manager PWA install action available across manager tabs', () => {
@@ -133,27 +144,39 @@ describe('App top header — public player view link', () => {
     window.history.replaceState(null, '', '/')
   })
 
-  it('copies the public URL, confirms via toast, and opens the QR overlay instead of navigating', async () => {
-    renderApp()
+  it('generates a stable read-only queue QR for the current field', async () => {
+    renderApp('מגרש אלונים')
 
     const button = screen.getByRole('button', { name: 'קוד QR לתצוגת השחקנים' })
     expect(button.tagName).toBe('BUTTON')
 
     fireEvent.click(button)
 
-    await waitFor(() => expect(mockWriteText).toHaveBeenCalledWith('https://line.maple-group.info/'))
+    await waitFor(() => expect(mockWriteText).toHaveBeenCalledWith('https://line.maple-group.info/line/abc234'))
     expect(showStatusToast).toHaveBeenCalledWith('publicLine.openPlayerView.copied')
     const dialog = screen.getByRole('dialog', { name: 'קוד QR לתצוגת השחקנים' })
     expect(dialog).toBeDefined()
+    expect(screen.getByTestId('public-view-qr').getAttribute('data-qr-value')).toBe(
+      'https://line.maple-group.info/line/abc234',
+    )
 
     fireEvent.click(screen.getByRole('button', { name: 'חזרה' }))
     expect(screen.queryByRole('dialog', { name: 'קוד QR לתצוגת השחקנים' })).toBeNull()
   })
 
-  it('hides the button on non-Main tabs', () => {
+  it('keeps QR generation on Main and hides it on non-Main tabs', () => {
     renderApp()
     fireEvent.click(screen.getByRole('link', { name: 'הגדרות' }))
 
     expect(screen.queryByRole('button', { name: 'קוד QR לתצוגת השחקנים' })).toBeNull()
+  })
+
+  it('shares the read-only queue URL instead of the manager field URL', async () => {
+    Object.defineProperty(navigator, 'share', { configurable: true, value: undefined })
+    renderApp('מגרש אלונים')
+
+    fireEvent.click(screen.getByRole('button', { name: 'שיתוף קישור לתור' }))
+
+    await waitFor(() => expect(mockWriteText).toHaveBeenCalledWith('https://line.maple-group.info/line/abc234'))
   })
 })

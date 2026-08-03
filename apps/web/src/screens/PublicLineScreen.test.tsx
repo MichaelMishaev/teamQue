@@ -113,6 +113,28 @@ beforeEach(() => {
 })
 
 describe('PublicLineScreen', () => {
+  it('renders an injected local-demo field as read-only without API or realtime mutations', async () => {
+    const initialSnapshot = snapshot(['מאיה', 'שירה'])
+
+    render(<PublicLineScreen slug="abc234" initialSnapshot={initialSnapshot} connectRealtime={false} />)
+
+    expect(await screen.findByText('מאיה')).toBeDefined()
+    expect(mockApiGet).not.toHaveBeenCalled()
+    expect(mockCreateSessionSocket).not.toHaveBeenCalled()
+    expect(screen.queryByText(t('action.start'))).toBeNull()
+  })
+
+  it('loads an explicitly shared field slug without resolving the default field list', async () => {
+    mockApiGet.mockResolvedValueOnce(snapshot(['מאיה', 'שירה']))
+
+    render(<PublicLineScreen slug="abc234" />)
+
+    expect(await screen.findByText('מאיה')).toBeDefined()
+    expect(mockApiGet).toHaveBeenCalledTimes(1)
+    expect(mockApiGet).toHaveBeenCalledWith('/fields/abc234')
+    await waitFor(() => expect(mockCreateSessionSocket).toHaveBeenCalledWith(expect.objectContaining({ slug: 'abc234' })))
+  })
+
   it('shows the live pair and puts each games-remaining count inside its timeline marker', async () => {
     mockApiGet.mockResolvedValueOnce([defaultCourt()]).mockResolvedValueOnce(snapshot())
 
@@ -276,5 +298,19 @@ describe('PublicLineScreen', () => {
 
     await waitFor(() => expect(mockWriteText).toHaveBeenCalledWith(`${window.location.origin}/line`))
     expect(screen.getByRole('button', { name: t('publicLine.share.copied') })).toBeDefined()
+  })
+
+  it('shares the exact field-scoped URL when opened from a generated QR', async () => {
+    mockApiGet.mockResolvedValueOnce(snapshot())
+    render(<PublicLineScreen slug="abc234" />)
+
+    await screen.findByText('רועי')
+    fireEvent.click(screen.getByRole('button', { name: t('publicLine.share') }))
+
+    await waitFor(() =>
+      expect(mockShare).toHaveBeenCalledWith(expect.objectContaining({
+        url: `${window.location.origin}/line/abc234`,
+      })),
+    )
   })
 })

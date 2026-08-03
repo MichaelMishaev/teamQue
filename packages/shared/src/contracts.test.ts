@@ -371,7 +371,7 @@ describe('open-fields contracts', () => {
     expect(errorCodeSchema.parse('FIELD_CLOSED')).toBe('FIELD_CLOSED')
   })
 
-  it('createFieldSchema: valid body parses, bad duration rejected', () => {
+  it('createFieldSchema: accepts an optional four-digit field password and rejects malformed passwords', () => {
     // Import will be added; test will fail initially
     expect(createFieldSchema.parse({ name: 'מגרש בית ספר', matchDurationSec: 360 })).toEqual({
       name: 'מגרש בית ספר',
@@ -379,6 +379,9 @@ describe('open-fields contracts', () => {
     })
     expect(createFieldSchema.safeParse({ name: '', matchDurationSec: 360 }).success).toBe(false)
     expect(createFieldSchema.safeParse({ name: 'x', matchDurationSec: 30 }).success).toBe(false)
+    expect(createFieldSchema.parse({ name: 'מגרש מוגן', matchDurationSec: 360, password: '4829' })).toMatchObject({ password: '4829' })
+    expect(createFieldSchema.safeParse({ name: 'מגרש מוגן', matchDurationSec: 360, password: '123' }).success).toBe(false)
+    expect(createFieldSchema.safeParse({ name: 'מגרש מוגן', matchDurationSec: 360, password: '12ab' }).success).toBe(false)
   })
 
   it('visitorHelloSchema: 1..30 chars', () => {

@@ -19,7 +19,7 @@ vi.mock('react-dom/client', async (importOriginal) => {
 vi.mock('./App', () => ({ default: () => <div data-testid="manager-app" /> }))
 vi.mock('@/screens/AppGate', () => ({ AppGate: ({ children }: { children: React.ReactNode }) => children }))
 vi.mock('@/screens/PublicLineScreen', () => ({
-  PublicLineScreen: () => <div data-testid="public-line-root" />,
+  PublicLineScreen: ({ slug }: { slug?: string }) => <div data-testid="public-line-root" data-slug={slug} />,
 }))
 vi.mock('@/state/mock/DemoProviders', () => ({
   DemoProviders: ({ children }: { children: React.ReactNode }) => <div data-testid="demo-providers">{children}</div>,
@@ -33,7 +33,7 @@ describe('main.tsx Root — public line route', () => {
     vi.stubEnv('VITE_DEMO', '1')
     capturedRoots.list.length = 0
     document.body.innerHTML = '<div id="root"></div>'
-    window.history.replaceState({}, '', '/line')
+    window.history.replaceState({}, '', '/line/abc234')
   })
 
   afterEach(() => {
@@ -52,6 +52,7 @@ describe('main.tsx Root — public line route', () => {
     })
 
     expect(screen.getByTestId('public-line-root')).toBeDefined()
+    expect(screen.getByTestId('public-line-root').getAttribute('data-slug')).toBe('abc234')
     expect(screen.queryByTestId('manager-app')).toBeNull()
     expect(screen.queryByTestId('demo-providers')).toBeNull()
     expect(screen.queryByTestId('real-providers')).toBeNull()

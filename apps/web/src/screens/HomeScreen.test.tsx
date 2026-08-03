@@ -58,6 +58,13 @@ beforeEach(() => {
 })
 
 describe('HomeScreen', () => {
+  it('renders supplied local-demo courts without loading from the API', () => {
+    render(<HomeScreen initialCourts={[court({ slug: 'demo23' })]} />)
+
+    expect(screen.getByText(DEFAULT_NAME)).toBeDefined()
+    expect(mockApiGet).not.toHaveBeenCalled()
+  })
+
   it('lists the active courts without navigating anywhere', async () => {
     mockApiGet.mockResolvedValueOnce([court()])
     render(<HomeScreen />)
@@ -146,6 +153,34 @@ describe('HomeScreen', () => {
       expect(mockApiPost).toHaveBeenCalledWith('/fields', { name: 'מגרש 7', matchDurationSec: 360 }),
     )
     await waitFor(() => expect(mockNavigateToField).toHaveBeenCalledWith('fresh1'))
+  })
+
+  it('sends an optional four-digit password only when the creator entered one', async () => {
+    mockApiGet.mockResolvedValueOnce([court()])
+    mockApiPost.mockResolvedValueOnce({ slug: 'fresh1', snapshot: {} })
+    render(<HomeScreen />)
+    await screen.findByText(DEFAULT_NAME)
+
+    typeNewCourtName('מגרש מוגן')
+    fireEvent.change(screen.getByLabelText('סיסמה בת 4 ספרות (לא חובה)'), { target: { value: '4829' } })
+    fireEvent.click(screen.getByRole('button', { name: t('home.create.submit') }))
+
+    await waitFor(() =>
+      expect(mockApiPost).toHaveBeenCalledWith('/fields', { name: 'מגרש מוגן', matchDurationSec: 360, password: '4829' }),
+    )
+  })
+
+  it('creates a password-protected field in local demo mode without calling the API', async () => {
+    const createDemoField = vi.fn().mockResolvedValue('demo24')
+    render(<HomeScreen initialCourts={[court()]} createDemoField={createDemoField} />)
+
+    typeNewCourtName('מגרש הדגמה')
+    fireEvent.change(screen.getByLabelText('סיסמה בת 4 ספרות (לא חובה)'), { target: { value: '4829' } })
+    fireEvent.click(screen.getByRole('button', { name: t('home.create.submit') }))
+
+    await waitFor(() => expect(createDemoField).toHaveBeenCalledWith('מגרש הדגמה', '4829'))
+    expect(mockApiPost).not.toHaveBeenCalled()
+    expect(mockNavigateToField).toHaveBeenCalledWith('demo24')
   })
 
   it('shows a throttle error inline and keeps the sheet open', async () => {

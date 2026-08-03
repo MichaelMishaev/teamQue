@@ -1,3 +1,5 @@
+> **Superseded for manager behavior and QA.** Use [manager-app-prd.md](./manager-app-prd.md). The document below is the original product brief and is retained for history only.
+
 ```md
 # Football Match Queue Manager (MVP) - Product Requirements Document (PRD)
 

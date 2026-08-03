@@ -2,13 +2,14 @@
  * Keeps the manager and public-line origins separate. The public hostname is
  * fail-closed: only the read-only line page, its static assets, read APIs,
  * telemetry edge, and Socket.IO transport are allowed. The manager hostname
- * redirects `/line` to the canonical public origin so a stale line PWA cannot
- * accidentally display manager content.
+ * redirects `/line` and `/line/:slug` to the canonical public origin so a
+ * stale line PWA cannot accidentally display manager content.
  */
 import type { NextFunction, Request, Response } from 'express'
 
 const FIELD_SLUG_GET = /^\/fields\/[^/]+$/
 const FIELD_PUBLIC_EVENT_POST = /^\/fields\/[^/]+\/public-line-events$/
+const PUBLIC_LINE_PAGE = /^\/line\/[a-z2-9]{6}$/
 const WORKBOX_ASSET = /^\/workbox-[a-zA-Z0-9._-]+\.js$/
 const STATIC_PREFIXES = ['/assets/', '/icons/', '/media/']
 const STATIC_FILES = new Set([
@@ -25,6 +26,7 @@ const STATIC_FILES = new Set([
 
 function isAllowedPublicRequest(method: string, path: string): boolean {
   if ((method === 'GET' || method === 'HEAD') && path === '/line') return true
+  if ((method === 'GET' || method === 'HEAD') && PUBLIC_LINE_PAGE.test(path)) return true
   if ((method === 'GET' || method === 'HEAD') && STATIC_FILES.has(path)) return true
   if ((method === 'GET' || method === 'HEAD') && WORKBOX_ASSET.test(path)) return true
   if ((method === 'GET' || method === 'HEAD') && STATIC_PREFIXES.some((prefix) => path.startsWith(prefix))) return true
@@ -43,8 +45,11 @@ export function publicLineHostGuard(publicLineHost: string | undefined) {
     }
 
     if (req.hostname !== publicLineHost) {
-      if ((req.method === 'GET' || req.method === 'HEAD') && req.path === '/line') {
-        res.redirect(302, `https://${publicLineHost}/line`)
+      if (
+        (req.method === 'GET' || req.method === 'HEAD') &&
+        (req.path === '/line' || PUBLIC_LINE_PAGE.test(req.path))
+      ) {
+        res.redirect(302, `https://${publicLineHost}${req.path}`)
         return
       }
       next()
