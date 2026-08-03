@@ -54,7 +54,7 @@ describe('PublicLineTelemetryWriter', () => {
     expect(JSON.stringify(values.mock.calls[0]?.[0])).not.toContain('captain')
   })
 
-  it('does not write when the slug is outside the fixed active public court', async () => {
+  it('does not write when the slug is outside the active fields for the center', async () => {
     const { db, insert } = makeDb(undefined)
     const writer = new PublicLineTelemetryWriter(db)
 
