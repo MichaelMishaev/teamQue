@@ -89,7 +89,7 @@ describe('fields (integration)', () => {
       .expect(201)
     const slug: string = created.body.slug
     const accessCookie = created.headers['set-cookie']
-    expect(accessCookie).toContain(`qlm_field_access_${slug}=`)
+    expect(accessCookie).toBeUndefined()
 
     await request(app.getHttpServer()).get(`/fields/${slug}`).set('Cookie', managerCookies).expect(403)
     await request(app.getHttpServer()).post(`/fields/${slug}/access`).set('Cookie', managerCookies).send({ password: '0000' }).expect(403)
@@ -100,9 +100,11 @@ describe('fields (integration)', () => {
       .send({ password: '4829' })
       .expect(201)
     const unlockedCookie = unlocked.headers['set-cookie']
-    expect(unlockedCookie).toContain(`qlm_field_access_${slug}=`)
     if (unlockedCookie === undefined) throw new Error('password unlock did not set an access cookie')
-    const [unlockedCookieValue] = unlockedCookie.split(';')
+    const unlockedCookieHeader = Array.isArray(unlockedCookie) ? unlockedCookie[0] : unlockedCookie
+    if (unlockedCookieHeader === undefined) throw new Error('password unlock returned an empty access-cookie header')
+    expect(unlockedCookieHeader).toContain(`qlm_field_access_${slug}=`)
+    const [unlockedCookieValue] = unlockedCookieHeader.split(';')
     if (unlockedCookieValue === undefined) throw new Error('access cookie is malformed')
 
     await request(app.getHttpServer())
@@ -128,18 +130,23 @@ describe('fields (integration)', () => {
   })
 
   it('POST /fields/:slug/close force-closes even with a live match, idempotently, and drops it from the list', async () => {
-    const created = await request(app.getHttpServer()).post('/fields').set('Cookie', managerCookies).send({ name: 'ד', matchDurationSec: 300 }).expect(201)
-    const sessionId = created.body.snapshot.session.id
-    // build a live match through the existing line + start routes
-    await request(app.getHttpServer()).post(`/sessions/${sessionId}/line`).set('Cookie', managerCookies).send({ team: { newName: 'קבוצה 1' } }).expect(201)
-    await request(app.getHttpServer()).post(`/sessions/${sessionId}/line`).set('Cookie', managerCookies).send({ team: { newName: 'קבוצה 2' } }).expect(201)
-    await request(app.getHttpServer()).post(`/sessions/${sessionId}/start`).set('Cookie', managerCookies).send({}).expect(201)
-    await request(app.getHttpServer()).post(`/fields/${created.body.slug}/close`).set('Cookie', managerCookies).expect(200)
-    await request(app.getHttpServer()).post(`/fields/${created.body.slug}/close`).set('Cookie', managerCookies).expect(200) // idempotent
-    const list = await request(app.getHttpServer()).get('/fields').set('Host', 'line.maple-group.info').expect(200)
-    expect(list.body.map((row: { slug: string }) => row.slug)).not.toContain(created.body.slug)
-    const snap = await request(app.getHttpServer()).get(`/fields/${created.body.slug}`).set('Host', 'line.maple-group.info').expect(200)
-    expect(snap.body.session.status).toBe('closed')
+    const closeApp = await buildApp()
+    try {
+      const created = await request(closeApp.getHttpServer()).post('/fields').set('Cookie', managerCookies).send({ name: 'ד', matchDurationSec: 300 }).expect(201)
+      const sessionId = created.body.snapshot.session.id
+      // build a live match through the existing line + start routes
+      await request(closeApp.getHttpServer()).post(`/sessions/${sessionId}/line`).set('Cookie', managerCookies).send({ team: { newName: 'קבוצה 1' } }).expect(201)
+      await request(closeApp.getHttpServer()).post(`/sessions/${sessionId}/line`).set('Cookie', managerCookies).send({ team: { newName: 'קבוצה 2' } }).expect(201)
+      await request(closeApp.getHttpServer()).post(`/sessions/${sessionId}/start`).set('Cookie', managerCookies).send({}).expect(201)
+      await request(closeApp.getHttpServer()).post(`/fields/${created.body.slug}/close`).set('Cookie', managerCookies).expect(200)
+      await request(closeApp.getHttpServer()).post(`/fields/${created.body.slug}/close`).set('Cookie', managerCookies).expect(200) // idempotent
+      const list = await request(closeApp.getHttpServer()).get('/fields').set('Host', 'line.maple-group.info').expect(200)
+      expect(list.body.map((row: { slug: string }) => row.slug)).not.toContain(created.body.slug)
+      const snap = await request(closeApp.getHttpServer()).get(`/fields/${created.body.slug}`).set('Host', 'line.maple-group.info').expect(200)
+      expect(snap.body.session.status).toBe('closed')
+    } finally {
+      await closeApp.close()
+    }
   })
 
   it('POST /fields retries a real slug collision against sessions_slug_unique and succeeds with a different slug (N-9)', async () => {

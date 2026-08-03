@@ -37,11 +37,8 @@ export class FieldsController {
   async create(
     @Req() req: StaffAuthenticatedRequest,
     @Body(new ZodValidationPipe(createFieldSchema)) body: CreateFieldBody,
-    @Res({ passthrough: true }) res: Response,
   ): Promise<{ slug: string; snapshot: SessionSnapshot }> {
-    const created = await this.fieldsService.create(req.centerId, req.staff.staffId, body)
-    if (body.password !== undefined) this.grantAccess(res, created.slug, req.centerId)
-    return created
+    return this.fieldsService.create(req.centerId, req.staff.staffId, body)
   }
 
   @Get()
