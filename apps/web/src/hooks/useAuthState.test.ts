@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from '@testing-library/react'
+import { renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiGet, apiPost, ApiRequestError } from '@/lib/api'
 import { useAuthState } from './useAuthState'
@@ -25,7 +25,7 @@ describe('useAuthState', () => {
     expect(result.current.currentStaff?.name).toBe('')
   })
 
-  it('restores a trusted manager device without a staff picker or personal PIN', async () => {
+  it('opens a manager session via /auth/device with no center PIN', async () => {
     vi.mocked(apiGet).mockRejectedValue(new ApiRequestError('UNAUTHORIZED', 'no session cookie'))
     vi.mocked(apiPost).mockResolvedValue({ staffId: 's1', role: 'manager' })
 
@@ -35,28 +35,11 @@ describe('useAuthState', () => {
     expect(result.current.currentStaff).toEqual({ id: 's1', name: '', role: 'manager' })
   })
 
-  it('starts the center PIN flow only when neither session nor trusted-device cookie is valid', async () => {
+  it('surfaces an error when neither session restore nor open device login works', async () => {
     vi.mocked(apiGet).mockRejectedValue(new ApiRequestError('UNAUTHORIZED', 'no session cookie'))
-    vi.mocked(apiPost).mockRejectedValue(new ApiRequestError('UNAUTHORIZED', 'no center cookie'))
+    vi.mocked(apiPost).mockRejectedValue(new ApiRequestError('UNAUTHORIZED', 'no manager'))
 
     const { result } = renderHook(() => useAuthState())
-    await waitFor(() => expect(result.current.phase).toBe('needs-center'))
-  })
-
-  it('opens the manager app directly after a successful one-time center unlock', async () => {
-    vi.mocked(apiGet).mockRejectedValue(new ApiRequestError('UNAUTHORIZED', 'no session cookie'))
-    vi.mocked(apiPost)
-      .mockRejectedValueOnce(new ApiRequestError('UNAUTHORIZED', 'no center cookie'))
-      .mockResolvedValueOnce({ staffId: 's2', role: 'manager' })
-
-    const { result } = renderHook(() => useAuthState())
-    await waitFor(() => expect(result.current.phase).toBe('needs-center'))
-
-    await act(async () => {
-      await result.current.onCenterUnlocked()
-    })
-
-    expect(result.current.phase).toBe('authed')
-    expect(result.current.currentStaff).toEqual({ id: 's2', name: '', role: 'manager' })
+    await waitFor(() => expect(result.current.phase).toBe('error'))
   })
 })

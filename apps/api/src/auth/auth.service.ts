@@ -83,21 +83,34 @@ export class AuthService {
   }
 
   /**
-   * A valid center cookie marks a device that already passed the shared
-   * center PIN. Bind that trusted device to the center's active manager
-   * account without exposing names or requiring a personal staff PIN.
+   * Open manager bootstrap: bind the device to the center's active manager
+   * without a center PIN or personal staff PIN. When `centerId` is omitted
+   * (no cookie), MVP assumes a single center row — same as unlockCenter.
    */
-  async loginTrustedManagerDevice(centerId: string): Promise<TrustedDeviceLoginResult> {
+  async loginTrustedManagerDevice(centerId?: string): Promise<TrustedDeviceLoginResult> {
+    let resolvedCenterId = centerId
+    if (!resolvedCenterId) {
+      const [center] = await this.db.select({ id: centers.id }).from(centers).limit(1)
+      if (!center) throw new UnauthorizedError()
+      resolvedCenterId = center.id
+    }
+
     const [manager] = await this.db
       .select({ id: staff.id, role: staff.role })
       .from(staff)
-      .where(and(eq(staff.centerId, centerId), eq(staff.role, 'manager'), eq(staff.active, true)))
+      .where(
+        and(eq(staff.centerId, resolvedCenterId), eq(staff.role, 'manager'), eq(staff.active, true)),
+      )
       .orderBy(asc(staff.createdAt), asc(staff.id))
       .limit(1)
     if (!manager) throw new UnauthorizedError()
 
     const role = manager.role as StaffRole
-    const token = signTrustedDeviceSessionToken(this.jwtService, { staffId: manager.id, centerId, role })
+    const token = signTrustedDeviceSessionToken(this.jwtService, {
+      staffId: manager.id,
+      centerId: resolvedCenterId,
+      role,
+    })
     return { staffId: manager.id, role, token }
   }
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { apiGet, apiPost } from '@/lib/api'
 import type { CurrentStaff } from '@/state/AuthContext'
 
-export type AuthPhase = 'loading' | 'needs-center' | 'authed'
+export type AuthPhase = 'loading' | 'error' | 'authed'
 
 interface AuthMeResponse {
   staff: CurrentStaff
@@ -17,14 +17,13 @@ interface TrustedDeviceResponse {
 export interface UseAuthStateResult {
   phase: AuthPhase
   currentStaff: CurrentStaff | null
-  onCenterUnlocked: () => Promise<void>
 }
 
 function anonymousManager(staffId: string, role: CurrentStaff['role']): CurrentStaff {
   return { id: staffId, name: '', role }
 }
 
-/** Restores a trusted manager device without exposing a personal identity. */
+/** Restores or opens a manager session without a center PIN or personal identity. */
 export function useAuthState(): UseAuthStateResult {
   const [phase, setPhase] = useState<AuthPhase>('loading')
   const [currentStaff, setCurrentStaff] = useState<CurrentStaff | null>(null)
@@ -45,7 +44,7 @@ export function useAuthState(): UseAuthStateResult {
           setCurrentStaff(anonymousManager(device.staffId, device.role))
           setPhase('authed')
         } catch {
-          if (!cancelled) setPhase('needs-center')
+          if (!cancelled) setPhase('error')
         }
       }
     }
@@ -59,10 +58,5 @@ export function useAuthState(): UseAuthStateResult {
   return {
     phase,
     currentStaff,
-    onCenterUnlocked: async () => {
-      const device = await apiPost<TrustedDeviceResponse>('/auth/device')
-      setCurrentStaff(anonymousManager(device.staffId, device.role))
-      setPhase('authed')
-    },
   }
 }

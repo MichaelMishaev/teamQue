@@ -279,10 +279,11 @@ describe('auth (integration)', () => {
       expect(sessionCookie).toMatch(/Max-Age=7776000/i)
     })
 
-    it('fails closed without the trusted center cookie', async () => {
+    it('opens a manager session with no center cookie and no PIN', async () => {
       const res = await request(app.getHttpServer()).post('/auth/device').send({})
 
-      expect(res.status).toBe(401)
+      expect(res.status).toBe(201)
+      expect(res.body).toEqual({ staffId: happyStaffId, role: 'manager' })
     })
 
     it('fails closed when the trusted center has no active manager', async () => {

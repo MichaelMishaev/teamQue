@@ -298,7 +298,8 @@ describe('permission matrix (integration)', () => {
         staff: () => ({}),
         manager: () => ({}),
       },
-      expected: { anonymous: 401, centerOnly: 201, staff: 201, manager: 201 },
+      // Open manager entry — no center PIN / cookie required.
+      expected: { anonymous: 201, centerOnly: 201, staff: 201, manager: 201 },
     },
     {
       route: 'GET /auth/me',

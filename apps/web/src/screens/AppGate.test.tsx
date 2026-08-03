@@ -4,15 +4,11 @@ import { useAuthState, type AuthPhase } from '@/hooks/useAuthState'
 import { AppGate } from './AppGate'
 
 vi.mock('@/hooks/useAuthState')
-vi.mock('@/screens/CenterUnlock', () => ({
-  CenterUnlock: () => <div>center-unlock-stub</div>,
-}))
 
 function mockPhase(phase: AuthPhase) {
   vi.mocked(useAuthState).mockReturnValue({
     phase,
     currentStaff: phase === 'authed' ? { id: 's1', name: '', role: 'manager' } : null,
-    onCenterUnlocked: vi.fn(),
   })
 }
 
@@ -24,10 +20,10 @@ describe('AppGate', () => {
     expect(screen.queryByText('manager-content')).toBeNull()
   })
 
-  it('renders the center PIN gate before manager children', () => {
-    mockPhase('needs-center')
+  it('shows a load error when open device auth fails', () => {
+    mockPhase('error')
     render(<AppGate><div>manager-content</div></AppGate>)
-    expect(screen.getByText('center-unlock-stub')).toBeDefined()
+    expect(screen.getByRole('alert')).toBeDefined()
     expect(screen.queryByText('manager-content')).toBeNull()
   })
 

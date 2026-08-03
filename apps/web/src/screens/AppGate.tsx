@@ -1,16 +1,14 @@
 import type { ReactNode } from 'react'
 import { useAuthState } from '@/hooks/useAuthState'
 import { t } from '@/i18n'
-import { CenterUnlock } from '@/screens/CenterUnlock'
 import { AuthProvider } from '@/state/AuthContext'
 
 /**
- * Top-level trusted-device gate. It renders manager surfaces only after the
- * shared center credential has produced a manager session; personal staff
- * names and PINs are intentionally absent.
+ * Top-level manager bootstrap. Opens a trusted manager session with no
+ * center PIN screen; personal staff names and PINs stay absent.
  */
 export function AppGate({ children }: { children: ReactNode }) {
-  const { phase, currentStaff, onCenterUnlocked } = useAuthState()
+  const { phase, currentStaff } = useAuthState()
 
   if (phase === 'loading') {
     return (
@@ -19,6 +17,12 @@ export function AppGate({ children }: { children: ReactNode }) {
       </div>
     )
   }
-  if (phase === 'needs-center') return <CenterUnlock onSuccess={onCenterUnlocked} />
+  if (phase === 'error' || !currentStaff) {
+    return (
+      <div role="alert" className="flex min-h-dvh items-center justify-center text-danger">
+        {t('app.loadError')}
+      </div>
+    )
+  }
   return <AuthProvider currentStaff={currentStaff}>{children}</AuthProvider>
 }

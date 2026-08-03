@@ -2,8 +2,9 @@
  * Auth endpoints (technical-prd §6/§7).
  */
 import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res, UseGuards } from '@nestjs/common'
+import { JwtService } from '@nestjs/jwt'
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler'
-import type { Response } from 'express'
+import type { Request, Response } from 'express'
 import { centerUnlockSchema, loginSchema, type CenterUnlockBody, type LoginBody } from 'shared'
 import { ZodValidationPipe } from '../common/zod.pipe'
 import { loadEnv } from '../config/env'
@@ -18,6 +19,7 @@ import {
   SESSION_COOKIE_NAME,
   TRUSTED_DEVICE_SESSION_COOKIE_MAX_AGE_MS,
   cookieOptions,
+  verifyCenterToken,
 } from './token'
 
 const CENTER_THROTTLE = { default: { limit: 5, ttl: 15 * 60 * 1000 } }
@@ -25,7 +27,10 @@ const CENTER_THROTTLE = { default: { limit: 5, ttl: 15 * 60 * 1000 } }
 @Controller('auth')
 export class AuthController {
   // @Inject explicitly: see the note atop auth.service.ts.
-  constructor(@Inject(AuthService) private readonly authService: AuthService) {}
+  constructor(
+    @Inject(AuthService) private readonly authService: AuthService,
+    @Inject(JwtService) private readonly jwtService: JwtService,
+  ) {}
 
   @UseGuards(ThrottlerGuard)
   @Throttle(CENTER_THROTTLE)
@@ -53,13 +58,14 @@ export class AuthController {
     return { staffId: result.staffId, name: result.name, role: result.role }
   }
 
-  @UseGuards(CenterGuard)
   @Post('device')
   async loginTrustedDevice(
-    @Req() req: CenterAuthenticatedRequest,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ staffId: string; role: string }> {
-    const result = await this.authService.loginTrustedManagerDevice(req.centerId)
+    // Open manager entry — no center PIN. Optional center cookie still scopes
+    // multi-center fixtures; otherwise the sole center row is used.
+    const result = await this.authService.loginTrustedManagerDevice(optionalCenterId(this.jwtService, req))
     const nodeEnv = loadEnv().NODE_ENV
     res.cookie(
       SESSION_COOKIE_NAME,
@@ -80,5 +86,17 @@ export class AuthController {
   @Get('me')
   async me(@Req() req: StaffAuthenticatedRequest): Promise<MeResult> {
     return this.authService.me(req.staff.staffId, req.staff.centerId)
+  }
+}
+
+/** Best-effort center cookie read — invalid/missing cookies fall through to open sole-center auth. */
+function optionalCenterId(jwtService: JwtService, req: Request): string | undefined {
+  const token = req.cookies?.[CENTER_COOKIE_NAME] as string | undefined
+  if (!token) return undefined
+  try {
+    const payload = verifyCenterToken(jwtService, token)
+    return payload.centerId || undefined
+  } catch {
+    return undefined
   }
 }

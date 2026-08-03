@@ -58,7 +58,6 @@ describe('main.tsx Root — field route', () => {
     vi.mocked(useAuthState).mockReturnValue({
       phase: 'authed',
       currentStaff: { id: 'staff-1', name: '', role: 'manager' },
-      onCenterUnlocked: vi.fn(),
     })
     vi.mocked(apiGet).mockRejectedValue(new Error('not found'))
     vi.mocked(apiPost).mockResolvedValue({ visitorId: 'v1', nickname: 'אורח 7' })
