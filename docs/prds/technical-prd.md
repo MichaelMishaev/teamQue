@@ -212,6 +212,8 @@ type SessionSnapshot = {
 
 Two-layer auth, both PINs hashed with argon2id:
 
+The field-card landing at `/` is an anonymous read-only discovery surface. It exposes only the bounded field-list contract and clears field-access grants when loaded. Device/staff authentication is still required before creating a field or mounting any `/f/:slug` manager data or controls.
+
 1. **Device unlock (center PIN)** — `POST /auth/center` with center PIN → long-lived (90d) httpOnly `Secure` `SameSite=Lax` cookie identifying the center. Entered once per device.
 2. **Staff login (personal PIN)** — `POST /auth/login { staffId, pin }` → 12h httpOnly cookie carrying a signed JWT `{ staffId, centerId, role }` (stateless — no session table; **never** localStorage, R-22). "Switch user" = one tap → staff picker → PIN.
 
@@ -228,6 +230,8 @@ NestJS modules: `auth`, `staff`, `captains`, `sessions` (owns fields, matches, q
 | `POST /auth/center` | Device unlock with center PIN |
 | `POST /auth/login` | Staff PIN login |
 | `POST /auth/logout` | End staff session |
+| `GET /fields/landing` | Anonymous bounded active-field card list |
+| `POST /fields/lock-all` | Clear all field-access cookies on the current browser; no database mutation |
 | `GET  /auth/me` | Current staff + center |
 | `GET  /staff` | Staff picker list (names only, pre-login) |
 | `POST /staff` · `PATCH /staff/:id` | Manage staff (manager only) |

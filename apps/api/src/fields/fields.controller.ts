@@ -6,12 +6,19 @@
 import { Body, Controller, Get, HttpCode, Inject, Param, Post, Req, Res, UseGuards } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler'
-import type { Response } from 'express'
+import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { createFieldSchema, type CreateFieldBody, type FieldListItem, type SessionSnapshot } from 'shared'
 import { StaffSessionGuard } from '../auth/guards/staff-session.guard'
 import { PublicLineReadGuard } from '../auth/guards/public-line-read.guard'
-import { FIELD_ACCESS_COOKIE_MAX_AGE_MS, cookieOptions, fieldAccessCookieName, signFieldAccessToken, verifyFieldAccessToken } from '../auth/token'
+import {
+  FIELD_ACCESS_COOKIE_MAX_AGE_MS,
+  FIELD_ACCESS_COOKIE_PREFIX,
+  cookieOptions,
+  fieldAccessCookieName,
+  signFieldAccessToken,
+  verifyFieldAccessToken,
+} from '../auth/token'
 import type { CenterAuthenticatedRequest, StaffAuthenticatedRequest } from '../auth/request.types'
 import { ForbiddenError } from '../common/errors'
 import { ZodValidationPipe } from '../common/zod.pipe'
@@ -45,6 +52,27 @@ export class FieldsController {
   @UseGuards(PublicLineReadGuard)
   async list(@Req() req: CenterAuthenticatedRequest): Promise<FieldListItem[]> {
     return this.fieldsService.list(req.centerId)
+  }
+
+  @Get('landing')
+  async landing(): Promise<FieldListItem[]> {
+    return this.fieldsService.listForConfiguredCenter()
+  }
+
+  @HttpCode(200)
+  @Post('lock-all')
+  lockAll(@Req() req: Request, @Res({ passthrough: true }) res: Response): { ok: true } {
+    const cookies = req.cookies as Record<string, unknown> | undefined
+    if (cookies !== undefined) {
+      const secure = loadEnv().NODE_ENV === 'production'
+      for (const cookieName of Object.keys(cookies)) {
+        if (!cookieName.startsWith(FIELD_ACCESS_COOKIE_PREFIX)) continue
+        const slug = cookieName.slice(FIELD_ACCESS_COOKIE_PREFIX.length)
+        if (!SLUG_PATTERN.test(slug)) continue
+        res.clearCookie(cookieName, { httpOnly: true, sameSite: 'lax', secure, path: '/' })
+      }
+    }
+    return { ok: true }
   }
 
   @Get(':slug/access')

@@ -122,6 +122,77 @@ describe('fields (integration)', () => {
     expect(list.body[0]).toMatchObject({ queueLength: 0, hasLiveMatch: false })
   })
 
+  it('GET /fields/landing anonymously lists active fields for the configured center', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/fields')
+      .set('Cookie', managerCookies)
+      .send({ name: 'מגרש ציבורי', matchDurationSec: 300 })
+      .expect(201)
+
+    const list = await request(app.getHttpServer()).get('/fields/landing').expect(200)
+
+    expect(list.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          slug: created.body.slug,
+          name: 'מגרש ציבורי',
+          queueLength: 0,
+          hasLiveMatch: false,
+        }),
+      ]),
+    )
+  })
+
+  it('POST /fields/lock-all anonymously expires every field-access cookie so a protected field locks again', async () => {
+    const lockApp = await buildApp()
+    try {
+      const created = await request(lockApp.getHttpServer())
+        .post('/fields')
+        .set('Cookie', managerCookies)
+        .send({ name: 'מגרש לנעילה מחדש', matchDurationSec: 300, password: '2222' })
+        .expect(201)
+      const slug: string = created.body.slug
+
+      const unlocked = await request(lockApp.getHttpServer())
+        .post(`/fields/${slug}/access`)
+        .set('Cookie', managerCookies)
+        .send({ password: '2222' })
+        .expect(201)
+      const setCookie = unlocked.headers['set-cookie']
+      if (setCookie === undefined) throw new Error('password unlock did not set an access cookie')
+      const accessCookieHeader = Array.isArray(setCookie) ? setCookie[0] : setCookie
+      if (accessCookieHeader === undefined) throw new Error('password unlock returned an empty access-cookie header')
+      const [accessCookie] = accessCookieHeader.split(';')
+      if (accessCookie === undefined) throw new Error('access cookie is malformed')
+
+      await request(lockApp.getHttpServer())
+        .get(`/fields/${slug}`)
+        .set('Cookie', [...managerCookies, accessCookie])
+        .expect(200)
+
+      const locked = await request(lockApp.getHttpServer())
+        .post('/fields/lock-all')
+        .set('Cookie', [accessCookie, 'qlm_field_access_abc234=fake', 'qlm_field_access_other=preserve', 'unrelated=keep'])
+        .expect(200)
+      expect(locked.body).toEqual({ ok: true })
+      const deletedCookies = locked.headers['set-cookie']
+      if (!Array.isArray(deletedCookies)) throw new Error('lock-all did not return cookie deletions')
+      expect(deletedCookies).toHaveLength(2)
+      expect(deletedCookies).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(new RegExp(`^qlm_field_access_${slug}=;`)),
+          expect.stringMatching(/^qlm_field_access_abc234=;/),
+        ]),
+      )
+      expect(deletedCookies.every((cookie: string) => cookie.includes('Expires=Thu, 01 Jan 1970 00:00:00 GMT'))).toBe(true)
+      expect(deletedCookies.some((cookie: string) => cookie.startsWith('qlm_field_access_other='))).toBe(false)
+
+      await request(lockApp.getHttpServer()).get(`/fields/${slug}`).set('Cookie', managerCookies).expect(403)
+    } finally {
+      await lockApp.close()
+    }
+  })
+
   it('GET /fields/:slug resolves; unknown slug 404s', async () => {
     const created = await request(app.getHttpServer()).post('/fields').set('Cookie', managerCookies).send({ name: 'ג', matchDurationSec: 300 }).expect(201)
     const snap = await request(app.getHttpServer()).get(`/fields/${created.body.slug}`).set('Host', 'line.maple-group.info').expect(200)

@@ -13,44 +13,26 @@ import { navigateToField, PUBLIC_LINE_URL } from '@/lib/route'
 import type { FieldListItem, SessionSnapshot } from 'shared'
 
 /**
- * Single responsibility: the court list at '/' — lists active courts, guarantees
- * the Independence Square default exists, opens a court on tap and creates new
- * ones (2026-07-17 courts-landing-page spec).
+ * Single responsibility: the public court list at '/' — revokes remembered
+ * field access, lists active courts, opens a court on tap and creates new ones
+ * for callers that already hold a manager session.
  */
 const DEFAULT_MATCH_DURATION_SEC = 360
 
-interface LoadResult {
-  courts: FieldListItem[]
-  /** True when the default court is missing AND re-creating it failed. */
-  defaultFailed: boolean
-}
-
 /** Shared across StrictMode double-mount so we don't create two default fields. */
-let loadPromise: Promise<LoadResult> | null = null
+let loadPromise: Promise<FieldListItem[]> | null = null
 
 /**
- * The default court is a guarantee, not a seed: if no *active* court carries the
- * default name we re-create it, including after someone closed it. A failed
- * re-create degrades to a notice — it must not cost the user the courts that do
- * exist.
+ * Returning to the public landing screen is the explicit field-lock boundary.
+ * Revoke every remembered field-access cookie before asking the public landing
+ * endpoint for cards, so opening a protected field again requires its password.
  */
-async function loadCourts(): Promise<LoadResult> {
-  const defaultName = t('home.create.nameDefault')
-  const list = await apiGet<FieldListItem[]>('/fields')
-  if (list.some((court) => court.name === defaultName)) return { courts: list, defaultFailed: false }
-
-  try {
-    await apiPost<{ slug: string; snapshot: SessionSnapshot }>('/fields', {
-      name: defaultName,
-      matchDurationSec: DEFAULT_MATCH_DURATION_SEC,
-    })
-  } catch {
-    return { courts: list, defaultFailed: true }
-  }
-  return { courts: await apiGet<FieldListItem[]>('/fields'), defaultFailed: false }
+async function loadCourts(): Promise<FieldListItem[]> {
+  await apiPost<unknown>('/fields/lock-all')
+  return apiGet<FieldListItem[]>('/fields/landing')
 }
 
-function loadCourtsOnce(): Promise<LoadResult> {
+function loadCourtsOnce(): Promise<FieldListItem[]> {
   if (loadPromise === null) loadPromise = loadCourts()
   return loadPromise
 }
@@ -82,7 +64,6 @@ interface HomeScreenProps {
 export function HomeScreen({ initialCourts, createDemoField }: HomeScreenProps) {
   const [courts, setCourts] = useState<FieldListItem[] | null>(() => initialCourts ?? null)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [defaultFailed, setDefaultFailed] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
@@ -104,10 +85,9 @@ export function HomeScreen({ initialCourts, createDemoField }: HomeScreenProps) 
     if (initialCourts !== undefined) return
     let cancelled = false
     void loadCourtsOnce()
-      .then((result) => {
+      .then((loadedCourts) => {
         if (cancelled) return
-        setCourts(pinDefaultFirst(result.courts))
-        setDefaultFailed(result.defaultFailed)
+        setCourts(pinDefaultFirst(loadedCourts))
       })
       .catch(() => {
         if (!cancelled) setLoadError(t('home.load.error'))
@@ -216,12 +196,6 @@ export function HomeScreen({ initialCourts, createDemoField }: HomeScreenProps) 
           <p className="mt-0.5 text-[13px] font-semibold text-muted">{t('home.hero.meta')}</p>
         </div>
       </section>
-
-      {defaultFailed && (
-        <p role="alert" className="text-[13px] font-semibold text-warn">
-          {t('home.default.error')}
-        </p>
-      )}
 
       {courts.length === 0 ? (
         <EmptyState icon="⚽" title={t('home.empty.title')} hint={t('home.empty.hint')} />
