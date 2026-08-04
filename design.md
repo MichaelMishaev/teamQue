@@ -108,7 +108,7 @@ Semantic state colors are not decoration; `accent` doubles as the single brand h
 | `QueueRow` | `components/QueueRow.tsx` | **next (accent "הבא")** / default / dragging / removing; ⋯ menu mirrors all gestures |
 | `CaptainChip` | `components/CaptainChip.tsx` | filled (with games-today) / empty slot |
 | `CaptainSearchResult` | `components/CaptainSearchResult.tsx` | with stats / never-played / create-new (+ duplicate hint) |
-| `PinPad` | `components/PinPad.tsx` | entry / lockout countdown; digits always LTR |
+| `PinPad` | `components/PinPad.tsx` | authentication entry / lockout countdown; digits always LTR |
 | `ConnectivityBanner` | `components/ConnectivityBanner.tsx` | offline (warn) / resynced (accent, 2s) / hidden |
 | `UndoToast` | `components/UndoToast.tsx` | Sonner wrapper: message + undo action + draining window |
 | `EmptyState` | `components/EmptyState.tsx` | no-session (CTA for manager) / empty-queue |

@@ -1,7 +1,7 @@
 # Manager App PRD and QA Source of Truth
 
 Status: **Normative baseline**
-Version: **1.0**
+Version: **1.2**
 Effective date: **2026-08-03**
 Product: **Football Match Queue Manager — manager/staff PWA**
 Primary locale: **Hebrew (`he-IL`), RTL**
@@ -41,7 +41,7 @@ The public spectator/player experience is a separate product surface. This PRD c
 
 ## 1. Product definition
 
-The app helps youth-center staff run several concurrent football fields from mobile devices. Each field has its own waiting line, live match, timer, history, settings, access rule, and realtime channel.
+The app helps youth-center staff run several concurrent football fields from mobile devices. Each field has its own waiting line, live match, timer, history, settings, optional access rule, and realtime channel.
 
 A **captain** represents one team. The app never tracks individual players or rosters. The word “team” in the UI means the captain-led group.
 
@@ -96,26 +96,30 @@ Staff administration is not exposed in the current manager UI baseline; see Defe
 
 | ID | Requirement and QA oracle |
 |---|---|
-| MGR-AUTH-001 | A new device MAY view the public `/` field list without Center Unlock. Creating a field or opening any manager field route MUST show Center Unlock before manager data or controls. A correct center PIN unlocks the device for the configured long-lived period; a wrong PIN shows an inline Hebrew error and stays on the screen. |
-| MGR-AUTH-002 | Center-PIN abuse protection MUST reject the sixth attempt in the configured 5-attempt/15-minute window without revealing secrets. |
-| MGR-AUTH-003 | After center unlock, the user MUST select an active staff identity and enter its 4-digit PIN. Successful login creates the staff session and continues the requested authenticated creation or field-management flow. |
+| MGR-AUTH-001 | The public `/` field list (the landing screen, e.g. the field-card list with queue counts and an "enter field" action) MUST NEVER show a PIN, Center Unlock, or Staff Login screen, under any device or auth state. `POST /auth/device` opens the manager app directly, binding the device to the center's sole active manager identity with no PIN of any kind. `CenterUnlock.tsx` no longer exists in the app and MUST NOT be reintroduced on this route. |
+| MGR-AUTH-002 | The `POST /auth/center` center-PIN endpoint and its 5-attempt/15-minute abuse protection remain server-side (reserved for future multi-center scoping) but MUST NOT be wired to any UI screen; no manager entry flow may prompt for a center PIN. |
+| MGR-AUTH-003 | Manager device entry MUST NOT show a staff picker or 4-digit staff-PIN screen — `POST /auth/device` binds the manager identity automatically with no selection step. `StaffLogin.tsx`'s picker→PIN screen is not mounted anywhere and MUST NOT be reintroduced on this route; only mid-session "switch user" (MGR-AUTH-005) still collects a staff PIN. |
 | MGR-AUTH-004 | Five wrong staff PINs MUST trigger the progressive lockout contract. Remaining lockout time MUST be communicated inline. |
 | MGR-AUTH-005 | Switching user MUST require the newly selected staff member’s PIN and MUST attribute subsequent actions to that identity. |
 | MGR-AUTH-006 | Manager routes and manager sockets MUST fail closed for missing, invalid, expired, visitor, or wrong-center credentials. |
-| MGR-AUTH-007 | Auth tokens and access grants MUST be httpOnly cookies; secrets MUST NOT be stored in localStorage, rendered, logged, or returned by field reads. |
+| MGR-AUTH-007 | Auth tokens and field-access grants MUST be httpOnly cookies; secrets MUST NOT be stored in localStorage, rendered, logged, or returned by field reads. |
 
 ### 2.3 Optional field password
 
+A field is shared by default. During creation, its creator MAY add a four-digit password. When a password exists, every entry from the field list—including the creator’s first entry—MUST require that password before field data or controls mount.
+
+The v1.1 requirements `MGR-ACCESS-009` through `MGR-ACCESS-012`, which prohibited field passwords, are retired and MUST NOT be used as QA or implementation requirements. The original v1.0 IDs remain historical; v1.2 uses new IDs for traceability.
+
 | ID | Requirement and QA oracle |
 |---|---|
-| MGR-ACCESS-001 | Field creation MAY include an optional password. If present, it MUST be exactly four numeric digits. Empty means unprotected. |
-| MGR-ACCESS-002 | Opening a protected `/f/:slug` MUST show a focused four-digit password screen before field data or controls render. |
-| MGR-ACCESS-003 | The correct password grants access to that slug and opens the field. A wrong password shows an inline error and exposes no field state. |
-| MGR-ACCESS-004 | Five unlock attempts in 15 minutes MUST be rate-limited. |
-| MGR-ACCESS-005 | A grant for field A MUST NOT unlock field B. |
-| MGR-ACCESS-006 | Creating a protected field MUST navigate to its password gate. The creator, like every later entrant without an existing field grant, MUST enter the four-digit code before field state renders. |
-| MGR-ACCESS-007 | The stored password MUST be an Argon2id hash. The clear four digits MUST never be persisted or returned. |
-| MGR-ACCESS-008 | Loading `/` MUST revoke all field-access grants on that browser. Re-entering any protected field from the landing list MUST therefore ask for its four-digit password again. Device and staff authentication remain unchanged. |
+| MGR-ACCESS-013 | Field creation MAY include an optional password. If present, it MUST be exactly four numeric digits. Empty means unprotected. |
+| MGR-ACCESS-014 | Opening a protected `/f/:slug` MUST show a focused four-digit password screen before field data, providers, or controls mount. |
+| MGR-ACCESS-015 | The correct password grants access to that slug and opens the field. A wrong password shows an inline error and exposes no field state. |
+| MGR-ACCESS-016 | Five unlock attempts in 15 minutes MUST be rate-limited. |
+| MGR-ACCESS-017 | A grant for field A MUST NOT unlock field B. |
+| MGR-ACCESS-018 | Creating a protected field MUST navigate to its password gate. The creator, like every later entrant without a current field grant, MUST enter the four-digit password before field state renders. |
+| MGR-ACCESS-019 | The stored password MUST be an Argon2id hash. The clear four digits MUST never be persisted, logged, or returned. |
+| MGR-ACCESS-020 | Loading `/` MUST revoke all field-access grants on that browser. Re-entering any protected field from the landing list MUST therefore ask for its four-digit password again. |
 
 ## 3. Domain and isolation rules
 
@@ -130,7 +134,7 @@ Staff administration is not exposed in the current manager UI baseline; see Defe
 | Predicted pair | Two adjacent queue entries visually grouped as the likely next match; it is not a stored match. |
 | Match | Two captains paired at kickoff on one field. Status is live, paused, finished, or cancelled. |
 | Activity event | Append-only record of a successful action or safe rejected/failed request. |
-| Field password | Optional four-digit access code scoped to one field console. |
+| Field password | Optional four-digit access password scoped to one field console. |
 
 ### 3.2 Isolation invariants
 
@@ -147,7 +151,7 @@ Staff administration is not exposed in the current manager UI baseline; see Defe
 
 | Route | Purpose | Required behavior |
 |---|---|---|
-| `/` | Public field landing | List active fields without a device/staff PIN. Creating a field and opening manager field routes remain authenticated. Loading the route revokes remembered field-access grants. |
+| `/` | Public field landing | List active fields without a manager-entry PIN. Loading the route revokes remembered field-access grants so every protected-field entry asks for its password again. |
 | `/f/:slug` | Field Main | Field-scoped live match, line, quick add, and referee entry. |
 | `/f/:slug?tab=history` | History | Field/session summary and finished matches. |
 | `/f/:slug?tab=activity` | Activity | Filterable operational and exception history. |
@@ -170,7 +174,7 @@ Staff administration is not exposed in the current manager UI baseline; see Defe
 
 | ID | Requirement and QA oracle |
 |---|---|
-| MGR-HOME-001 | `/` MUST render the field landing page without Center Unlock or Staff Login and MUST NOT auto-redirect to a field. |
+| MGR-HOME-001 | `/` MUST render the field landing page with NO Center Unlock, Staff Login, or any PIN screen whatsoever, and MUST NOT auto-redirect to a field. This route is mounted with no `AppGate`/`FieldAccessGate` wrapper at all (`main.tsx`), so it structurally cannot show a PIN. |
 | MGR-HOME-002 | Each active-field card MUST show name, queue count, free/live status, and an explicit enter action. |
 | MGR-HOME-003 | Anonymous landing loads MUST be read-only and MUST NOT auto-create a missing default field. An authenticated creation flow MAY restore the default field; when present, the client pins it first. |
 | MGR-HOME-004 | A field-list load failure MUST show a dedicated inline error. Loading MUST have an announced status. |
@@ -183,7 +187,7 @@ Staff administration is not exposed in the current manager UI baseline; see Defe
 
 | ID | Requirement and QA oracle |
 |---|---|
-| MGR-FIELD-001 | “Create new field” opens a bottom sheet containing field name and optional four-digit password. |
+| MGR-FIELD-001 | “Create new field” opens a bottom sheet containing field name and an optional four-digit password. |
 | MGR-FIELD-002 | Name MUST trim surrounding whitespace, contain 1–40 characters, and remain intact after a recoverable submission failure. |
 | MGR-FIELD-003 | Password input MUST accept digits only, mask the value, stop at four digits, and allow either zero or four digits. |
 | MGR-FIELD-004 | Successful creation MUST use the default 6-minute match duration and navigate directly to the new field. |
@@ -444,7 +448,7 @@ These dialogs are required and are not violations of the live-flow policy:
 | ID | Requirement and QA oracle |
 |---|---|
 | MGR-SEC-001 | Every manager request MUST be scoped to the authenticated center. Cross-center IDs return the same not-found behavior as unknown IDs. |
-| MGR-SEC-002 | Every request body, path ID, slug, query filter, PIN, name, duration, and password MUST be boundary-validated using shared schemas. |
+| MGR-SEC-002 | Every request body, path ID, slug, query filter, staff-authentication PIN, field password, name, and duration MUST be boundary-validated using shared schemas. |
 | MGR-SEC-003 | Queue, match, action/undo, auth, schema, and migration changes are critical paths and require frozen failing tests plus adversarial/concurrency review. |
 | MGR-SEC-004 | Every successful mutation MUST append its activity record in the same transaction. Rejected/failed requests MUST be recorded safely without sensitive values. |
 | MGR-SEC-005 | Exactly one live/paused match is allowed per field. A captain cannot appear twice in the same live match. |
@@ -457,10 +461,10 @@ These dialogs are required and are not violations of the live-flow policy:
 
 | Layer | Minimum scope |
 |---|---|
-| Shared contract tests | Every accepted and rejected request/response shape, including optional field password and slug validation. |
-| Domain unit tests | Timer math, pairing/ETA, field state, lockouts, activity mapping, reducer/gesture state. |
+| Shared contract tests | Every accepted and rejected request/response shape, including optional four-digit field passwords and slug validation. |
+| Domain unit tests | Timer math, pairing/ETA, field state, staff-auth lockouts, activity mapping, reducer/gesture state. |
 | Component tests | Visible states, accessible names/roles, callbacks, duplicate-submit guards, focus behavior; no markup snapshots. |
-| API integration | Real migrated Postgres: auth, field access, field isolation, lifecycle, history, activity, expiry, permissions, failures. |
+| API integration | Real migrated Postgres: auth, protected/unprotected field access, re-locking, field isolation, lifecycle, history, activity, expiry, permissions, failures. |
 | Concurrency | N≥5 parallel line/start/finish/access attempts for critical invariants. |
 | Socket integration | Auth, slug room selection, initial snapshot, broadcast, reconnect, cross-field non-delivery. |
 | Browser E2E | Mobile-first complete manager journeys. Two fields and two contexts are mandatory fixtures. |
@@ -470,8 +474,8 @@ These dialogs are required and are not violations of the live-flow policy:
 
 | Journey ID | Steps and assertions |
 |---|---|
-| MGR-E2E-001 | Unlock center → select staff → enter PIN → landing renders. Covers MGR-AUTH-001..006. |
-| MGR-E2E-002 | Open `/` without device/staff PIN → authenticate to create unprotected field A → verify name/empty state → return landing → create protected field B → wrong password rejected → correct password enters → return landing → re-enter B → password gate is shown again. |
+| MGR-E2E-001 | Open `/` on a fresh device with no cookies → field list renders immediately with no Center Unlock, Staff Login, or any PIN screen → open a manager field route → device auto-binds via `POST /auth/device` with still no PIN prompt. Covers MGR-AUTH-001..006. |
+| MGR-E2E-002 | Open `/` on a fresh device → create unprotected field A and enter directly → return to landing → create protected field B → creator sees its password gate → wrong password rejected → correct password enters → return to landing → re-enter B → password gate is shown again. Covers MGR-ACCESS-013..020. |
 | MGR-E2E-003 | Add teams only to A → verify B stays empty → mutate/start A in a second context → both A contexts sync while B receives nothing. Covers all MGR-ISO IDs. |
 | MGR-E2E-004 | Existing captain add (<3s) → new captain add (<5s) → duplicate soft warning → front-two Start. |
 | MGR-E2E-005 | Pause → lock/wake device simulation → Resume → Extend → standard Finish cancel → confirm Finish. |
@@ -513,7 +517,7 @@ This table locates current implementation and regression evidence. It is an inde
 
 | Requirement area | Primary implementation | Primary automated evidence |
 |---|---|---|
-| Authentication | `screens/AppGate.tsx`, `CenterUnlock.tsx`, `StaffLogin.tsx`, `SwitchUser.tsx`; `api/src/auth/**` | Auth screen tests, `api/test/auth.int.test.ts`, auth guard/lockout tests |
+| Authentication | `screens/AppGate.tsx`, `SwitchUser.tsx`; `api/src/auth/**` (`CenterUnlock.tsx` removed by the open-entry change; `StaffLogin.tsx` remains in the tree but is not mounted on any route) | Auth screen tests, `api/test/auth.int.test.ts`, auth guard/lockout tests |
 | Landing/create/access | `HomeScreen.tsx`, `CreateCourtSheet.tsx`, `FieldAccessGate.tsx`; `api/src/fields/**` | `HomeScreen.test.tsx`, `FieldAccessGate.test.tsx`, `api/test/fields.int.test.ts` |
 | Field identity/isolation | `main.tsx`, `RealProviders.tsx`, `fields.service.ts`, slug socket join | Mock session tests, fields integration, realtime slug-room integration, manager Playwright E2E |
 | App shell/navigation | `App.tsx`, `useAppTabNavigation.ts`, `route.ts` | `App.navigation.test.tsx`, navigation/route unit tests |
@@ -548,7 +552,8 @@ The following are not release-blocking manager-app requirements until promoted h
 | One field at MVP | Superseded: multiple independent fields are active manager scope. |
 | One active session per center | Superseded: each field is backed by its own active session. |
 | Shared queue across fields | Superseded: queue, live match, history, settings, and socket are field-scoped. |
-| Anonymous/open manager writes | Superseded: manager surfaces require center + staff authentication. |
+| Anonymous/open manager writes | Refined: manager routes establish the transparent manager-device session from §2.2, with no interactive PIN screen. |
+| Optional field PIN/password | Restored in v1.2: optional at creation; mandatory on every protected-field entry from the landing list, including the creator’s first entry. |
 | Queue contains matches | Superseded: queue contains single teams; match is created at kickoff. |
 | No confirmation dialogs in live flows | Refined: MGR §10.1 lists deliberate confirmations; removal remains Undo-first. |
 | Finish undo | Superseded: manual finish uses verification and informational completion; no finish Undo action. |
@@ -558,4 +563,6 @@ The following are not release-blocking manager-app requirements until promoted h
 
 | Version | Date | Change |
 |---|---|---|
+| 1.2 | 2026-08-03 | Restored optional four-digit field passwords. Protected fields require the password on the creator’s first entry and every re-entry from the landing list. |
+| 1.1 | 2026-08-03 | Removed optional field PIN/password behavior. Shared football courts now open directly with no court-specific code or access grant. |
 | 1.0 | 2026-08-03 | Consolidated current manager behavior, field isolation, optional field access code, referee mode, contextual header, and future QA contract. |

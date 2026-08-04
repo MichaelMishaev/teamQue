@@ -16,6 +16,7 @@ Dev rules baseline: `~/Desktop/devRules.md` (adapted — see §12)
 | Tenancy | Single center now, multi-ready (`center_id` on every table) |
 | Fields | **Single field at MVP** — schema/API are multi-field-ready; multi-field is a UI unlock (post-MVP) |
 | Staff auth | Personal 4-digit PIN per staff member + center unlock PIN |
+| Field access | Optional four-digit field password; the grant is slug-scoped and cleared whenever `/` loads. |
 | Stack | NestJS API + Vite React PWA (two Railway services) + Railway Postgres |
 | Realtime | Socket.IO, full-session **snapshot broadcast** after every mutation |
 | Timers | Server-authoritative, **computed not ticked** |
@@ -210,12 +211,14 @@ type SessionSnapshot = {
 
 ## 6. Auth & Sessions
 
-Two-layer auth, both PINs hashed with argon2id:
+Both PINs hashed with argon2id where still in use:
 
-The field-card landing at `/` is an anonymous read-only discovery surface. It exposes only the bounded field-list contract and clears field-access grants when loaded. Device/staff authentication is still required before creating a field or mounting any `/f/:slug` manager data or controls.
+The field-card landing at `/` is an anonymous read-only discovery surface. It exposes only the bounded field-list contract and is mounted with **no** auth wrapper at all (`main.tsx` renders `<HomeScreen />` directly for this route) — it structurally can never show a PIN screen of any kind.
 
-1. **Device unlock (center PIN)** — `POST /auth/center` with center PIN → long-lived (90d) httpOnly `Secure` `SameSite=Lax` cookie identifying the center. Entered once per device.
-2. **Staff login (personal PIN)** — `POST /auth/login { staffId, pin }` → 12h httpOnly cookie carrying a signed JWT `{ staffId, centerId, role }` (stateless — no session table; **never** localStorage, R-22). "Switch user" = one tap → staff picker → PIN.
+**Optional field password:** field creation may hash a four-digit password into `sessions.access_pin_hash` using Argon2id. `FieldAccessGuard` blocks the manager field snapshot and close route until `POST /fields/:slug/access` verifies it and issues a slug/center-scoped httpOnly grant. Loading `/` calls `POST /fields/lock-all`, clearing every field-access grant so the creator and every later visitor must enter the password again on the next protected-field entry. Public `/line/:slug` reads remain exempt and read-only.
+
+1. **Manager device entry (open, no PIN)** — `POST /auth/device` binds the device to the center's sole active manager identity with no center PIN and no staff PIN; `CenterUnlock.tsx` and the entry-time staff picker have been removed. Creating a field or opening any `/f/:slug` manager route triggers this bootstrap transparently.
+2. **Center PIN (`POST /auth/center`) and personal staff login (`POST /auth/login { staffId, pin }`)** — the guards, hashing, and rate limiting still exist server-side (reserved for future multi-center scoping / non-manager staff identities) but no manager-entry screen calls `POST /auth/center` anymore, so no cookie is ever set for it in normal use. "Switch user" (one tap → staff picker → PIN, mid-session only) still calls `POST /auth/login`, which sits behind `CenterGuard` and therefore depends on a center cookie that nothing in the current UI sets — **verify this path still authenticates in production before relying on switch-user**, since it appears to have been left unwired by the entry-flow change.
 
 - **Rate limiting (R-25):** center PIN: 5 attempts / 15 min / IP. Staff PIN: 5 attempts per staff member → 60s lockout (progressive: doubles each round). Applied via Nest throttler guard.
 - **Guards fail closed (R-16):** `CenterGuard` → `StaffSessionGuard` → `RolesGuard`; any undeterminable state throws `ForbiddenException`.
@@ -227,11 +230,14 @@ NestJS modules: `auth`, `staff`, `captains`, `sessions` (owns fields, matches, q
 
 | Method & Path | Purpose |
 |---|---|
-| `POST /auth/center` | Device unlock with center PIN |
-| `POST /auth/login` | Staff PIN login |
+| `POST /auth/device` | Open manager device bootstrap — no center PIN, no staff PIN |
+| `POST /auth/center` | Center-PIN device unlock; server-side only, not called by any current manager-entry screen |
+| `POST /auth/login` | Staff PIN login; used only by mid-session "switch user", behind `CenterGuard` |
 | `POST /auth/logout` | End staff session |
 | `GET /fields/landing` | Anonymous bounded active-field card list |
-| `POST /fields/lock-all` | Clear all field-access cookies on the current browser; no database mutation |
+| `POST /fields/lock-all` | Clear all field-access cookies when the landing page loads |
+| `GET /fields/:slug/access` | Report whether the field requires a password and whether this browser currently has a grant |
+| `POST /fields/:slug/access` | Verify the four-digit field password and issue a slug-scoped access grant |
 | `GET  /auth/me` | Current staff + center |
 | `GET  /staff` | Staff picker list (names only, pre-login) |
 | `POST /staff` · `PATCH /staff/:id` | Manage staff (manager only) |
@@ -366,6 +372,6 @@ Consequences worth stating, since this app's hot path is a race:
 
 - No Redis / horizontal scaling (single api instance is 100× headroom for 5 staff devices).
 - No offline action queue / CRDT sync (post-MVP; PRD §19).
-- No SSR / SEO work — the app is behind a PIN.
+- No SSR / SEO work — the operational console is not an SEO surface.
 - No push notifications, no email, no external integrations.
 - No admin web console beyond in-app manager screens; center/staff seeding via migration script.

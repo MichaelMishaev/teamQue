@@ -87,10 +87,14 @@ export function getDemoPublicLineSnapshot(slug: string): SessionSnapshot | null 
 }
 
 export const demoFieldAccessClient: FieldAccessClient = {
-  async getStatus(_slug) {
-    return { passwordRequired: false, granted: true }
+  async getStatus(slug) {
+    const field = readField(slug)
+    if (field === null) return { passwordRequired: false, granted: true }
+    return { passwordRequired: field.passwordHash !== null, granted: field.passwordHash === null }
   },
-  async unlock(_slug, _password) {
-    return
+  async unlock(slug, password) {
+    const field = readField(slug)
+    if (field?.passwordHash === null) return
+    if (field === null || field.passwordHash !== (await passwordHash(password))) throw new Error('wrong password')
   },
 }
