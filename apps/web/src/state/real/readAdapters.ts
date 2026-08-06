@@ -49,6 +49,7 @@ const ACTION_MAP: Record<string, ActivityAction> = {
   'field.created': 'field.open',
   'field.closed': 'field.close',
   'field.expired': 'field.expire',
+  'field.evening.ended': 'field.eveningEnd',
   'public_line.viewed': 'publicLine.viewed',
   'public_line.visit_ended': 'publicLine.visitEnded',
   undo: 'match.undo',

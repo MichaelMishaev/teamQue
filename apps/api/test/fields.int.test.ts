@@ -224,7 +224,7 @@ describe('fields (integration)', () => {
     }
   })
 
-  it('ending the default field evening finishes its live match and immediately replaces it with a fresh active default field', async () => {
+  it('ending the default field evening finishes its live match while keeping the same default field active', async () => {
     const closeApp = await buildApp()
     try {
       const created = await request(closeApp.getHttpServer())
@@ -242,9 +242,8 @@ describe('fields (integration)', () => {
       const [ended] = await pg.db.select({ status: matches.status, endReason: matches.endReason }).from(matches).where(eq(matches.sessionId, sessionId))
       expect(ended).toMatchObject({ status: 'finished', endReason: 'manual' })
       const list = await request(closeApp.getHttpServer()).get('/fields').set('Host', 'line.maple-group.info').expect(200)
-      const replacement = list.body.find((row: { name: string }) => row.name === DEFAULT_FIELD_NAME)
-      expect(replacement).toMatchObject({ name: DEFAULT_FIELD_NAME, queueLength: 0, hasLiveMatch: false })
-      expect(replacement.slug).not.toBe(created.body.slug)
+      const defaultField = list.body.find((row: { name: string }) => row.name === DEFAULT_FIELD_NAME)
+      expect(defaultField).toMatchObject({ slug: created.body.slug, name: DEFAULT_FIELD_NAME, queueLength: 0, hasLiveMatch: false })
     } finally {
       await closeApp.close()
     }

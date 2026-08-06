@@ -2,11 +2,11 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { CourtRow } from '@/components/CourtRow'
 import { t } from '@/i18n'
-import type { FieldListItem } from 'shared'
+import { DEFAULT_FIELD_NAME, type FieldListItem } from 'shared'
 
 const court: FieldListItem = {
   slug: 'independence-1',
-  name: 'כיכר העצמאות, מגרש 1',
+  name: DEFAULT_FIELD_NAME,
   createdAt: '2026-07-17T17:00:00.000Z',
   queueLength: 3,
   hasLiveMatch: false,
@@ -19,6 +19,7 @@ describe('CourtRow', () => {
     expect(screen.getByText(t('home.court.open'))).toBeDefined()
     expect(screen.getByRole('button').textContent).toContain(court.name)
     expect(screen.getByRole('button').textContent).toContain(t('field.state.free'))
+    expect(screen.getByRole('img', { name: t('home.court.defaultImageAlt') })).toBeDefined()
   })
 
   it('opens the selected court when the card is tapped', () => {

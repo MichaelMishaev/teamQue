@@ -14,6 +14,7 @@ import cookieParser from 'cookie-parser'
 import { sql } from 'drizzle-orm'
 import request from 'supertest'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { DEFAULT_FIELD_NAME } from 'shared'
 import { AppModule } from '../src/app.module'
 import { centers, staff } from '../src/db/schema'
 import { ExpiryService } from '../src/fields/expiry.service'
@@ -64,10 +65,13 @@ describe('expiry sweep (integration)', () => {
   it('expireStale closes fields idle >18h and leaves fresh ones alone', async () => {
     const stale = await request(app.getHttpServer()).post('/fields').set('Cookie', managerCookies).send({ name: 'ישן', matchDurationSec: 300 }).expect(201)
     const fresh = await request(app.getHttpServer()).post('/fields').set('Cookie', managerCookies).send({ name: 'חדש', matchDurationSec: 300 }).expect(201)
+    const defaultField = await request(app.getHttpServer()).post('/fields').set('Cookie', managerCookies).send({ name: DEFAULT_FIELD_NAME, matchDurationSec: 300 }).expect(201)
     const staleId = stale.body.snapshot.session.id
+    const defaultId = defaultField.body.snapshot.session.id
 
     // backdate the stale field's heartbeat 19h
     await pg.db.execute(sql`UPDATE sessions SET last_activity_at = now() - interval '19 hours' WHERE id = ${staleId}`)
+    await pg.db.execute(sql`UPDATE sessions SET last_activity_at = now() - interval '19 hours' WHERE id = ${defaultId}`)
 
     const closed = await app.get(ExpiryService).expireStale()
     expect(closed).toBe(1)
@@ -76,6 +80,7 @@ describe('expiry sweep (integration)', () => {
     const slugs = list.body.map((row: { slug: string }) => row.slug)
     expect(slugs).not.toContain(stale.body.slug)
     expect(slugs).toContain(fresh.body.slug)
+    expect(slugs).toContain(defaultField.body.slug)
   })
 
   it('mutations refresh last_activity_at (heartbeat via broadcast)', async () => {

@@ -26,6 +26,7 @@ export type ActivityAction =
   | 'field.open'
   | 'field.close'
   | 'field.expire'
+  | 'field.eveningEnd'
   | 'publicLine.viewed'
   | 'publicLine.visitEnded'
   | 'exception'

@@ -129,10 +129,7 @@ export class FieldsService {
     if (!field) throw new NotFoundError('Field not found')
 
     const isDefaultField = field.name === DEFAULT_FIELD_NAME
-    const didClose = await this.forceClose(field.sessionId, staffId, 'field.closed', isDefaultField)
-    if (didClose && isDefaultField) {
-      await this.create(centerId, staffId, { name: DEFAULT_FIELD_NAME, matchDurationSec: field.matchDurationSec })
-    }
+    await this.forceClose(field.sessionId, staffId, isDefaultField ? 'field.evening.ended' : 'field.closed', isDefaultField, isDefaultField)
     return { slug, status: 'closed' }
   }
 
@@ -143,8 +140,9 @@ export class FieldsService {
   async forceClose(
     sessionId: string,
     staffId: string,
-    action: 'field.closed' | 'field.expired' = 'field.closed',
+    action: 'field.closed' | 'field.expired' | 'field.evening.ended' = 'field.closed',
     finishActiveMatch = false,
+    keepActive = false,
   ): Promise<boolean> {
     const didClose = await this.db.transaction(async (tx) => {
       await lockSessionLine(tx, sessionId)
@@ -196,7 +194,11 @@ export class FieldsService {
         })
       }
 
-      await tx.update(sessions).set({ status: 'closed' }).where(eq(sessions.id, sessionId))
+      if (keepActive) {
+        await tx.update(sessions).set({ lastActivityAt: new Date() }).where(eq(sessions.id, sessionId))
+      } else {
+        await tx.update(sessions).set({ status: 'closed' }).where(eq(sessions.id, sessionId))
+      }
       await this.activity.write(tx, {
         centerId: session.centerId,
         sessionId,

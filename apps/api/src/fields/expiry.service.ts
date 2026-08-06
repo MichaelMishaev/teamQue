@@ -6,9 +6,10 @@
  */
 import { Inject, Injectable, Logger } from '@nestjs/common'
 import { Interval } from '@nestjs/schedule'
-import { and, eq, lt, sql } from 'drizzle-orm'
+import { and, eq, lt, ne, sql } from 'drizzle-orm'
+import { DEFAULT_FIELD_NAME } from 'shared'
 import { DRIZZLE, type Database } from '../db/db.module'
-import { sessions } from '../db/schema'
+import { fields, sessions } from '../db/schema'
 import { FieldsService } from './fields.service'
 
 const SWEEP_INTERVAL_MS = 15 * 60 * 1000
@@ -33,7 +34,15 @@ export class ExpiryService {
     const stale = await this.db
       .select({ id: sessions.id, createdBy: sessions.createdBy })
       .from(sessions)
-      .where(and(eq(sessions.status, 'active'), lt(sessions.lastActivityAt, sql`now() - make_interval(hours => ${IDLE_EXPIRY_HOURS})`)))
+      .innerJoin(fields, eq(fields.sessionId, sessions.id))
+      .where(
+        and(
+          eq(sessions.status, 'active'),
+          eq(fields.position, 0),
+          ne(fields.name, DEFAULT_FIELD_NAME),
+          lt(sessions.lastActivityAt, sql`now() - make_interval(hours => ${IDLE_EXPIRY_HOURS})`),
+        ),
+      )
 
     let closedCount = 0
     for (const row of stale) {
