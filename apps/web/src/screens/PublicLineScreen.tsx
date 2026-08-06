@@ -110,7 +110,10 @@ export function PublicLineScreen({
     }
     const initialLoad = requestedSlug === undefined
       ? apiGet<FieldListItem[]>('/fields').then(async (courts) => {
-          const court = courts.find((candidate) => candidate.name === DEFAULT_COURT_NAME)
+          // `/line` predates field-scoped QR links. Prefer the historical
+          // default when it exists, but an active field renamed by staff must
+          // remain visible through this backwards-compatible alias.
+          const court = courts.find((candidate) => candidate.name === DEFAULT_COURT_NAME) ?? courts[0]
           if (!court) throw new Error('default court unavailable')
           const initialSnapshot = await apiGet<SessionSnapshot>(`/fields/${court.slug}`)
           return { resolvedSlug: court.slug, initialSnapshot }

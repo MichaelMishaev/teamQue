@@ -174,6 +174,18 @@ describe('PublicLineScreen', () => {
     )
   })
 
+  it('keeps the legacy public alias working after staff rename the active field', async () => {
+    const renamedCourt = { ...defaultCourt(), slug: 'ju5qy5', name: 'כיכר עצמאות' }
+    mockApiGet.mockResolvedValueOnce([renamedCourt]).mockResolvedValueOnce(snapshot(['פרטוש', 'רפאל']))
+
+    render(<PublicLineScreen />)
+
+    expect(await screen.findByText('פרטוש')).toBeDefined()
+    expect(mockApiGet).toHaveBeenNthCalledWith(1, '/fields')
+    expect(mockApiGet).toHaveBeenNthCalledWith(2, '/fields/ju5qy5')
+    await waitFor(() => expect(mockCreateSessionSocket).toHaveBeenCalledWith(expect.objectContaining({ slug: 'ju5qy5' })))
+  })
+
   it('starts the marker count at zero when no match is currently playing', async () => {
     const freeSnapshot = snapshot(['גיא', 'נועם', 'דניאל', 'איתי'])
     mockApiGet
