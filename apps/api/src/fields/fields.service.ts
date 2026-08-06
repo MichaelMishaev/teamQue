@@ -8,7 +8,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { hash, verify } from '@node-rs/argon2'
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
-import type { CreateFieldBody, FieldListItem, SessionSnapshot } from 'shared'
+import { DEFAULT_FIELD_NAME, type CreateFieldBody, type FieldListItem, type SessionSnapshot } from 'shared'
 import { ActivityWriter } from '../activity/activity.writer'
 import { NotFoundError } from '../common/errors'
 import { lockSessionLine } from '../common/session-lock'
@@ -120,8 +120,19 @@ export class FieldsService {
   }
 
   async closeBySlug(slug: string, centerId: string, staffId: string): Promise<{ slug: string; status: 'closed' }> {
-    const sessionId = await this.sessionIdBySlug(slug, centerId)
-    await this.forceClose(sessionId, staffId)
+    const [field] = await this.db
+      .select({ sessionId: sessions.id, name: fields.name, matchDurationSec: sessions.matchDurationSec })
+      .from(sessions)
+      .innerJoin(fields, eq(fields.sessionId, sessions.id))
+      .where(and(eq(sessions.slug, slug), eq(sessions.centerId, centerId), eq(fields.position, 0)))
+      .limit(1)
+    if (!field) throw new NotFoundError('Field not found')
+
+    const isDefaultField = field.name === DEFAULT_FIELD_NAME
+    const didClose = await this.forceClose(field.sessionId, staffId, 'field.closed', isDefaultField)
+    if (didClose && isDefaultField) {
+      await this.create(centerId, staffId, { name: DEFAULT_FIELD_NAME, matchDurationSec: field.matchDurationSec })
+    }
     return { slug, status: 'closed' }
   }
 
@@ -129,25 +140,44 @@ export class FieldsService {
    * Also the expiry sweep's workhorse (expiry.service.ts), which passes
    * action='field.expired' so the activity row is distinguishable from a
    * manual close. */
-  async forceClose(sessionId: string, staffId: string, action: 'field.closed' | 'field.expired' = 'field.closed'): Promise<void> {
+  async forceClose(
+    sessionId: string,
+    staffId: string,
+    action: 'field.closed' | 'field.expired' = 'field.closed',
+    finishActiveMatch = false,
+  ): Promise<boolean> {
     const didClose = await this.db.transaction(async (tx) => {
       await lockSessionLine(tx, sessionId)
 
       const [session] = await tx.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
       if (!session || session.status === 'closed') return false
 
-      const stopped = await tx
-        .update(matches)
-        .set({ status: 'cancelled', endReason: 'cancelled', endedAt: new Date(), endedBy: staffId })
-        .where(and(eq(matches.sessionId, sessionId), inArray(matches.status, ['live', 'paused', 'queued'])))
-        .returning({ id: matches.id })
+      const endedAt = new Date()
+      const stopped = finishActiveMatch
+        ? [
+            ...(await tx
+              .update(matches)
+              .set({ status: 'finished', endReason: 'manual', endedAt, endedBy: staffId })
+              .where(and(eq(matches.sessionId, sessionId), inArray(matches.status, ['live', 'paused'])))
+              .returning({ id: matches.id, action: sql<'match.finished'>`'match.finished'` })),
+            ...(await tx
+              .update(matches)
+              .set({ status: 'cancelled', endReason: 'cancelled', endedAt, endedBy: staffId })
+              .where(and(eq(matches.sessionId, sessionId), eq(matches.status, 'queued')))
+              .returning({ id: matches.id, action: sql<'match.cancelled'>`'match.cancelled'` })),
+          ]
+        : await tx
+            .update(matches)
+            .set({ status: 'cancelled', endReason: 'cancelled', endedAt, endedBy: staffId })
+            .where(and(eq(matches.sessionId, sessionId), inArray(matches.status, ['live', 'paused', 'queued'])))
+            .returning({ id: matches.id, action: sql<'match.cancelled'>`'match.cancelled'` })
 
       for (const match of stopped) {
         await this.activity.write(tx, {
           centerId: session.centerId,
           sessionId,
           staffId,
-          action: 'match.cancelled',
+          action: match.action,
           entityType: 'match',
           entityId: match.id,
         })
@@ -179,6 +209,7 @@ export class FieldsService {
     })
 
     if (didClose) await this.sessionEvents.broadcast(sessionId)
+    return didClose
   }
 
   private async sessionIdBySlug(slug: string, centerId: string): Promise<string> {

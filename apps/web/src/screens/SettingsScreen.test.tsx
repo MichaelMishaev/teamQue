@@ -121,7 +121,7 @@ describe('SettingsScreen', () => {
     fireEvent.click(closeButton)
     expect(actions.closeSession).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByText('סגור מגרש'))
+    fireEvent.click(screen.getByText('סיים ערב'))
     await waitFor(() => expect(actions.closeSession).toHaveBeenCalled())
     expect(navigateHome).toHaveBeenCalledOnce()
   })
@@ -131,10 +131,10 @@ describe('SettingsScreen', () => {
     fireEvent.click(screen.getByText('סגור ערב'))
     fireEvent.click(screen.getByText('ביטול'))
     expect(actions.closeSession).not.toHaveBeenCalled()
-    expect(screen.queryByText('סגור מגרש')).toBeNull()
+    expect(screen.queryByText('סיים ערב')).toBeNull()
   })
 
-  it('keeps the close button enabled when a match is live (force-close is reachable), and warns the confirm dialog will cancel it', async () => {
+  it('keeps the close button enabled when a match is live and explains that ending the evening finishes it', async () => {
     const { actions } = renderSettings('manager', { snapshot: activeSnapshot(true), connection: 'online', offsetMs: 0 })
     const closeButton = screen.getByText('סגור ערב') as HTMLButtonElement
     expect(closeButton.disabled).toBe(false)
@@ -142,7 +142,7 @@ describe('SettingsScreen', () => {
     fireEvent.click(closeButton)
     expect(screen.getByText(/יש משחק פעיל במגרש/)).toBeDefined()
 
-    fireEvent.click(screen.getByText('סגור מגרש'))
+    fireEvent.click(screen.getByText('סיים ערב'))
     await waitFor(() => expect(actions.closeSession).toHaveBeenCalled())
     expect(navigateHome).toHaveBeenCalledOnce()
   })

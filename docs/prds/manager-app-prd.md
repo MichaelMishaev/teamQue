@@ -204,7 +204,7 @@ The v1.1 requirements `MGR-ACCESS-009` through `MGR-ACCESS-012`, which prohibite
 | MGR-FIELD-010 | Confirmed close MUST cancel any active match, clear remaining queue entries, close the field, append activity, and navigate to `/`. |
 | MGR-FIELD-011 | Close MUST be idempotent. The closed field disappears from the active landing list. |
 | MGR-FIELD-012 | An active field with no activity for 18 hours MUST be force-closed by the scheduled expiry sweep and logged as an automatic expiry. |
-| MGR-FIELD-013 | The default field is a guarantee: closing it removes that instance, and a later landing load may create a fresh empty default field. |
+| MGR-FIELD-013 | The default Independence Square field is a guarantee: ending its evening closes only that session for history, records an active/paused match as finished, clears unplayed queue entries, and immediately creates a fresh empty active default field for the next evening. |
 
 ## 6. Field app shell
 

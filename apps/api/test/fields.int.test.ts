@@ -8,10 +8,12 @@ import { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 import { hash } from '@node-rs/argon2'
 import cookieParser from 'cookie-parser'
+import { eq } from 'drizzle-orm'
 import request from 'supertest'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { AppModule } from '../src/app.module'
-import { centers, staff } from '../src/db/schema'
+import { DEFAULT_FIELD_NAME } from 'shared'
+import { centers, matches, staff } from '../src/db/schema'
 import * as slugModule from '../src/fields/slug'
 import { centerCookieHeader, makeTestJwtService, sessionCookieHeader } from './helpers/auth-cookies'
 import { startTestPg, type TestPg } from './helpers/pg'
@@ -217,6 +219,32 @@ describe('fields (integration)', () => {
       expect(list.body.map((row: { slug: string }) => row.slug)).not.toContain(created.body.slug)
       const snap = await request(closeApp.getHttpServer()).get(`/fields/${created.body.slug}`).set('Host', 'line.maple-group.info').expect(200)
       expect(snap.body.session.status).toBe('closed')
+    } finally {
+      await closeApp.close()
+    }
+  })
+
+  it('ending the default field evening finishes its live match and immediately replaces it with a fresh active default field', async () => {
+    const closeApp = await buildApp()
+    try {
+      const created = await request(closeApp.getHttpServer())
+        .post('/fields')
+        .set('Cookie', managerCookies)
+        .send({ name: DEFAULT_FIELD_NAME, matchDurationSec: 300 })
+        .expect(201)
+      const sessionId = created.body.snapshot.session.id as string
+      await request(closeApp.getHttpServer()).post(`/sessions/${sessionId}/line`).set('Cookie', managerCookies).send({ team: { newName: 'קבוצה 1' } }).expect(201)
+      await request(closeApp.getHttpServer()).post(`/sessions/${sessionId}/line`).set('Cookie', managerCookies).send({ team: { newName: 'קבוצה 2' } }).expect(201)
+      await request(closeApp.getHttpServer()).post(`/sessions/${sessionId}/start`).set('Cookie', managerCookies).send({}).expect(201)
+
+      await request(closeApp.getHttpServer()).post(`/fields/${created.body.slug}/close`).set('Cookie', managerCookies).expect(200)
+
+      const [ended] = await pg.db.select({ status: matches.status, endReason: matches.endReason }).from(matches).where(eq(matches.sessionId, sessionId))
+      expect(ended).toMatchObject({ status: 'finished', endReason: 'manual' })
+      const list = await request(closeApp.getHttpServer()).get('/fields').set('Host', 'line.maple-group.info').expect(200)
+      const replacement = list.body.find((row: { name: string }) => row.name === DEFAULT_FIELD_NAME)
+      expect(replacement).toMatchObject({ name: DEFAULT_FIELD_NAME, queueLength: 0, hasLiveMatch: false })
+      expect(replacement.slug).not.toBe(created.body.slug)
     } finally {
       await closeApp.close()
     }
