@@ -23,7 +23,7 @@ export function CourtRow({ court, onOpen }: CourtRowProps) {
       className="group w-full overflow-hidden rounded-xl border border-line bg-surface text-start transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-bg"
     >
       {isDefaultCourt && (
-        <span className="relative block aspect-[2/1] overflow-hidden border-b border-line bg-bg">
+        <span className="relative block aspect-[3.4/1] overflow-hidden border-b border-line bg-bg">
           <img src={independenceSquareEvening} alt={t('home.court.defaultImageAlt')} className="h-full w-full object-cover" />
           <span className="absolute inset-0 bg-gradient-to-t from-bg/95 via-bg/20 to-transparent" aria-hidden="true" />
           <span className="absolute inset-x-3 bottom-3 text-[20px] font-bold text-ink">{court.name}</span>
@@ -47,7 +47,7 @@ export function CourtRow({ court, onOpen }: CourtRowProps) {
         </span>
 
         <span className="mt-3 flex items-center justify-between border-t border-line pt-2.5 text-[13px] font-bold text-accent">
-          <span>{t('home.court.open')}</span>
+          <span>{isDefaultCourt ? t('home.court.defaultEnterHint') : t('home.court.open')}</span>
           <svg
             aria-hidden="true"
             viewBox="0 0 24 24"
