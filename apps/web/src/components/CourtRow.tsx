@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge'
 import { t } from '@/i18n'
-import independenceSquareEvening from '@/assets/independence-square-evening.webp'
-import independenceSquareEveningMotion from '@/assets/independence-square-evening-motion.mp4'
+import independenceSquareStadiumLive from '@/assets/independence-square-stadium-live.webp'
+import independenceSquareStadiumLiveMotion from '@/assets/independence-square-stadium-live-motion.mp4'
 import { DEFAULT_FIELD_NAME, type FieldListItem } from 'shared'
 
 /**
@@ -31,13 +31,13 @@ export function CourtRow({ court, onOpen }: CourtRowProps) {
             loop
             muted
             playsInline
-            poster={independenceSquareEvening}
+            poster={independenceSquareStadiumLive}
             aria-hidden="true"
           >
-            <source src={independenceSquareEveningMotion} type="video/mp4" />
+            <source src={independenceSquareStadiumLiveMotion} type="video/mp4" />
           </video>
           <img
-            src={independenceSquareEvening}
+            src={independenceSquareStadiumLive}
             alt={t('home.court.defaultImageAlt')}
             className="hidden h-full w-full object-cover motion-reduce:block"
           />
