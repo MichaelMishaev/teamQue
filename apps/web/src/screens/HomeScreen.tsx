@@ -191,9 +191,21 @@ export function HomeScreen({ initialCourts, createDemoField }: HomeScreenProps) 
           className="absolute inset-0 h-full w-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-bg/95 via-bg/15 to-transparent" aria-hidden="true" />
-        <div className="absolute inset-0 flex flex-col justify-end p-4">
-          <h2 className="text-[21px] font-bold text-ink">{t('home.hero.title')}</h2>
-          <p className="mt-0.5 text-[13px] font-semibold text-muted">{t('home.hero.meta')}</p>
+        <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+          <svg viewBox="0 0 64 64" className="absolute top-3 start-3 size-12 text-accent drop-shadow-lg" fill="none" stroke="currentColor" strokeWidth="3">
+            <circle cx="32" cy="32" r="25" />
+            <path d="m32 18 8 5-3 9h-10l-3-9 8-5Zm-8 14-8 5m24-5 8 5m-24 5 3 9m10-9 3 9M16 18l8 5m16-5-8 5" />
+          </svg>
+          <svg viewBox="0 0 88 56" className="absolute top-5 end-4 h-9 w-14 text-ink/75 drop-shadow-lg" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M8 48V10h64v38M8 22h64M20 10v38m20-38v38m20-38v38M8 48h64" />
+            <path d="m76 16 7 5-7 5m0 8 7 5-7 5" />
+          </svg>
+          <svg viewBox="0 0 64 64" className="absolute bottom-16 start-4 size-9 text-accent/80" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="4">
+            <path d="m10 36 10-10m2 22 18-18m4 8 10-10" />
+          </svg>
+        </div>
+        <div className="absolute inset-0 flex items-end p-4">
+          <h2 className="text-[25px] font-black tracking-tight text-ink drop-shadow-sm">{t('home.hero.title')}</h2>
         </div>
       </section>
 

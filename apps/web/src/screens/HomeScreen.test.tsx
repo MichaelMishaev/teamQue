@@ -88,7 +88,7 @@ describe('HomeScreen', () => {
 
     expect(await screen.findByText(DEFAULT_NAME)).toBeDefined()
     expect(screen.getByText(t('home.hero.title'))).toBeDefined()
-    expect(screen.getByText(t('home.hero.meta'))).toBeDefined()
+    expect(screen.queryByText('קיץ 2026 · נתניה')).toBeNull()
     expect(screen.getByRole('img', { name: t('home.hero.alt') })).toBeDefined()
     expect(screen.getByRole('button', { name: t('publicLine.qr.dialogLabel') })).toBeDefined()
     expect(mockNavigateToField).not.toHaveBeenCalled()
