@@ -20,6 +20,12 @@ describe('CourtRow', () => {
     expect(screen.getByRole('button').textContent).toContain(court.name)
     expect(screen.getByRole('button').textContent).toContain(t('field.state.free'))
     expect(screen.getByRole('img', { name: t('home.court.defaultImageAlt') })).toBeDefined()
+    const video = document.querySelector('video')
+    expect(video?.autoplay).toBe(true)
+    expect(video?.loop).toBe(true)
+    expect(video?.muted).toBe(true)
+    expect(video?.className).toContain('motion-reduce:hidden')
+    expect(video?.parentElement?.className).toContain('aspect-[2.6/1]')
   })
 
   it('opens the selected court when the card is tapped', () => {

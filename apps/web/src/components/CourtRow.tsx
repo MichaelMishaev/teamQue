@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge'
 import { t } from '@/i18n'
 import independenceSquareEvening from '@/assets/independence-square-evening.webp'
+import independenceSquareEveningMotion from '@/assets/independence-square-evening-motion.mp4'
 import { DEFAULT_FIELD_NAME, type FieldListItem } from 'shared'
 
 /**
@@ -23,8 +24,23 @@ export function CourtRow({ court, onOpen }: CourtRowProps) {
       className="group w-full overflow-hidden rounded-xl border border-line bg-surface text-start transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-bg"
     >
       {isDefaultCourt && (
-        <span className="relative block aspect-[3.4/1] overflow-hidden border-b border-line bg-bg">
-          <img src={independenceSquareEvening} alt={t('home.court.defaultImageAlt')} className="h-full w-full object-cover" />
+        <span className="relative block aspect-[2.6/1] overflow-hidden border-b border-line bg-bg">
+          <video
+            autoPlay
+            className="h-full w-full object-cover motion-reduce:hidden"
+            loop
+            muted
+            playsInline
+            poster={independenceSquareEvening}
+            aria-hidden="true"
+          >
+            <source src={independenceSquareEveningMotion} type="video/mp4" />
+          </video>
+          <img
+            src={independenceSquareEvening}
+            alt={t('home.court.defaultImageAlt')}
+            className="hidden h-full w-full object-cover motion-reduce:block"
+          />
           <span className="absolute inset-0 bg-gradient-to-t from-bg/95 via-bg/20 to-transparent" aria-hidden="true" />
           <span className="absolute inset-x-3 bottom-3 text-[20px] font-bold text-ink">{court.name}</span>
         </span>
