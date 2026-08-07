@@ -42,7 +42,7 @@ export function CourtRow({ court, onOpen }: CourtRowProps) {
             className="hidden h-full w-full object-cover motion-reduce:block"
           />
           <span className="absolute inset-0 bg-gradient-to-t from-bg/95 via-bg/20 to-transparent" aria-hidden="true" />
-          <span className="absolute inset-x-3 bottom-3 text-[20px] font-bold text-ink">{court.name}</span>
+          <span className="absolute inset-x-3 bottom-3 text-[20px] font-bold text-ink">{t('home.court.defaultDisplayName')}</span>
         </span>
       )}
 

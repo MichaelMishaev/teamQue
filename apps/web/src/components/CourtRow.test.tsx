@@ -17,6 +17,7 @@ describe('CourtRow', () => {
     render(<CourtRow court={court} onOpen={vi.fn()} />)
 
     expect(screen.getByText(t('home.court.defaultEnterHint'))).toBeDefined()
+    expect(screen.getByText(t('home.court.defaultDisplayName'))).toBeDefined()
     expect(screen.getByRole('button').textContent).toContain(court.name)
     expect(screen.getByRole('button').textContent).toContain(t('field.state.free'))
     expect(screen.getByRole('img', { name: t('home.court.defaultImageAlt') })).toBeDefined()
