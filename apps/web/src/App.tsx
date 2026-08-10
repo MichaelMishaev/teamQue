@@ -1,5 +1,6 @@
 import { useEffect, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { ConnectivityBanner } from '@/components/ConnectivityBanner'
+import { DeveloperCredit } from '@/components/DeveloperCredit'
 import { InstallAppButton } from '@/components/InstallAppButton'
 import { IntroSplash } from '@/components/IntroSplash'
 import { PublicLineQrOverlay } from '@/components/PublicLineQrOverlay'
@@ -172,6 +173,8 @@ export default function App({ slug = '' }: { slug?: string }) {
           </>
         )}
       </main>
+
+      {tab !== 'main' && <DeveloperCredit />}
 
       {qrOpen && currentPublicLineUrl !== null && (
         <PublicLineQrOverlay url={currentPublicLineUrl} onClose={() => setQrOpen(false)} />

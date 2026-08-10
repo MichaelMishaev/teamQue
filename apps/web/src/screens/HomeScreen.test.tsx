@@ -70,6 +70,19 @@ describe('HomeScreen', () => {
     expect(mockApiGet).not.toHaveBeenCalled()
   })
 
+  it('places the compact utility actions between the banner and first field card', () => {
+    render(<HomeScreen initialCourts={[court({ slug: 'demo23' })]} />)
+
+    const banner = screen.getByRole('img', { name: t('home.hero.alt') }).closest('section')
+    const install = screen.getByRole('button', { name: t('app.install') })
+    const firstField = screen.getByRole('list').querySelector('button')
+
+    expect(banner).not.toBeNull()
+    expect(firstField).not.toBeNull()
+    expect((banner?.compareDocumentPosition(install) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+    expect((install.compareDocumentPosition(firstField as HTMLButtonElement) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+  })
+
   it('revokes remembered field access before loading the public field list', async () => {
     mockApiPost.mockResolvedValueOnce({})
     mockApiGet.mockResolvedValueOnce([court()])
@@ -96,7 +109,7 @@ describe('HomeScreen', () => {
     expect(mockApiPost).toHaveBeenCalledWith('/fields/lock-all')
   })
 
-  it('offers the native PWA install action from the manager home header', async () => {
+  it('offers the native PWA install action from the manager home utility rail', async () => {
     mockPublicLanding([court()])
     render(<HomeScreen />)
     await screen.findByText(DEFAULT_NAME)

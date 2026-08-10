@@ -72,4 +72,13 @@ describe('InstallAppButton', () => {
 
     expect(screen.getByRole('button', { name: 'התקן אפליקציה' })).toBeDefined()
   })
+
+  it('offers a compact icon-only variant without losing its accessible name or touch target', () => {
+    render(<InstallAppButton compact />)
+
+    const button = screen.getByRole('button', { name: 'התקן אפליקציה' })
+    expect(button.textContent).toBe('')
+    expect(button.className).toContain('min-w-[var(--touch-target-min)]')
+    expect(button.getAttribute('title')).toBe('התקן אפליקציה')
+  })
 })

@@ -93,6 +93,8 @@
   "app.install.fallback": "פתחו את תפריט הדפדפן ובחרו ״התקנת אפליקציה״ או ״הוספה למסך הבית״",
   "app.managerName": "ניהול מגרשים",
   "app.lineName": "התור במגרש",
+  "developerCredit.prefix": "פותח על ידי",
+  "developerCredit.linkLabel": "https://msx.co.il",
   "empty.noSession.title": "אין ערב פעיל",
   "empty.noSession.hint": "מנהל יכול לפתוח ערב משחקים חדש",
   "empty.noSession.staffHint": "ממתינים שמנהל יפתח ערב משחקים",

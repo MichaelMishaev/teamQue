@@ -217,6 +217,7 @@ The v1.1 requirements `MGR-ACCESS-009` through `MGR-ACCESS-012`, which prohibite
 | MGR-SHELL-005 | Main MUST expose a QR action for every active field. The QR is generated locally from that field's stable read-only queue URL, remains unchanged across matches, and MUST NOT require an external QR service. |
 | MGR-SHELL-006 | PWA install, connectivity banner, and status feedback MUST remain available without covering the queue or sticky quick-add bar. |
 | MGR-SHELL-007 | The bottom edge on Main belongs to Quick Add; top navigation MUST NOT be moved into that action zone. |
+| MGR-SHELL-008 | The field landing and manager secondary tabs MUST show the attribution “פותח על ידי https://msx.co.il” as an external link. It MUST remain visually secondary and MUST NOT displace Quick Add from Main's bottom edge. |
 
 ## 7. Main live-operation surface
 

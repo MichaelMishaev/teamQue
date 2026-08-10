@@ -7,6 +7,7 @@ import { InstallAppButton } from '@/components/InstallAppButton'
 import { PublicLineQrOverlay } from '@/components/PublicLineQrOverlay'
 import { showStatusToast, UndoToaster } from '@/components/UndoToast'
 import { Button } from '@/components/ui/button'
+import { DeveloperCredit } from '@/components/DeveloperCredit'
 import { t } from '@/i18n'
 import { ApiRequestError, apiGet, apiPost } from '@/lib/api'
 import { navigateToField, PUBLIC_LINE_URL } from '@/lib/route'
@@ -147,37 +148,8 @@ export function HomeScreen({ initialCourts, createDemoField }: HomeScreenProps) 
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col gap-3 p-4">
-      <header className="flex min-h-[var(--touch-target-min)] items-center justify-between gap-3">
+      <header className="flex min-h-[var(--touch-target-min)] items-center">
         <h1 className="text-[19px] font-bold text-ink">{t('home.title')}</h1>
-        <div className="flex min-w-0 items-center gap-2">
-          <InstallAppButton />
-          {hasPublicPlayerView && (
-            <button
-              type="button"
-              aria-label={t('publicLine.qr.dialogLabel')}
-              title={t('publicLine.qr.dialogLabel')}
-              onClick={() => void showPlayerViewQr()}
-              className="inline-flex min-h-[var(--touch-target-min)] shrink-0 items-center gap-1.5 rounded-lg border border-accent bg-accent-dim px-3 text-[12.5px] font-bold text-accent transition-colors hover:bg-surface-2 active:bg-surface"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-                className="h-4 w-4 shrink-0"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="3" y="3" width="6" height="6" rx="1" />
-                <rect x="15" y="3" width="6" height="6" rx="1" />
-                <rect x="3" y="15" width="6" height="6" rx="1" />
-                <path d="M15 15h2v2m4 0v.01M15 21h2m4-6v6h-2" />
-              </svg>
-              <span>{t('publicLine.openPlayerView')}</span>
-            </button>
-          )}
-        </div>
       </header>
 
       <section className="relative aspect-[2/1] overflow-hidden rounded-xl border border-line bg-surface">
@@ -193,6 +165,35 @@ export function HomeScreen({ initialCourts, createDemoField }: HomeScreenProps) 
         <div className="absolute inset-0 bg-gradient-to-t from-bg/35 via-transparent to-transparent" aria-hidden="true" />
         <h2 className="sr-only">{t('home.hero.title')}</h2>
       </section>
+
+      <div className="flex w-fit items-center gap-0.5 self-end rounded-xl bg-surface/55 p-0.5 shadow-sm ring-1 ring-line/70">
+        <InstallAppButton compact />
+        {hasPublicPlayerView && (
+          <button
+            type="button"
+            aria-label={t('publicLine.qr.dialogLabel')}
+            title={t('publicLine.qr.dialogLabel')}
+            onClick={() => void showPlayerViewQr()}
+            className="inline-flex min-h-[var(--touch-target-min)] min-w-[var(--touch-target-min)] shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-surface"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              className="h-[18px] w-[18px] shrink-0"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="3" y="3" width="6" height="6" rx="1" />
+              <rect x="15" y="3" width="6" height="6" rx="1" />
+              <rect x="3" y="15" width="6" height="6" rx="1" />
+              <path d="M15 15h2v2m4 0v.01M15 21h2m4-6v6h-2" />
+            </svg>
+          </button>
+        )}
+      </div>
 
       {courts.length === 0 ? (
         <EmptyState icon="⚽" title={t('home.empty.title')} hint={t('home.empty.hint')} />
@@ -213,6 +214,8 @@ export function HomeScreen({ initialCourts, createDemoField }: HomeScreenProps) 
       >
         {t('home.create.action')}
       </Button>
+
+      <DeveloperCredit />
 
       <CreateCourtSheet
         open={sheetOpen}
