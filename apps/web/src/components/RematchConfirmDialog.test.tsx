@@ -20,6 +20,7 @@ function actionsStub(overrides: Partial<SessionActions> = {}): SessionActions {
     undo: vi.fn(),
     openSession: vi.fn(),
     closeSession: vi.fn(),
+    stopDailyReset: vi.fn(),
     updateDuration: vi.fn(),
     updateTeam: vi.fn(),
     ...overrides,

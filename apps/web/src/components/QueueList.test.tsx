@@ -37,6 +37,7 @@ function renderQueueList(queue: QueueEntryView[], opts: { matchDurationSec?: num
     undo: vi.fn(),
     openSession: vi.fn(),
     closeSession: vi.fn(),
+    stopDailyReset: vi.fn(),
     updateDuration: vi.fn(),
     updateTeam: vi.fn(),
   }

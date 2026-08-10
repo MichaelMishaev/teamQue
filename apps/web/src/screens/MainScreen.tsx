@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { EmptyState } from '@/components/EmptyState'
+import { DailyResetCard } from '@/components/DailyResetCard'
 import { FieldCard } from '@/components/FieldCard'
 import { FinishMatchConfirmDialog } from '@/components/FinishMatchConfirmDialog'
 import { RefereeMode } from '@/components/RefereeMode'
@@ -183,6 +184,14 @@ export function MainScreen() {
           <p role="alert" className="text-[13.5px] font-semibold text-danger">
             {error}
           </p>
+        )}
+
+        {snapshot.session.dailyReset && !snapshot.session.dailyReset.stopped && (
+          <DailyResetCard
+            resetAt={snapshot.session.dailyReset.at}
+            offsetMs={offsetMs}
+            onStop={() => actions.stopDailyReset()}
+          />
         )}
 
         {isRunning && liveMatch ? (

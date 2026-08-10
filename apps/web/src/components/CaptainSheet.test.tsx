@@ -35,6 +35,7 @@ function renderSheet(profiles: CaptainProfile[], actionsOverrides: Partial<Sessi
     undo: vi.fn(),
     openSession: vi.fn(),
     closeSession: vi.fn(),
+    stopDailyReset: vi.fn(),
     updateDuration: vi.fn(),
     updateTeam: vi.fn().mockResolvedValue(undefined),
     ...actionsOverrides,

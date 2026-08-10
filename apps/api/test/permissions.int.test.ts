@@ -604,6 +604,16 @@ describe('permission matrix (integration)', () => {
       expected: { anonymous: 401, centerOnly: 401, staff: 200, manager: 200 },
     },
     {
+      // The matrix runs outside 04:30–05:00, so authenticated personas pass
+      // both guards and receive the route's business 409. Anonymous and
+      // center-only identities fail closed before that timing check.
+      route: 'POST /fields/:slug/daily-reset/stop',
+      method: 'post',
+      path: () => `/fields/${matrixFieldSlug}/daily-reset/stop`,
+      bodyFor: { anonymous: () => ({}), centerOnly: () => ({}), staff: () => ({}), manager: () => ({}) },
+      expected: { anonymous: 401, centerOnly: 401, staff: 409, manager: 409 },
+    },
+    {
       route: 'POST /fields/:slug/close',
       method: 'post',
       path: () => `/fields/${matrixFieldSlug}/close`,

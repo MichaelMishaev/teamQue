@@ -18,7 +18,7 @@ import type { CaptainSearchResult, CreateCaptainBody, UpdateCaptainBody } from '
 import { ActivityWriter } from '../activity/activity.writer'
 import { NotFoundError } from '../common/errors'
 import { DRIZZLE, type Database } from '../db/db.module'
-import { captains, matches, sessions } from '../db/schema'
+import { activityLog, captains, matches, sessions } from '../db/schema'
 import { sortCaptainSearchResults, type CaptainSearchRow } from './search-order'
 
 const SEARCH_LIMIT = 20
@@ -160,6 +160,12 @@ export class CaptainsService {
   private async findCaptainsWithSessionStats(centerId: string, extraWhere: SQL): Promise<CaptainSearchRow[]> {
     const scopeSessionId = await this.activeSessionIdOrNil(centerId)
     const playedFilter = sql`${matches.status} in ('live','paused','finished')`
+    const afterLatestReset = sql`${matches.startedAt} > coalesce(
+      (select max(${activityLog.createdAt}) from ${activityLog}
+        where ${activityLog.sessionId} = ${scopeSessionId}
+          and ${activityLog.action} in ('field.daily_reset', 'field.evening.ended')),
+      '-infinity'::timestamptz
+    )`
 
     const aggA = this.db
       .select({
@@ -168,7 +174,7 @@ export class CaptainsService {
         lastPlayedAt: sql<Date | null>`max(${matches.startedAt}) filter (where ${playedFilter})`.as('last_played_a'),
       })
       .from(matches)
-      .where(eq(matches.sessionId, scopeSessionId))
+      .where(and(eq(matches.sessionId, scopeSessionId), afterLatestReset))
       .groupBy(matches.captainAId)
       .as('agg_a')
 
@@ -179,7 +185,7 @@ export class CaptainsService {
         lastPlayedAt: sql<Date | null>`max(${matches.startedAt}) filter (where ${playedFilter})`.as('last_played_b'),
       })
       .from(matches)
-      .where(eq(matches.sessionId, scopeSessionId))
+      .where(and(eq(matches.sessionId, scopeSessionId), afterLatestReset))
       .groupBy(matches.captainBId)
       .as('agg_b')
 

@@ -55,13 +55,14 @@ describe('SnapshotService.buildActiveSnapshot', () => {
     const fieldRows = [{ id: fieldId, sessionId, centerId, name: 'מגרש ראשי', position: 0 }]
 
     // Call order: session, fields (both in buildActiveSnapshot), then
-    // Promise.all([buildQueue, buildLiveMatchesByFieldId]) — buildQueue's
+    // Promise.all([buildQueue, buildLiveMatchesByFieldId, dailyReset]) — buildQueue's
     // listLine() runs first (empty queue -> no further queries), then
-    // buildLiveMatchesByFieldId's live-match lookup (empty -> no match).
+    // live-match lookup (empty -> no match), then no Stop activity row.
     const select = vi
       .fn()
       .mockReturnValueOnce(chain([sessionRow]))
       .mockReturnValueOnce(chain(fieldRows))
+      .mockReturnValueOnce(chain([]))
       .mockReturnValueOnce(chain([]))
       .mockReturnValueOnce(chain([]))
     const db = { select } as unknown as Database
@@ -77,10 +78,11 @@ describe('SnapshotService.buildActiveSnapshot', () => {
       location: 'Center Court',
       matchDurationSec: 360,
       status: 'active',
+      dailyReset: expect.objectContaining({ stopped: false }),
     })
     expect(snapshot.fields).toEqual([{ id: fieldId, name: 'מגרש ראשי', position: 0, liveMatch: null }])
     expect(snapshot.queue).toEqual([])
-    expect(select).toHaveBeenCalledTimes(4)
+    expect(select).toHaveBeenCalledTimes(5)
   })
 })
 
@@ -111,6 +113,7 @@ describe('SnapshotService.buildSnapshotBySessionId', () => {
       .fn()
       .mockReturnValueOnce(chain([sessionRow]))
       .mockReturnValueOnce(chain(fieldRows))
+      .mockReturnValueOnce(chain([]))
       .mockReturnValueOnce(chain([]))
       .mockReturnValueOnce(chain([]))
     const db = { select } as unknown as Database

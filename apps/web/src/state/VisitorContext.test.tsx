@@ -36,6 +36,7 @@ function fakeSessionActions(): FakeSessionActions {
     undo: vi.fn().mockResolvedValue(undefined),
     openSession: vi.fn().mockResolvedValue(undefined),
     closeSession: vi.fn().mockResolvedValue(undefined),
+    stopDailyReset: vi.fn().mockResolvedValue(undefined),
     updateDuration: vi.fn().mockResolvedValue(undefined),
     updateTeam: vi.fn().mockResolvedValue(undefined),
   }

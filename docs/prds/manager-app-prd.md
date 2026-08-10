@@ -147,6 +147,16 @@ The v1.1 requirements `MGR-ACCESS-009` through `MGR-ACCESS-012`, which prohibite
 | MGR-ISO-005 | The captain directory is center-scoped and MAY be shared across fields. Field-local games-today and last-played calculations MUST use the correct field/session context. |
 | MGR-ISO-006 | Closed fields MUST disappear from the active landing list but remain resolvable by their original link for closed-state history. |
 
+### 3.3 Daily 05:00 reset
+
+| ID | Requirement and QA oracle |
+|---|---|
+| MGR-RESET-001 | At 05:00 Asia/Jerusalem every active field MUST automatically end its current evening: finish a live/paused match with system attribution, clear the waiting line, reset current-day captain statistics, and preserve finished matches in History. The field itself remains active with the same slug, access rule, and duration setting. |
+| MGR-RESET-002 | From 04:30 until 05:00, Main MUST show a warning card immediately above the field timer/status card with an LTR/tabular countdown to the reset. It MUST remain correct after screen lock, reconnect, device-clock skew, and Jerusalem daylight-saving changes. |
+| MGR-RESET-003 | The warning card MUST offer a 44px-or-larger Stop action. A successful Stop suppresses only that day's 05:00 reset for that field, is persisted server-side, synchronizes to other connected manager devices, and automatically rearms for the next day. |
+| MGR-RESET-004 | Reset and Stop MUST serialize under the field/session advisory lock. Concurrent scheduler attempts MUST produce at most one reset activity, and a Stop committed before 05:00 MUST win over the reset. |
+| MGR-RESET-005 | Automatic reset MUST append system-attributed activity records for the reset and any affected match/line state, then broadcast one replacement field snapshot. No game-history row may be deleted. |
+
 ## 4. Information architecture and navigation
 
 | Route | Purpose | Required behavior |
@@ -485,6 +495,7 @@ These dialogs are required and are not violations of the live-flow policy:
 | MGR-E2E-008 | Finish match → History summary/search → Replay cancel/confirm → both teams appended to same field. |
 | MGR-E2E-009 | Activity filters actions/exceptions/status/date → paginate → retry a forced failure safely. |
 | MGR-E2E-010 | Settings duration change → live match unchanged/new match changed → close with live warning → confirm → landing → closed link/history. |
+| MGR-E2E-011 | Simulate 04:29 → no reset card; 04:30 → 30:00 card; Stop → card removed on two clients and 05:00 state preserved; next-day 04:30 → card rearmed; without Stop, 05:00 → live match finished, line cleared, games-today reset, History preserved. |
 | MGR-E2E-011 | Secondary tab Back/Forward contract on browser and installed Android PWA. |
 | MGR-E2E-012 | Disconnect two seconds → controls disabled/banner → reconnect/resynced → latest snapshot correct. |
 | MGR-E2E-013 | Create fields A and B → assert each exposes a different `/line/:slug` URL and QR → open both public pages → verify each is read-only and field-isolated → start and finish matches → assert both field URLs and QR values remain unchanged. |
@@ -564,6 +575,7 @@ The following are not release-blocking manager-app requirements until promoted h
 
 | Version | Date | Change |
 |---|---|---|
+| 1.3 | 2026-08-10 | Added the daily 05:00 Jerusalem field reset, 30-minute warning countdown, one-day Stop behavior, concurrency rules, and simulation oracle. |
 | 1.2 | 2026-08-03 | Restored optional four-digit field passwords. Protected fields require the password on the creator’s first entry and every re-entry from the landing list. |
 | 1.1 | 2026-08-03 | Removed optional field PIN/password behavior. Shared football courts now open directly with no court-specific code or access grant. |
 | 1.0 | 2026-08-03 | Consolidated current manager behavior, field isolation, optional field access code, referee mode, contextual header, and future QA contract. |

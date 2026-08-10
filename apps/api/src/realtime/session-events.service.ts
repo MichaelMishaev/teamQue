@@ -38,8 +38,8 @@ export class SessionEventsService {
    * choke point for the open-fields inactivity heartbeat: touch
    * last_activity_at, THEN snapshot + emit. Touching a closed session is
    * harmless — the expiry sweep only looks at active rows. */
-  async broadcast(sessionId: string): Promise<void> {
-    await this.db.execute(sql`UPDATE sessions SET last_activity_at = now() WHERE id = ${sessionId}`)
+  async broadcast(sessionId: string, touchActivity = true): Promise<void> {
+    if (touchActivity) await this.db.execute(sql`UPDATE sessions SET last_activity_at = now() WHERE id = ${sessionId}`)
     const snapshot = await this.snapshotService.buildSnapshotBySessionId(sessionId)
     this.emitTo(sessionId, snapshot)
   }

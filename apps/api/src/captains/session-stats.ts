@@ -8,7 +8,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { sql } from 'drizzle-orm'
 import type { Database, Transaction } from '../db/db.module'
-import { captains, matches } from '../db/schema'
+import { activityLog, captains, matches } from '../db/schema'
 
 export type CaptainStats = { gamesToday: number; lastPlayedAt: string | null }
 
@@ -20,6 +20,12 @@ export async function getCaptainSessionStats(
   if (captainIds.length === 0) return new Map()
 
   const playedFilter = sql`${matches.status} in ('live','paused','finished')`
+  const afterLatestReset = sql`${matches.startedAt} > coalesce(
+    (select max(${activityLog.createdAt}) from ${activityLog}
+      where ${activityLog.sessionId} = ${sessionId}
+        and ${activityLog.action} in ('field.daily_reset', 'field.evening.ended')),
+    '-infinity'::timestamptz
+  )`
 
   const aggA = db
     .select({
@@ -28,7 +34,7 @@ export async function getCaptainSessionStats(
       lastPlayedAt: sql<Date | null>`max(${matches.startedAt}) filter (where ${playedFilter})`.as('last_played_a'),
     })
     .from(matches)
-    .where(and(eq(matches.sessionId, sessionId), inArray(matches.captainAId, captainIds)))
+    .where(and(eq(matches.sessionId, sessionId), inArray(matches.captainAId, captainIds), afterLatestReset))
     .groupBy(matches.captainAId)
     .as('agg_a')
 
@@ -39,7 +45,7 @@ export async function getCaptainSessionStats(
       lastPlayedAt: sql<Date | null>`max(${matches.startedAt}) filter (where ${playedFilter})`.as('last_played_b'),
     })
     .from(matches)
-    .where(and(eq(matches.sessionId, sessionId), inArray(matches.captainBId, captainIds)))
+    .where(and(eq(matches.sessionId, sessionId), inArray(matches.captainBId, captainIds), afterLatestReset))
     .groupBy(matches.captainBId)
     .as('agg_b')
 

@@ -53,6 +53,8 @@ export interface SessionActions {
   undo(activityId: string): Promise<void>
   openSession(cfg: OpenSessionBody): Promise<void>
   closeSession(): Promise<void>
+  /** Suppress only the upcoming 05:00 reset for this field. */
+  stopDailyReset(): Promise<void>
   /** US-012 — applies to matches started afterwards; live matches unaffected. */
   updateDuration(matchDurationSec: number): Promise<void>
   updateTeam(id: string, patch: CaptainProfilePatch): Promise<void>

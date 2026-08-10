@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SessionSnapshot } from 'shared'
 import { MainScreen } from './MainScreen'
 import { showStatusToast } from '@/components/UndoToast'
@@ -8,6 +8,8 @@ import { SessionActionsContext, type SessionActions } from '@/state/SessionActio
 import { SnapshotContext, type SnapshotState } from '@/state/SnapshotContext'
 
 vi.mock('@/components/UndoToast', () => ({ showStatusToast: vi.fn() }))
+
+afterEach(() => vi.useRealTimers())
 
 function actionsStub(): SessionActions {
   return {
@@ -26,6 +28,7 @@ function actionsStub(): SessionActions {
     undo: vi.fn(),
     openSession: vi.fn(),
     closeSession: vi.fn(),
+    stopDailyReset: vi.fn(),
     updateDuration: vi.fn(),
     updateTeam: vi.fn(),
   }
@@ -114,6 +117,48 @@ describe('MainScreen — active session, field free', () => {
 })
 
 describe('MainScreen — active session, field live', () => {
+  it('simulates the 04:29 hidden state and 04:30 warning card above the match timer, then allows Stop', async () => {
+    vi.useFakeTimers()
+    const resetAt = '2026-08-10T02:00:00.000Z'
+    vi.setSystemTime(new Date('2026-08-10T01:29:59.000Z'))
+    const snapshot = activeSnapshot({
+      session: { ...activeSnapshot().session, dailyReset: { at: resetAt, stopped: false } },
+      fields: [
+        {
+          id: 'f1',
+          name: 'מגרש ראשי',
+          position: 0,
+          liveMatch: {
+            id: 'm-reset',
+            captainA: team('ca', 'א'),
+            captainB: team('cb', 'ב'),
+            status: 'live',
+            plannedDurationSec: 360,
+            startedAt: new Date().toISOString(),
+            pausedAt: null,
+            accumulatedPauseSec: 0,
+            endsAt: new Date(Date.now() + 360_000).toISOString(),
+          },
+        },
+      ],
+    })
+    const actions = renderMain({ snapshot, connection: 'online', offsetMs: 0 }, 'manager')
+    expect(screen.queryByText('איפוס המשחקים בעוד')).toBeNull()
+
+    await act(async () => vi.advanceTimersByTime(1_000))
+    expect(screen.getByText('איפוס המשחקים בעוד')).toBeDefined()
+    expect(screen.getByText('30:00')).toBeDefined()
+    const warning = screen.getByRole('status', { name: 'איפוס משחקים אוטומטי' })
+    const fieldTimer = screen.getByRole('timer', { name: 'משחק פעיל' })
+    expect(warning.compareDocumentPosition(fieldTimer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'עצור את האיפוס להיום' }))
+    await act(async () => Promise.resolve())
+    expect(actions.stopDailyReset).toHaveBeenCalledOnce()
+    expect(screen.queryByText('איפוס המשחקים בעוד')).toBeNull()
+    vi.useRealTimers()
+  })
+
   it('asks for confirmation before finishing and cancel keeps the match active', async () => {
     const snapshot = activeSnapshot({
       fields: [

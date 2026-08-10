@@ -6,12 +6,12 @@
  * or number of live matches (N-21) — no per-row queries.
  */
 import { Inject, Injectable } from '@nestjs/common'
-import { and, asc, eq, inArray } from 'drizzle-orm'
-import type { SessionSnapshot } from 'shared'
+import { and, asc, eq, gte, inArray, lt } from 'drizzle-orm'
+import { DAILY_RESET_WARNING_SEC, nextJerusalemDailyResetAt, type SessionSnapshot } from 'shared'
 import { getCaptainSessionStats } from '../captains/session-stats'
 import { NotFoundError } from '../common/errors'
 import { DRIZZLE, type Database } from '../db/db.module'
-import { captains, fields, matches, sessions } from '../db/schema'
+import { activityLog, captains, fields, matches, sessions } from '../db/schema'
 import { buildMatchView } from '../matches/match-view'
 import { listLine, toQueueEntryView } from '../queue/line.repo'
 
@@ -50,12 +50,14 @@ export class SnapshotService {
       .where(eq(fields.sessionId, session.id))
       .orderBy(asc(fields.position))
 
-    const [queue, liveMatchByFieldId] = await Promise.all([
+    const nowDate = new Date()
+    const [queue, liveMatchByFieldId, dailyReset] = await Promise.all([
       this.buildQueue(session.id),
       this.buildLiveMatchesByFieldId(sessionFields.map((f) => f.id)),
+      this.buildDailyResetState(session.id, nowDate),
     ])
 
-    const now = new Date().toISOString()
+    const now = nowDate.toISOString()
     return {
       session: {
         id: session.id,
@@ -64,12 +66,31 @@ export class SnapshotService {
         location: session.location,
         matchDurationSec: session.matchDurationSec,
         status: session.status as SessionSnapshot['session']['status'],
+        dailyReset,
       },
       fields: sessionFields.map((f) => ({ id: f.id, name: f.name, position: f.position, liveMatch: liveMatchByFieldId.get(f.id) ?? null })),
       queue,
       emittedAt: now,
       serverNow: now,
     }
+  }
+
+  private async buildDailyResetState(sessionId: string, now: Date): Promise<{ at: string; stopped: boolean }> {
+    const resetAt = nextJerusalemDailyResetAt(now)
+    const warningStartsAt = new Date(resetAt.getTime() - DAILY_RESET_WARNING_SEC * 1000)
+    const [stop] = await this.db
+      .select({ id: activityLog.id })
+      .from(activityLog)
+      .where(
+        and(
+          eq(activityLog.sessionId, sessionId),
+          eq(activityLog.action, 'field.daily_reset.stopped'),
+          gte(activityLog.createdAt, warningStartsAt),
+          lt(activityLog.createdAt, resetAt),
+        ),
+      )
+      .limit(1)
+    return { at: resetAt.toISOString(), stopped: stop !== undefined }
   }
 
   private async buildQueue(sessionId: string): Promise<SessionSnapshot['queue']> {

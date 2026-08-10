@@ -135,6 +135,12 @@ describe('realSessionActions', () => {
     expect(handle.get()).toBeNull()
   })
 
+  it('stopDailyReset POSTs the slug-scoped one-day stop route', async () => {
+    const actions = createRealSessionActions(sessionHandle('s1'), 'abc234')
+    await actions.stopDailyReset()
+    expect(apiPost).toHaveBeenCalledWith('/fields/abc234/daily-reset/stop')
+  })
+
   it('updateDuration PATCHes the session', async () => {
     const actions = createRealSessionActions(sessionHandle('s1'))
     await actions.updateDuration(420)

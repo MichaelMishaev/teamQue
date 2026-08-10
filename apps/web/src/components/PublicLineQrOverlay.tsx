@@ -7,11 +7,17 @@
  * close (back button / Escape) and share (native sheet, clipboard fallback)
  * so the link can also be sent remotely, not only shown in person.
  */
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { showStatusToast } from '@/components/UndoToast'
 import { t } from '@/i18n'
 import { PUBLIC_LINE_URL } from '@/lib/route'
+
+const QR_HISTORY_KEY = 'publicLineQrOverlay'
+
+function isQrHistoryEntry(state: unknown): boolean {
+  return typeof state === 'object' && state !== null && Reflect.get(state, QR_HISTORY_KEY) === true
+}
 
 export function PublicLineQrOverlay({
   onClose,
@@ -21,15 +27,40 @@ export function PublicLineQrOverlay({
   url?: string
 }) {
   const backRef = useRef<HTMLButtonElement>(null)
+  const backPendingRef = useRef(false)
+
+  const closeThroughHistory = useCallback(() => {
+    if (isQrHistoryEntry(window.history.state)) {
+      if (backPendingRef.current) return
+      backPendingRef.current = true
+      window.history.back()
+      return
+    }
+    onClose()
+  }, [onClose])
 
   useEffect(() => {
+    const currentState: unknown = window.history.state
+    if (!isQrHistoryEntry(currentState)) {
+      const preservedState = typeof currentState === 'object' && currentState !== null ? currentState : {}
+      window.history.pushState({ ...preservedState, [QR_HISTORY_KEY]: true }, '', window.location.href)
+    }
+
     backRef.current?.focus()
     function onKeyDown(event: KeyboardEvent): void {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') closeThroughHistory()
+    }
+    function onPopState(): void {
+      backPendingRef.current = false
+      onClose()
     }
     window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+    window.addEventListener('popstate', onPopState)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('popstate', onPopState)
+    }
+  }, [closeThroughHistory, onClose])
 
   async function share(): Promise<void> {
     try {
@@ -59,7 +90,7 @@ export function PublicLineQrOverlay({
         <button
           ref={backRef}
           type="button"
-          onClick={onClose}
+          onClick={closeThroughHistory}
           className="inline-flex min-h-[var(--touch-target-min)] items-center gap-1 rounded-lg px-2.5 text-[14px] font-semibold text-muted"
         >
           <svg

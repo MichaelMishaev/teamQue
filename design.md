@@ -104,6 +104,7 @@ Semantic state colors are not decoration; `accent` doubles as the single brand h
 | `Button` | `components/ui/button.tsx` | primary / secondary / danger / ghost · default / big · disabled |
 | `Badge` | `components/ui/badge.tsx` | live / paused / ending / free (state language above) |
 | `CountdownTimer` | `components/CountdownTimer.tsx` | live / paused (pulse) / ending <60s / finishing 00:00 |
+| `DailyResetCard` | `components/DailyResetCard.tsx` | visible 04:30–05:00 above FieldCard / LTR countdown / Stop pending or error |
 | `FieldCard` | `components/FieldCard.tsx` | free (dashed, next-up + start) / live / paused / ending / finishing |
 | `QueueRow` | `components/QueueRow.tsx` | **next (accent "הבא")** / default / dragging / removing; ⋯ menu mirrors all gestures |
 | `CaptainChip` | `components/CaptainChip.tsx` | filled (with games-today) / empty slot |

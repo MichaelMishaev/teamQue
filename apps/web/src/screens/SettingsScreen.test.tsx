@@ -28,6 +28,7 @@ function actionsStub(overrides: Partial<SessionActions> = {}): SessionActions {
     undo: vi.fn(),
     openSession: vi.fn(),
     closeSession: vi.fn().mockResolvedValue(undefined),
+    stopDailyReset: vi.fn().mockResolvedValue(undefined),
     updateDuration: vi.fn().mockResolvedValue(undefined),
     updateTeam: vi.fn(),
     ...overrides,

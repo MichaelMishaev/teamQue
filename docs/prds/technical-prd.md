@@ -182,6 +182,8 @@ ends_at        = started_at + planned_duration_sec + accumulated_pause_sec   (on
 - **Auto-finish:** a NestJS interval scheduler (every 5s) runs one query for `live` matches with `ends_at <= now()`, transitions each to `finished` with `end_reason='auto'`, writes the activity log entry (staff_id NULL, action `match.finished.auto`), and broadcasts the snapshot. Because it derives from DB state, it survives API restarts and never double-fires (the UPDATE is conditional on `status='live'`).
 - Auto-finish latency tolerance: up to ~5s after zero. The client shows 00:00 + "מסתיים…" state during that window.
 
+**Daily operational reset:** a second NestJS scheduler evaluates the 05:00 `Asia/Jerusalem` boundary every 5 seconds. For every active field created before that boundary, it takes the session advisory lock, rechecks append-only activity markers, finishes a live/paused match with system attribution, clears queue entries, appends `field.daily_reset`, and broadcasts the replacement snapshot. Eight parallel scheduler attempts are exactly-one-wins. `POST /fields/:slug/daily-reset/stop` is accepted only from 04:30–05:00; under the same lock it appends `field.daily_reset.stopped`, which suppresses that boundary only. Current-day captain aggregates filter matches older than the latest `field.daily_reset` or `field.evening.ended`; History remains unfiltered and durable.
+
 ## 5. Realtime Protocol (Socket.IO)
 
 - Namespace `/session`; room per session id (`session:<uuid>`).
@@ -193,7 +195,8 @@ ends_at        = started_at + planned_duration_sec + accumulated_pause_sec   (on
 ```ts
 // packages/shared — socket contract (implemented in packages/shared/src/snapshot.ts)
 type SessionSnapshot = {
-  session: { id; date; location; matchDurationSec; status };
+  session: { id; date; location; matchDurationSec; status;
+    dailyReset?: { at: ISO8601; stopped: boolean } };
   fields: Array<{ id; name; position;
     liveMatch: MatchView | null }>;
   queue: MatchView[];                 // ordered by queue_position
@@ -238,6 +241,7 @@ NestJS modules: `auth`, `staff`, `captains`, `sessions` (owns fields, matches, q
 | `POST /fields/lock-all` | Clear all field-access cookies when the landing page loads |
 | `GET /fields/:slug/access` | Report whether the field requires a password and whether this browser currently has a grant |
 | `POST /fields/:slug/access` | Verify the four-digit field password and issue a slug-scoped access grant |
+| `POST /fields/:slug/daily-reset/stop` | Suppress only the upcoming 05:00 reset during its 04:30–05:00 warning window |
 | `GET  /auth/me` | Current staff + center |
 | `GET  /staff` | Staff picker list (names only, pre-login) |
 | `POST /staff` · `PATCH /staff/:id` | Manage staff (manager only) |

@@ -76,7 +76,7 @@ export function RealProviders({ slug, children }: { slug: string; children: Reac
   )
 
   const actions = useMemo(() => {
-    const managerActions = createRealSessionActions(sessionIdHandle)
+    const managerActions = createRealSessionActions(sessionIdHandle, slug)
     return {
       ...managerActions,
       // Public field links must close regardless of a live match (open-fields

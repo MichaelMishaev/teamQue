@@ -1,10 +1,14 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { t } from '@/i18n'
 import { PUBLIC_LINE_URL, publicLineUrl } from '@/lib/route'
 import { PublicLineQrOverlay } from './PublicLineQrOverlay'
 
 describe('PublicLineQrOverlay', () => {
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
   it('renders the QR, the public URL, and the scan instruction', () => {
     render(<PublicLineQrOverlay onClose={vi.fn()} />)
 
@@ -29,22 +33,39 @@ describe('PublicLineQrOverlay', () => {
     await vi.waitFor(() => expect(nativeShare).toHaveBeenCalledWith(expect.objectContaining({ url })))
   })
 
-  it('back button closes', () => {
+  it('adds a managed history entry so phone Back closes the QR before leaving the app', () => {
     const onClose = vi.fn()
     render(<PublicLineQrOverlay onClose={onClose} />)
 
-    fireEvent.click(screen.getByRole('button', { name: t('publicLine.qr.back') }))
+    expect(window.history.state).toMatchObject({ publicLineQrOverlay: true })
+
+    fireEvent.popState(window)
 
     expect(onClose).toHaveBeenCalledOnce()
   })
 
-  it('Escape closes', () => {
+  it('back button consumes the managed QR entry instead of closing outside history', () => {
     const onClose = vi.fn()
+    const historyBack = vi.spyOn(window.history, 'back').mockImplementation(() => undefined)
+    render(<PublicLineQrOverlay onClose={onClose} />)
+
+    fireEvent.click(screen.getByRole('button', { name: t('publicLine.qr.back') }))
+
+    expect(historyBack).toHaveBeenCalledOnce()
+    expect(onClose).not.toHaveBeenCalled()
+    historyBack.mockRestore()
+  })
+
+  it('Escape consumes the managed QR entry', () => {
+    const onClose = vi.fn()
+    const historyBack = vi.spyOn(window.history, 'back').mockImplementation(() => undefined)
     render(<PublicLineQrOverlay onClose={onClose} />)
 
     fireEvent.keyDown(window, { key: 'Escape' })
 
-    expect(onClose).toHaveBeenCalledOnce()
+    expect(historyBack).toHaveBeenCalledOnce()
+    expect(onClose).not.toHaveBeenCalled()
+    historyBack.mockRestore()
   })
 
   it('focuses the back button on mount so the staff member can dismiss without hunting', () => {

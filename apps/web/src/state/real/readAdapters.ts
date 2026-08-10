@@ -50,6 +50,8 @@ const ACTION_MAP: Record<string, ActivityAction> = {
   'field.closed': 'field.close',
   'field.expired': 'field.expire',
   'field.evening.ended': 'field.eveningEnd',
+  'field.daily_reset': 'field.dailyReset',
+  'field.daily_reset.stopped': 'field.dailyResetStop',
   'public_line.viewed': 'publicLine.viewed',
   'public_line.visit_ended': 'publicLine.visitEnded',
   undo: 'match.undo',

@@ -18,7 +18,7 @@
  * genuinely async). `notify()` after every mutation is what makes React
  * re-render — see `DemoProviders.tsx` for the `useSyncExternalStore` wiring.
  */
-import type { CaptainSearchResult, CaptainView, EndReason, MatchStatus, OpenSessionBody, SessionSummary, StaffRole } from 'shared'
+import { nextJerusalemDailyResetAt, type CaptainSearchResult, type CaptainView, type EndReason, type MatchStatus, type OpenSessionBody, type SessionSummary, type StaffRole } from 'shared'
 import type { MatchView, QueueEntryView, SessionSnapshot } from 'shared'
 import type { CaptainRef, CaptainProfilePatch, SessionActions, UndoableResult } from '@/state/SessionActions'
 import type { SnapshotState } from '@/state/SnapshotContext'
@@ -203,6 +203,7 @@ export function createMockSession(opts: CreateMockSessionOptions = {}): MockSess
   let lineOrder: string[] = []
   let liveMatchId: string | null = null
   let session: InternalSession | null = null
+  let stoppedDailyResetAt: string | null = null
   let extensionsCount = 0
   let forceReorderReject = false
   const logEntries: LogEntry[] = []
@@ -404,8 +405,17 @@ export function createMockSession(opts: CreateMockSessionOptions = {}): MockSess
   function computeSnapshotState(): SnapshotState {
     if (!session) return { snapshot: null, connection: 'online', offsetMs: 0 }
     const emittedAt = nowIso()
+    const dailyResetAt = nextJerusalemDailyResetAt(new Date(emittedAt)).toISOString()
     const snapshot: SessionSnapshot = {
-      session: { id: session.id, slug: session.slug, date: session.date, location: session.location, matchDurationSec: session.matchDurationSec, status: session.status },
+      session: {
+        id: session.id,
+        slug: session.slug,
+        date: session.date,
+        location: session.location,
+        matchDurationSec: session.matchDurationSec,
+        status: session.status,
+        dailyReset: { at: dailyResetAt, stopped: stoppedDailyResetAt === dailyResetAt },
+      },
       fields: [{ id: fieldId, name: fieldName, position: 0, liveMatch: liveMatchId ? toMatchView(matches.get(liveMatchId)!) : null }],
       queue: lineOrder.map((entryId, i) => toQueueEntryView(entryId, i + 1)),
       emittedAt,
@@ -674,6 +684,13 @@ export function createMockSession(opts: CreateMockSessionOptions = {}): MockSess
       lineEntries.clear()
       logActivity('session.close', {})
       session = null
+      notify()
+    },
+
+    async stopDailyReset() {
+      if (!session) throw new Error('no active session')
+      stoppedDailyResetAt = nextJerusalemDailyResetAt().toISOString()
+      logActivity('field.dailyResetStop', {})
       notify()
     },
 

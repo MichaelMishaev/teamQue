@@ -140,6 +140,10 @@ export function gateActions(actions: SessionActions, ensureVisitor: () => Promis
       await gate()
       return actions.closeSession()
     },
+    stopDailyReset: async () => {
+      await gate()
+      return actions.stopDailyReset()
+    },
     updateDuration: async (matchDurationSec) => {
       await gate()
       return actions.updateDuration(matchDurationSec)

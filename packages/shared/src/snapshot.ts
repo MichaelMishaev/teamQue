@@ -15,6 +15,10 @@ export const sessionSnapshotSchema = z.object({
     location: z.string().max(120).nullable(),
     matchDurationSec: z.number().int().positive(),
     status: sessionStatusSchema,
+    dailyReset: z.object({
+      at: z.iso.datetime(),
+      stopped: z.boolean(),
+    }).optional(),
   }),
   fields: z.array(fieldViewSchema),
   // The line of waiting teams — single-team entries, not matches.

@@ -109,6 +109,16 @@ export class FieldsController {
   }
 
   @HttpCode(200)
+  @Post(':slug/daily-reset/stop')
+  @UseGuards(StaffSessionGuard, FieldAccessGuard)
+  async stopDailyReset(
+    @Req() req: StaffAuthenticatedRequest,
+    @Param('slug', new ZodValidationPipe(slugParamSchema)) slug: string,
+  ): Promise<{ resetAt: string; stopped: true }> {
+    return this.fieldsService.stopDailyReset(slug, req.centerId, req.staff.staffId)
+  }
+
+  @HttpCode(200)
   @Post(':slug/close')
   @UseGuards(StaffSessionGuard, FieldAccessGuard)
   async close(

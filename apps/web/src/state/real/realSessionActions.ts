@@ -44,7 +44,7 @@ function toWireTeamRef(ref: CaptainRef): string | { newName: string } {
   return 'id' in ref ? ref.id : ref
 }
 
-export function createRealSessionActions(sessionIdHandle: SessionIdHandle): SessionActions {
+export function createRealSessionActions(sessionIdHandle: SessionIdHandle, slug?: string): SessionActions {
   return {
     async addToLine(team) {
       const sessionId = requireSessionId(sessionIdHandle)
@@ -114,6 +114,11 @@ export function createRealSessionActions(sessionIdHandle: SessionIdHandle): Sess
       const sessionId = requireSessionId(sessionIdHandle)
       await apiPost(`/sessions/${sessionId}/close`)
       sessionIdHandle.set(null)
+    },
+
+    async stopDailyReset() {
+      if (slug === undefined) throw new Error('field slug is required to stop daily reset')
+      await apiPost(`/fields/${slug}/daily-reset/stop`)
     },
 
     async updateDuration(matchDurationSec) {
