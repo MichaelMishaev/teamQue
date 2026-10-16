@@ -13,6 +13,14 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    {
+      name: 'app-build-identity',
+      // Distinguish releases in the cached shell and in production QA evidence.
+      transformIndexHtml: () => [{
+        tag: 'meta',
+        attrs: { name: 'app-build', content: new Date().toISOString() },
+      }],
+    },
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false,
