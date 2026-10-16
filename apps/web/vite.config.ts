@@ -15,6 +15,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: false,
       scope: '/',
       includeAssets: [
         'favicon.ico',
@@ -27,6 +28,8 @@ export default defineConfig({
       ],
       manifest: false,
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,mp4}'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//, /^\/socket\.io\//],

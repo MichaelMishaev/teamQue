@@ -451,7 +451,7 @@ These dialogs are required and are not violations of the live-flow policy:
 | MGR-PWA-001 | The app MUST be installable with standalone display, portrait orientation, Hebrew naming, and maskable 192/512 icons. |
 | MGR-PWA-002 | Install UI MUST appear only when installation is available and MUST not falsely imply installation after the app is already installed. |
 | MGR-PWA-003 | The service worker MAY cache the app shell only. API responses, manager data, auth responses, and sockets MUST remain network-only. |
-| MGR-PWA-004 | A waiting application update SHOULD offer an explicit refresh action without interrupting an active match. |
+| MGR-PWA-004 | The app MUST check for app-shell updates at startup, every minute while visible, on return to the foreground, and after connectivity returns. New versions MUST activate and reload automatically without a cache-clear or blocking prompt. Reload MUST wait while a dialog or unfinished form is open; server-owned match and queue state MUST survive the reload. API and socket data remain network-only. |
 | MGR-PWA-005 | iOS/Android absence of vibration, sound, share, clipboard, or Wake Lock MUST degrade to visible feedback and preserve core operations. |
 
 ## 13. Security and data correctness

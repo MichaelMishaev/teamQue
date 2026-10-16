@@ -9,6 +9,7 @@ import { PublicLineScreen } from '@/screens/PublicLineScreen'
 import { t } from '@/i18n'
 import { parseRoute } from '@/lib/route'
 import { applyPwaIdentity } from '@/lib/pwaIdentity'
+import { startAppUpdates } from '@/lib/appUpdates'
 import { DemoProviders } from '@/state/mock/DemoProviders'
 import {
   createDemoField,
@@ -24,6 +25,7 @@ const root = document.getElementById('root')
 if (!root) throw new Error('missing #root element')
 
 applyPwaIdentity(window.location.hostname, window.location.pathname)
+if (import.meta.env.PROD) startAppUpdates()
 
 /**
  * VITE_DEMO=1 mounts the mock-backed providers directly (mock data, switchable
